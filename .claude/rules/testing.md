@@ -450,9 +450,18 @@ Cross-cutting design rules live in the root `CLAUDE.md`; per-module conventions 
 
 - **The tagged `scale` suite is off by default.** `IndexScaleTest` runs 200 000 documents in every
   build, because "identical results" is a correctness claim; the ten-million-document version runs
-  under `-Drabosh.index.scale=true`. Its wall-clock assertion is a generous ratio and is not a
-  benchmark — what it catches is the index silently not being used and the query being correct for the
-  wrong reason.
+  under `-Drabosh.index.scale=true`.
+
+  **It asserts no wall-clock ratio, and the one it used to assert is worth knowing about.** The check
+  was `indexed * 4 < scanned`, defended as generous enough to catch only "the index is not being used
+  at all" — the query being correct for the wrong reason. Two things were wrong with that. It was
+  redundant: `documentsRead == 0` and `segmentsScanned == 0` are asserted in the same test and cannot
+  both hold unless the index answered the query, so the thing it claimed to catch was already caught,
+  by a fact about the plan rather than about the machine. And it was not generous enough anyway — the
+  first time it ran on a two-vCPU CI runner it failed at 3× faster than the scan, which is a passing
+  result reported as a defect. The timings are still printed, because they are informative; nothing
+  reads them back. This is the same rule as "a statistic is asserted against a plan, never against a
+  clock", and this was the last place in the suite that did not follow it.
 
 - **A background build is compared against a full scan in the *cancelled* state, not only the finished
   one.** A build that can be stopped is worth nothing if stopping it can change an answer, so every

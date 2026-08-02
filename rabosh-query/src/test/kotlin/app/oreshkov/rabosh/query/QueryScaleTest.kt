@@ -92,14 +92,19 @@ class QueryScaleTest {
                     assertTrue(stats.blocksSkipped > 0, "and the column's bounds prune")
                 }
 
+                // Printed, not asserted. There used to be a `indexed * 4 < scanned` check here, on the
+                // reasoning that a generous ratio catches the index silently not being used. It does
+                // not catch anything the three assertions above do not already catch, and it catches
+                // one thing they do not: a shared CI runner. On two vCPUs this ran 3× faster than the
+                // scan and failed, which is the failure mode of a test of the machine.
+                //
+                // `documentsRead == 0` and `segmentsScanned == 0` cannot both hold unless the index
+                // answered the query, so "correct for the wrong reason" is already excluded — by a
+                // fact about the plan rather than about how fast the plan happened to run. That is the
+                // rule the rest of this suite follows, and this was the one place that did not.
                 println(
                     "scale $documentCount: load ${loaded}ms, compact ${compacted}ms, scan ${scanned}ms, " +
                         "build ${built}ms, indexed ${indexed}ms",
-                )
-                // Generous by design: this catches "the index is not being used at all", nothing finer.
-                assertTrue(
-                    indexed * 4 < scanned || indexed < 50,
-                    "the indexed query (${indexed}ms) should beat the scan (${scanned}ms)",
                 )
             }
         }
