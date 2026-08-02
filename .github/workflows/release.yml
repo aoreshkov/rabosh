@@ -9,9 +9,23 @@ name: Release
 # has to be the one that makes the public claim, because a release announcing a version Central
 # rejected is a permanent announcement of something that does not exist.
 #
-# So a failure anywhere before the Central publish costs a tag and nothing else: delete it, fix, tag
-# again. That is only true while no release holds the tag, which is why the release is created as a
-# draft and published at the end rather than being the thing that starts the run.
+# So a failure anywhere before the Central publish costs a tag and nothing else. It costs the tag
+# permanently, though, and that is a repository setting rather than something this file decides: the
+# `release tags` ruleset protects `refs/tags/v*` against deletion, update and non-fast-forward with no
+# bypass actor, so a failed run does not get its version number back — the fix is tagged as the next
+# patch. That is the intended trade: a tag that can be moved after people have pinned it is worth less
+# than a version number, and version numbers are free. What the draft-then-publish order below buys is
+# therefore not a retryable tag but an unannounced one — a failure before the last step leaves the tag
+# spent and nothing published, rather than a permanent Release pointing at a version that does not
+# exist.
+#
+# Which is why the dry run matters more here than it would if tags were disposable, and why it has an
+# ordering constraint worth knowing before the first release. The `release` environment's deployment
+# branch policy admits only `v*` *tags*, so a `workflow_dispatch` from `main` cannot reach the publish
+# job at all — the dry run has to be dispatched from the tag, which means the tag exists first. And the
+# concurrency group below is keyed on the tag, so the run the tag push started must reach a conclusion
+# before a dispatched run on the same tag will start: reject its deployment, then dispatch the dry run,
+# then dispatch the real one.
 #
 # The pattern GitHub's own "Publishing Java packages with Gradle" tutorial shows — `on: release:
 # types: [created]` — is the opposite order, and it predates both immutability rules. That page also
