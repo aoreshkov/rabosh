@@ -14,8 +14,8 @@ import kotlin.test.assertTrue
  *
  * The restart interval is the thing worth testing hard here, and it is tested **at** the value rather
  * than near it: 15, 16 and 17 keys are three different shapes, and a suite that only checked "well
- * below" and "well above" would not be testing the boundary at all. That rule is `CLAUDE.md`'s and it
- * came out of phase 6's container thresholds.
+ * below" and "well above" would not be testing the boundary at all. That rule is
+ * `.claude/rules/testing.md`'s and it came out of phase 6's container thresholds.
  *
  * Phase 18 gave the block a second layout and everything here now runs over **both**. Two things make
  * that more than duplicated coverage:
@@ -257,8 +257,9 @@ class KeyBlockTest {
      * And the saving is the six bytes per key the phase was costed at.
      *
      * Stated as an equality over a corpus whose lengths are all below 128, because "not larger" is
-     * satisfied by a change that saves nothing. `CLAUDE.md`'s rule about work assertions, applied to a
-     * space one: an inequality needs the number beside it or it is true of doing nothing.
+     * satisfied by a change that saves nothing. The rule in `.claude/rules/testing.md` about work
+     * assertions, applied to a space one: an inequality needs the number beside it or it is true of
+     * doing nothing.
      */
     @Test
     fun `short keys cost six bytes less per key`() {

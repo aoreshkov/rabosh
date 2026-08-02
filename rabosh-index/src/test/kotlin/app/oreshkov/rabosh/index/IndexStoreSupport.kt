@@ -23,9 +23,9 @@ internal fun scratch(root: Path, prefix: String = "index"): Path =
 /**
  * Store options every index test uses.
  *
- * `backgroundMaintenance = false` for the reason `CLAUDE.md` gives: a test that reasons about which
- * segments exist cannot have a background thread rewriting them underneath it. The two tests that are
- * specifically *about* racing maintenance turn it back on and say so.
+ * `backgroundMaintenance = false` for the reason `.claude/rules/testing.md` gives: a test that
+ * reasons about which segments exist cannot have a background thread rewriting them underneath it.
+ * The two tests that are specifically *about* racing maintenance turn it back on and say so.
  *
  * Small segments and blocks so a few hundred documents produce a tree with more than one level, which
  * is what makes compaction, ordinal renumbering and sidecar replacement reachable in a unit test.

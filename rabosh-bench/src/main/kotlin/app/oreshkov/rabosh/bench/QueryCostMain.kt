@@ -42,12 +42,13 @@ import java.nio.file.Path
  * block size to decompose a point get into a per-entry and a per-KiB term, and it is why this reports
  * deltas beside totals.
  *
- * [segmentSweep] moves two costs in opposite directions, which is the shape `CLAUDE.md` asks for
- * whenever a cost can be attributed to two mechanisms. Splitting the same documents across more
- * segments makes every *other* segment a place the executor has to prove a key is absent from — more
- * probes — while making each of those segments' key blocks smaller, so each probe is cheaper. If the
- * uniqueness probe is the cost, the curve rises with segment count. If it is not, the curve is flat.
- * A before/after on one fixture could not tell those apart.
+ * [segmentSweep] moves two costs in opposite directions, which is the shape
+ * `.claude/rules/testing.md` asks for whenever a cost can be attributed to two mechanisms. Splitting
+ * the same documents across more segments makes every *other* segment a place the executor has to
+ * prove a key is absent from — more probes — while making each of those segments' key blocks
+ * smaller, so each probe is cheaper. If the uniqueness probe is the cost, the curve rises with
+ * segment count. If it is not, the curve is flat. A before/after on one fixture could not tell those
+ * apart.
  *
  * Every row prints the rows it produced, because a stage that quietly returned nothing would
  * otherwise be the fastest one on the page — the "assertions about work never stand alone" rule,

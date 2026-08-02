@@ -23,8 +23,8 @@ import org.junit.jupiter.api.io.TempDir
  * design and would make the count vacuous. So the assertions here are the ones that hold however the
  * race lands: every segment on disk carries both its sidecars, and reopening finds the model whole.
  *
- * One of the few suites that runs with `backgroundMaintenance = true`, for the reason `CLAUDE.md`
- * gives about the ones that are specifically about racing maintenance.
+ * One of the few suites that runs with `backgroundMaintenance = true`, for the reason
+ * `.claude/rules/testing.md` gives about the ones that are specifically about racing maintenance.
  */
 class RaboshCloseTest {
 

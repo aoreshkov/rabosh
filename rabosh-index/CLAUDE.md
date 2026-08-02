@@ -1,6 +1,8 @@
 # rabosh-index — module conventions
 
-Cross-cutting design rules live in the root `CLAUDE.md`; testing conventions in `.claude/rules/testing.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules. The ones that govern this module are in
+`.claude/rules/index-and-query.md`, `.claude/rules/index-sidecar-format.md` and
+`.claude/rules/format-permanence.md`; testing conventions in `.claude/rules/testing.md`.
 
 `rabosh-index` holds the compressed bitmap — `Bitmap` (mutable, heap), `BitmapView` (read-only, straight
 off a `MemorySegment`), the `ReadableBitmap` surface they share and, since phase 14, `RoaringPortable`,

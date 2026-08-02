@@ -26,9 +26,10 @@ internal fun scratch(root: Path, prefix: String = "query"): Path =
 /**
  * Store options every query test uses.
  *
- * `backgroundMaintenance = false` for the reason `CLAUDE.md` gives: a test that reasons about which
- * segments an index covers cannot have a background thread rewriting them underneath it. The suite
- * that is specifically *about* racing maintenance turns it back on and says so.
+ * `backgroundMaintenance = false` for the reason `.claude/rules/testing.md` gives: a test that
+ * reasons about which segments an index covers cannot have a background thread rewriting them
+ * underneath it. The suite that is specifically *about* racing maintenance turns it back on and says
+ * so.
  */
 internal fun queryStoreOptions(
     observer: SegmentObserver?,

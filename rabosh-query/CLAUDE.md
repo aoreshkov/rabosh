@@ -1,6 +1,7 @@
 # rabosh-query — module conventions
 
-Cross-cutting design rules live in the root `CLAUDE.md`; testing conventions in `.claude/rules/testing.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules. The ones that govern this module are in
+`.claude/rules/index-and-query.md`; testing conventions in `.claude/rules/testing.md`.
 
 **A query's universe is the snapshot's own version, never the store's live set.** `IndexCatalog.pin`
 reads `DocumentStore.liveSegmentNumbers`; a `Snapshot` reads the `Version` it pinned; a compaction makes

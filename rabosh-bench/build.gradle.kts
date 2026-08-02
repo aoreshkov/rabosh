@@ -151,9 +151,10 @@ tasks.withType<JavaExec>().matching { it.name in benchmarkExecTasks }.configureE
      *
      * The `doFirst` above removes the cause that found this; the symptom is still here without the
      * assertion below. kotlinx-benchmark's runner catches a JMH failure, prints it and returns
-     * normally, so a run that never started leaves a succeeding task and no results. `CLAUDE.md` says
-     * `smokeBenchmark` "proves they still compile, start and measure the thing they name" — it cannot
-     * prove that unless something asserts the artefact, which is what `BenchmarkRunReport` does.
+     * normally, so a run that never started leaves a succeeding task and no results.
+     * `.claude/rules/testing.md` says `smokeBenchmark` "proves they still compile, start and measure
+     * the thing they name" — it cannot prove that unless something asserts the artefact, which is
+     * what `BenchmarkRunReport` does.
      *
      * The evidence is the runner configuration in `args`: it is the very file the plugin told JMH to
      * write its results to, so nothing here reconstructs a path or guesses at a timestamp. And the

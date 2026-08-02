@@ -40,9 +40,9 @@ open class ReadBenchmark {
      *
      * A parameter rather than a constant because this suite and `QueryBenchmark` were **excluded from
      * the smoke configuration entirely** — at smoke size their `@Setup` was the run — which meant
-     * neither had ever started in CI while `CLAUDE.md` claimed the smoke run "proves they still
-     * compile, start and measure the thing they name". Phase 16 made a benchmark that did not run fail
-     * the build; a benchmark nothing selects is the same hole one step further out.
+     * neither had ever started in CI while `.claude/rules/testing.md` claimed the smoke run "proves
+     * they still compile, start and measure the thing they name". Phase 16 made a benchmark that did
+     * not run fail the build; a benchmark nothing selects is the same hole one step further out.
      *
      * The numbers at 2 000 documents are not comparable to the numbers at 200 000 and are not meant to
      * be — the smoke configuration's numbers never were.

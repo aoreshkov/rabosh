@@ -47,9 +47,10 @@ public class ColumnScan internal constructor(
  * implementation of the same claims — *identical results with and without a column*, *no document
  * opened*, *bounds prune blocks* — over the same reader. Reach for `QueryEngine` instead.
  *
- * **The recheck, and the one place it is skipped.** `CLAUDE.md` requires every index hit to be
- * re-evaluated against the version the snapshot can see, because a key may live in several segments
- * and the newest wins. That rule is kept. It is skipped only where it is **provably** a no-op: when
+ * **The recheck, and the one place it is skipped.** `.claude/rules/index-and-query.md` requires every
+ * index hit to be re-evaluated against the version the snapshot can see, because a key may live in
+ * several segments and the newest wins. That rule is kept. It is skipped only where it is
+ * **provably** a no-op: when
  * the reader is authoritative and the key appears in exactly one usable segment, that segment's
  * version *is* the visible version, and uniqueness is decided from the key blocks — a sidecar read,
  * not a document read. Everywhere else the document is opened and counted.

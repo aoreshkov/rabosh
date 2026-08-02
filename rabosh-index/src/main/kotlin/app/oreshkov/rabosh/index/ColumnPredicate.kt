@@ -14,9 +14,9 @@ import java.math.BigDecimal
  * path — and with it, one bound slot is enough to rule a segment out.
  *
  * It is the rule MongoDB and JavaScript both take and SQL/JSON declines; what matters here is less
- * which one than that it is written down and that **the recheck uses the same one**. `CLAUDE.md`
- * requires the recheck to run the same logic that built the index, so [matches] is what both the
- * column scan and the fallback document scan evaluate.
+ * which one than that it is written down and that **the recheck uses the same one**.
+ * `.claude/rules/index-and-query.md` requires the recheck to run the same logic that built the
+ * index, so [matches] is what both the column scan and the fallback document scan evaluate.
  */
 public class ColumnPredicate private constructor(
     internal val kind: Kind,

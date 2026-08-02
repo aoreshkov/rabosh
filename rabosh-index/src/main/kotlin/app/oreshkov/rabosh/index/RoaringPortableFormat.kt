@@ -18,8 +18,9 @@ package app.oreshkov.rabosh.index
  * ```
  *
  * **None of these numbers is rabosh's, and none of them belongs on the permanent-id list in
- * `CLAUDE.md`.** They are fixed by the specification at `RoaringBitmap/RoaringFormatSpec` and are what
- * Lucene, Druid, Spark, CRoaring and pyroaring read. If that specification grows a cookie or a
+ * `.claude/rules/format-permanence.md`.** They are fixed by the specification at
+ * `RoaringBitmap/RoaringFormatSpec` and are what Lucene, Druid, Spark, CRoaring and pyroaring read.
+ * If that specification grows a cookie or a
  * container encoding, this file changes to follow it — which is the opposite of the rule [BitmapFormat]
  * lives under, where a new encoding is a new id because files already written must keep their meaning.
  * An exchange format is not the storage form, and the difference is exactly that nothing rabosh has

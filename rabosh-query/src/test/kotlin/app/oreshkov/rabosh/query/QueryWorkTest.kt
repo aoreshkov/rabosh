@@ -14,7 +14,7 @@ import org.junit.jupiter.api.io.TempDir
 /**
  * What a plan **costs**, which a result set cannot demonstrate.
  *
- * Two rules govern every test here, both from `CLAUDE.md`.
+ * Two rules govern every test here, both from `.claude/rules/testing.md`.
  *
  * **An assertion about work never stands alone.** `documentsRead == 0` passes trivially for a query
  * that returned nothing, so every counter asserted below sits in the same test as the differential

@@ -192,7 +192,10 @@ class ColumnFileTest {
     }
 }
 
-/** Column format ids, pinned. Every one is on disk and `CLAUDE.md`'s rule is add, never renumber. */
+/**
+ * Column format ids, pinned. Every one is on disk and the rule in `.claude/rules/format-permanence.md`
+ * is add, never renumber.
+ */
 class ColumnFormatIdTest {
 
     @Test

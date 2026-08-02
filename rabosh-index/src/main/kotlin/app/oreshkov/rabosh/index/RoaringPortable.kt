@@ -18,8 +18,9 @@ import java.lang.foreign.MemorySegment
  *
  * **This is an exchange format, not the storage form**, and everything about it follows from that.
  * Nothing rabosh writes to disk is in this format, no sidecar reads it, and no id here is one of the
- * permanent ones in `CLAUDE.md` — they belong to a specification this project does not own. A stream is
- * always decoded into an ordinary heap [Bitmap] rather than read in place, which is the one thing
+ * permanent ones in `.claude/rules/format-permanence.md` — they belong to a specification this
+ * project does not own. A stream is always decoded into an ordinary heap [Bitmap] rather than read
+ * in place, which is the one thing
  * [BitmapView] refuses to do for rabosh's own format: this layout's offset header is *conditional*,
  * so finding a container is a branch rather than arithmetic, and that is precisely what the format was
  * declined for as a storage form.
