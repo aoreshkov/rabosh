@@ -40,8 +40,9 @@ import java.nio.file.Path
  * this phase `store-v1` and `store-v2` both held version-1 posting files and `store-v2` was itself a
  * round trip. Phase 17 made version 1 a layout this build can no longer *write* — so between them they
  * are now the only cover for [app.oreshkov.rabosh.index.FlatTermDictionary] on bytes nobody
- * regenerated, which is exactly the role `CLAUDE.md` predicted they would acquire at the first format
- * change. Neither may be retired: `store-v1` additionally carries seven singleton posting lists stored
+ * regenerated, which is exactly the role `.claude/rules/format-permanence.md` predicted they would
+ * acquire at the first format change. Neither may be retired: `store-v1` additionally carries seven
+ * singleton posting lists stored
  * as `BITMAP`, a shape no later build can produce.
  *
  * The corpus is [GoldenStoreV2]'s, deliberately unchanged — including `$.uid`, whose singleton

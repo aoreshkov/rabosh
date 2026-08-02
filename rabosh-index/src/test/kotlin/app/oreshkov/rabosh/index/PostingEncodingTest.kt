@@ -171,9 +171,10 @@ class PostingEncodingTest {
      * entry it was paying 24 bytes for anyway. So the term *region* only shrinks once the average
      * shared prefix exceeds two bytes, and for a path whose values are two-byte terms it grows.
      *
-     * That is worth pinning rather than hiding, for the reason `CLAUDE.md` gives about attributing a
-     * benchmark win to the wrong mechanism: **phase 17's saving is the 8-byte entry, always, and the
-     * term region only sometimes.** A reader who believed the headline was front-coding would predict
+     * That is worth pinning rather than hiding, for the reason `.claude/rules/index-sidecar-format.md`
+     * gives about attributing a benchmark win to the wrong mechanism: **phase 17's saving is the
+     * 8-byte entry, always, and the term region only sometimes.** A reader who believed the headline
+     * was front-coding would predict
      * the wrong thing for a low-cardinality index over short values — and would be tempted to make the
      * choice adaptive, which is exactly what phase 11 established must not happen to a dictionary
      * whose byte identity the suites compare as files.

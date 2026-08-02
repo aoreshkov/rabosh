@@ -16,8 +16,9 @@ import org.junit.jupiter.api.io.TempDir
  * The catalog against a real store: sidecars appearing on a flush, following a compaction, surviving
  * a reopen, and going away when the segment they describe does.
  *
- * `backgroundMaintenance = false` throughout, for the reason `CLAUDE.md` gives — a test that reasons
- * about which segments exist cannot have a background thread rewriting them underneath it.
+ * `backgroundMaintenance = false` throughout, for the reason `.claude/rules/testing.md` gives — a
+ * test that reasons about which segments exist cannot have a background thread rewriting them
+ * underneath it.
  */
 class CatalogLifecycleTest {
 

@@ -7,7 +7,10 @@ paths:
   - "build-logic/**"
 ---
 
-Cross-cutting design rules live in the root `CLAUDE.md`; per-module conventions in each module's `CLAUDE.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules; each is argued in a path-scoped file
+beside this one (`index-and-query.md`, `storage-durability.md`, `format-permanence.md`,
+`index-sidecar-format.md`, `build-and-release.md`). Per-module conventions live in each module's
+`CLAUDE.md`.
 
 ## Testing
 

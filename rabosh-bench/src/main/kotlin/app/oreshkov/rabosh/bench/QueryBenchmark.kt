@@ -47,7 +47,8 @@ open class QueryBenchmark {
     /**
      * How many documents the fixture holds. See `ReadBenchmark.documentCount` for why it is a
      * parameter: these two suites were excluded from the smoke configuration and so had never started
-     * in CI at all, while `CLAUDE.md` claimed the smoke run proves every suite still starts.
+     * in CI at all, while `.claude/rules/testing.md` claimed the smoke run proves every suite still
+     * starts.
      */
     @Param("200000")
     var documentCount: Int = 200_000

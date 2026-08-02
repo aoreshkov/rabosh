@@ -21,9 +21,10 @@ internal fun scratch(root: Path, prefix: String = "api"): Path =
 /**
  * Store options every facade test uses.
  *
- * `backgroundMaintenance = false` for the reason `CLAUDE.md` gives: a test that reasons about which
- * segments exist cannot have a background thread rewriting them underneath it. `RaboshCloseTest` is
- * the one suite that turns it back on, because it is specifically about racing a flush.
+ * `backgroundMaintenance = false` for the reason `.claude/rules/testing.md` gives: a test that
+ * reasons about which segments exist cannot have a background thread rewriting them underneath it.
+ * `RaboshCloseTest` is the one suite that turns it back on, because it is specifically about racing
+ * a flush.
  *
  * Small segments and blocks so a few hundred documents produce several of them, which is what makes
  * "one scan, not two" a statement about more than one segment.

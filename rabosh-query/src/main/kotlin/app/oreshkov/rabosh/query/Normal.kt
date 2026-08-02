@@ -133,8 +133,9 @@ internal enum class LeafKind { EQUALITY, RANGE, EXISTS, IS_NULL }
  * Lowers a normalised predicate, giving every leaf its [ColumnPredicate].
  *
  * **Every leaf gets one whether or not a column exists over its path**, and that is the point rather
- * than an accident: `CLAUDE.md` makes `ColumnPredicate.matches` the only definition of type
- * bracketing, *used by the column scan and the fallback document scan alike*. A query layer that
+ * than an accident: `.claude/rules/index-and-query.md` makes `ColumnPredicate.matches` the only
+ * definition of type bracketing, *used by the column scan and the fallback document scan alike*. A
+ * query layer that
  * wrote its own matcher for the paths with only an inverted index — or with no index at all — would
  * be a second definition, and the two would eventually disagree about a numeric string or a nested
  * null.

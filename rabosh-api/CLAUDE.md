@@ -1,6 +1,7 @@
 # rabosh-api — module conventions
 
-Cross-cutting design rules live in the root `CLAUDE.md`; testing conventions in `.claude/rules/testing.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules. The ones that govern this module are in
+`.claude/rules/index-and-query.md`; testing conventions in `.claude/rules/testing.md`.
 
 `rabosh-api` holds `Rabosh` and `RaboshOptions` and nothing else. It is **ergonomics over the layers,
 never a second definition of them**: no planner, no matcher, no format, no new concept. If something here

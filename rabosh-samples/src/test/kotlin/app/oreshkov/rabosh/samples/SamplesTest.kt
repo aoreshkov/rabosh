@@ -14,18 +14,18 @@ import org.junit.jupiter.api.io.TempDir
  * The samples, run.
  *
  * This is the whole reason `rabosh-samples` is a module in the build rather than a folder of files
- * somebody pasted into a README. `CLAUDE.md`'s rule is that a documented example is a test, because a
- * snippet nothing executes is a snippet that rots — and a sample is a documented example that is
- * *longer*, so it rots faster.
+ * somebody pasted into a README. The rule in `.claude/rules/testing.md` is that a documented example
+ * is a test, because a snippet nothing executes is a snippet that rots — and a sample is a documented
+ * example that is *longer*, so it rots faster.
  *
  * **What is asserted is the output, not the absence of a throw.** A sample that runs to completion
  * and prints `0 rows` has failed at the only job it has, and it is exactly what a broken planner, an
  * index that quietly covers nothing, or a corpus generator that stopped producing the field being
  * filtered on would leave behind. So every assertion here is about content the sample is supposed to
- * have produced. The counterpart rule from `CLAUDE.md` applies too — assertions about *work* never
- * stand alone — and it is satisfied structurally: each sample `check`s its own before/after row sets
- * for equality inside the program a reader is looking at, so a work assertion here cannot pass while
- * the answer is wrong.
+ * have produced. The counterpart rule from `.claude/rules/testing.md` applies too — assertions about
+ * *work* never stand alone — and it is satisfied structurally: each sample `check`s its own
+ * before/after row sets for equality inside the program a reader is looking at, so a work assertion
+ * here cannot pass while the answer is wrong.
  *
  * Output is captured by replacing `System.out`, which the samples print to directly on purpose: a
  * sample threading a `PrintStream` through every function to be testable would be demonstrating that

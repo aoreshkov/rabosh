@@ -15,9 +15,9 @@ import org.junit.jupiter.api.io.TempDir
  * The two tests that are specifically *about* racing maintenance, and therefore the two that turn it
  * back on.
  *
- * Every other store-backed test here sets `backgroundMaintenance = false`, for the reason `CLAUDE.md`
- * gives: a test that reasons about which segments exist cannot have a background thread rewriting
- * them underneath it. These two have nothing else to reason about.
+ * Every other store-backed test here sets `backgroundMaintenance = false`, for the reason
+ * `.claude/rules/testing.md` gives: a test that reasons about which segments exist cannot have a
+ * background thread rewriting them underneath it. These two have nothing else to reason about.
  */
 class IndexConcurrencyTest {
 

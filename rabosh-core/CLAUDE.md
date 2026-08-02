@@ -1,6 +1,8 @@
 # rabosh-core — module conventions
 
-Cross-cutting design rules live in the root `CLAUDE.md`; testing conventions in `.claude/rules/testing.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules. The ones that govern this module are in
+`.claude/rules/storage-durability.md` and `.claude/rules/format-permanence.md`; testing conventions in
+`.claude/rules/testing.md`.
 
 `rabosh-core` must not depend on `rabosh-catalog`. Sketches are collected during flush and
 compaction through **`SegmentObserver`**, which `core` declares and `catalog` implements. It hooks

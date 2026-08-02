@@ -1,6 +1,8 @@
 # rabosh-catalog — module conventions
 
-Cross-cutting design rules live in the root `CLAUDE.md`; testing conventions in `.claude/rules/testing.md`.
+The root `CLAUDE.md` indexes the cross-cutting design rules. The ones that govern this module are in
+`.claude/rules/index-and-query.md` and `.claude/rules/format-permanence.md`; testing conventions in
+`.claude/rules/testing.md`.
 
 `ValueSignature` and `ValueBoundsBuilder` live in `rabosh-catalog` and are **shared, never duplicated**.
 The catalog counts distinct values and bounds a path with them to decide whether it is worth an index;

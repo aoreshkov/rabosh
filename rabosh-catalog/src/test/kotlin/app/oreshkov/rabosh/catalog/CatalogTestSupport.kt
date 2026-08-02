@@ -20,9 +20,10 @@ internal fun scratch(root: Path, prefix: String = "catalog"): Path =
 /**
  * Store options every catalog test uses.
  *
- * `backgroundMaintenance = false` for the reason `CLAUDE.md` gives: a test that reasons about which
- * segments exist cannot have a background thread rewriting them underneath it. Small segments and
- * blocks so that a few hundred documents produce a tree with more than one level in it.
+ * `backgroundMaintenance = false` for the reason `.claude/rules/testing.md` gives: a test that
+ * reasons about which segments exist cannot have a background thread rewriting them underneath it.
+ * Small segments and blocks so that a few hundred documents produce a tree with more than one level
+ * in it.
  */
 internal fun catalogStoreOptions(catalog: SchemaCatalog?): StoreOptions = StoreOptions(
     durability = Durability.BUFFERED,

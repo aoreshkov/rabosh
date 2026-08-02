@@ -16,9 +16,10 @@ import kotlin.test.assertTrue
 /**
  * The on-disk ids, pinned.
  *
- * Every number here is written into files that outlive this build, and `CLAUDE.md`'s rule is *add,
- * never renumber*. An exhaustive `when` makes the compiler force a decision when a kind is added; it
- * cannot stop somebody changing an existing number, and that is what these assertions are for. A
+ * Every number here is written into files that outlive this build, and the rule in
+ * `.claude/rules/format-permanence.md` is *add, never renumber*. An exhaustive `when` makes the
+ * compiler force a decision when a kind is added; it cannot stop somebody changing an existing
+ * number, and that is what these assertions are for. A
  * renumbering should fail the build here rather than be discovered by a reader six months later.
  */
 class IndexFormatTest {

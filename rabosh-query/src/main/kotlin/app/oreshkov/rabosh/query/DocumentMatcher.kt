@@ -9,8 +9,9 @@ import java.util.IdentityHashMap
  * Does this document match — asked once, by the code that built the index.
  *
  * The recheck of an index candidate and the scan of an uncovered segment are both this class, which
- * is what makes `CLAUDE.md`'s rule a fact rather than an intention: *the recheck runs the same walk
- * that built the index*, so "does this document match" is answered by the code that decided what to
+ * is what makes the rule in `.claude/rules/index-and-query.md` a fact rather than an intention: *the
+ * recheck runs the same walk that built the index*, so "does this document match" is answered by the
+ * code that decided what to
  * index. A second, differently-shaped traversal would be a second definition of what a path means,
  * and the two would eventually disagree about an array or a nested null.
  *
