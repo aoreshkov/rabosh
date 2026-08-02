@@ -1,0 +1,8 @@
+name:main
+traceFormat:text
+iterations:5
+warmups:3
+iterationTime:2
+iterationTimeUnit:s
+configurationName:main
+reportFile:/build/reports/benchmarks/main/2026-07-31T07.59.59.4644893/main.json

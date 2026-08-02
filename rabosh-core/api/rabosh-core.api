@@ -1,0 +1,205 @@
+public final class app/oreshkov/rabosh/core/CorruptLogException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/core/CorruptManifestException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/core/CorruptSegmentException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/core/DocumentCursor : java/lang/AutoCloseable {
+	public fun close ()V
+	public final fun getDocument ()Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun getKey ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun next ()Z
+}
+
+public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoCloseable {
+	public static final field Companion Lapp/oreshkov/rabosh/core/DocumentStore$Companion;
+	public final fun backfill (Lapp/oreshkov/rabosh/core/SegmentObserver;)V
+	public fun close ()V
+	public final fun compact ()V
+	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)V
+	public final fun flush ()V
+	public final fun get (Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun get (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun getDirectory ()Ljava/nio/file/Path;
+	public final fun getLiveSegmentNumbers ()Ljava/util/Set;
+	public final fun getOptions ()Lapp/oreshkov/rabosh/core/StoreOptions;
+	public final fun getSequence ()J
+	public final fun getStats ()Lapp/oreshkov/rabosh/core/StoreStats;
+	public final fun put (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/variant/Variant;)V
+	public final fun rotate ()V
+	public final fun scan (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public static synthetic fun scan$default (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public final fun scanSegments (Ljava/util/Set;Lapp/oreshkov/rabosh/core/Snapshot;ZLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public static synthetic fun scanSegments$default (Lapp/oreshkov/rabosh/core/DocumentStore;Ljava/util/Set;Lapp/oreshkov/rabosh/core/Snapshot;ZLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public final fun snapshot ()Lapp/oreshkov/rabosh/core/Snapshot;
+	public final fun sync ()V
+	public fun toString ()Ljava/lang/String;
+	public final fun write (Lapp/oreshkov/rabosh/core/WriteBatch;)V
+}
+
+public final class app/oreshkov/rabosh/core/DocumentStore$Companion {
+	public final fun open (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/StoreOptions;)Lapp/oreshkov/rabosh/core/DocumentStore;
+	public static synthetic fun open$default (Lapp/oreshkov/rabosh/core/DocumentStore$Companion;Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/StoreOptions;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentStore;
+}
+
+public final class app/oreshkov/rabosh/core/Durability : java/lang/Enum {
+	public static final field BUFFERED Lapp/oreshkov/rabosh/core/Durability;
+	public static final field SYNC Lapp/oreshkov/rabosh/core/Durability;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/core/Durability;
+	public static fun values ()[Lapp/oreshkov/rabosh/core/Durability;
+}
+
+public final class app/oreshkov/rabosh/core/Key : java/lang/Comparable {
+	public static final field Companion Lapp/oreshkov/rabosh/core/Key$Companion;
+	public fun compareTo (Lapp/oreshkov/rabosh/core/Key;)I
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun get (I)B
+	public final fun getSize ()I
+	public fun hashCode ()I
+	public final fun toByteArray ()[B
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/core/Key$Companion {
+	public final fun of (Ljava/lang/String;)Lapp/oreshkov/rabosh/core/Key;
+	public final fun of ([B)Lapp/oreshkov/rabosh/core/Key;
+}
+
+public final class app/oreshkov/rabosh/core/LogRecoveryMode : java/lang/Enum {
+	public static final field STRICT Lapp/oreshkov/rabosh/core/LogRecoveryMode;
+	public static final field TOLERATE_TORN_TAIL Lapp/oreshkov/rabosh/core/LogRecoveryMode;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/core/LogRecoveryMode;
+	public static fun values ()[Lapp/oreshkov/rabosh/core/LogRecoveryMode;
+}
+
+public abstract interface class app/oreshkov/rabosh/core/SegmentObservation {
+	public abstract fun abandon ()V
+	public abstract fun complete (Lapp/oreshkov/rabosh/core/SegmentSummary;)V
+	public abstract fun observe (Lapp/oreshkov/rabosh/core/Key;JLapp/oreshkov/rabosh/variant/Variant;)V
+}
+
+public abstract interface class app/oreshkov/rabosh/core/SegmentObserver {
+	public abstract fun beginSegment (J)Lapp/oreshkov/rabosh/core/SegmentObservation;
+	public fun observerFailed (Ljava/lang/Throwable;)V
+	public abstract fun retain (Ljava/util/Set;)V
+}
+
+public final class app/oreshkov/rabosh/core/SegmentObserver$DefaultImpls {
+	public static fun observerFailed (Lapp/oreshkov/rabosh/core/SegmentObserver;Ljava/lang/Throwable;)V
+}
+
+public final class app/oreshkov/rabosh/core/SegmentSummary {
+	public final fun getDistinctKeyCount ()J
+	public final fun getEntryCount ()J
+	public final fun getFileBytes ()J
+	public final fun getSegmentNumber ()J
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/core/Snapshot : java/lang/AutoCloseable {
+	public fun close ()V
+	public final fun getHasUnflushedDocuments ()Z
+	public final fun getSegmentNumbers ()Ljava/util/Set;
+	public final fun getSequence ()J
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/core/StoreClosedException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public abstract class app/oreshkov/rabosh/core/StoreException : java/lang/RuntimeException {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class app/oreshkov/rabosh/core/StoreFailedException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
+}
+
+public final class app/oreshkov/rabosh/core/StoreLockedException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class app/oreshkov/rabosh/core/StoreOptions {
+	public static final field Companion Lapp/oreshkov/rabosh/core/StoreOptions$Companion;
+	public fun <init> ()V
+	public fun <init> (Lapp/oreshkov/rabosh/core/Durability;JLapp/oreshkov/rabosh/core/LogRecoveryMode;ZJIIIJIZLapp/oreshkov/rabosh/core/SegmentObserver;)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/core/Durability;JLapp/oreshkov/rabosh/core/LogRecoveryMode;ZJIIIJIZLapp/oreshkov/rabosh/core/SegmentObserver;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getBackgroundMaintenance ()Z
+	public final fun getBaseLevelBytes ()J
+	public final fun getBlockSize ()I
+	public final fun getBloomBitsPerKey ()I
+	public final fun getCreateIfMissing ()Z
+	public final fun getDurability ()Lapp/oreshkov/rabosh/core/Durability;
+	public final fun getL0CompactionTrigger ()I
+	public final fun getLevelSizeMultiplier ()I
+	public final fun getMemtableMaxBytes ()J
+	public final fun getRecoveryMode ()Lapp/oreshkov/rabosh/core/LogRecoveryMode;
+	public final fun getSegmentMaxBytes ()J
+	public final fun getSegmentObserver ()Lapp/oreshkov/rabosh/core/SegmentObserver;
+	public fun toString ()Ljava/lang/String;
+	public final fun withSegmentObserver (Lapp/oreshkov/rabosh/core/SegmentObserver;)Lapp/oreshkov/rabosh/core/StoreOptions;
+}
+
+public final class app/oreshkov/rabosh/core/StoreOptions$Companion {
+	public final fun getDEFAULT ()Lapp/oreshkov/rabosh/core/StoreOptions;
+}
+
+public final class app/oreshkov/rabosh/core/StoreOptionsKt {
+	public static final field DEFAULT_BASE_LEVEL_BYTES J
+	public static final field DEFAULT_BLOCK_SIZE I
+	public static final field DEFAULT_BLOOM_BITS_PER_KEY I
+	public static final field DEFAULT_L0_COMPACTION_TRIGGER I
+	public static final field DEFAULT_LEVEL_SIZE_MULTIPLIER I
+	public static final field DEFAULT_MEMTABLE_MAX_BYTES J
+	public static final field DEFAULT_SEGMENT_MAX_BYTES J
+	public static final field LEVEL_COUNT I
+}
+
+public final class app/oreshkov/rabosh/core/StoreStats {
+	public final fun getLastSequence ()J
+	public final fun getLiveSnapshots ()I
+	public final fun getLogBytes ()J
+	public final fun getLogNumber ()J
+	public final fun getMemtableBytes ()J
+	public final fun getMemtableEntries ()I
+	public final fun getSealedMemtables ()I
+	public final fun getSegmentBytes ()J
+	public final fun getSegmentCount ()I
+	public final fun getSegmentsPerLevel ()Ljava/util/List;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/core/UnsupportedFormatException : app/oreshkov/rabosh/core/StoreException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class app/oreshkov/rabosh/core/WriteBatch {
+	public fun <init> ()V
+	public final fun clear ()V
+	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/core/WriteBatch;
+	public final fun getSize ()I
+	public final fun isEmpty ()Z
+	public final fun put (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/variant/Variant;)Lapp/oreshkov/rabosh/core/WriteBatch;
+	public fun toString ()Ljava/lang/String;
+}
+

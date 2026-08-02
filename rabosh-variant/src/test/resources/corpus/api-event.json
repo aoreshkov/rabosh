@@ -1,0 +1,38 @@
+{
+  "id": "evt_01J8ZQ4K7N3T5V9XQ2M6R8W1YB",
+  "type": "deployment.status",
+  "created_at": "2026-07-25T09:14:02.481Z",
+  "sequence": 4821993,
+  "actor": {
+    "id": 90210,
+    "login": "octocat",
+    "site_admin": false,
+    "avatar_url": "https://example.invalid/u/90210?v=4"
+  },
+  "repository": {
+    "id": 1296269,
+    "full_name": "octocat/Hello-World",
+    "private": false,
+    "topics": ["kotlin", "storage", "jvm"],
+    "stargazers_count": 1729,
+    "size_kb": 10485.5,
+    "license": null,
+    "permissions": { "admin": false, "push": true, "pull": true }
+  },
+  "payload": {
+    "deployment": {
+      "environment": "production",
+      "ref": "refs/heads/main",
+      "sha": "6dcb09b5b57875f334f61aebed695e2e4193db5e",
+      "transient_environment": false,
+      "payload": {},
+      "statuses": [
+        { "state": "pending", "at": "2026-07-25T09:14:02.481Z", "duration_ms": 0 },
+        { "state": "in_progress", "at": "2026-07-25T09:14:31.002Z", "duration_ms": 28521 },
+        { "state": "success", "at": "2026-07-25T09:19:57.114Z", "duration_ms": 326112 }
+      ]
+    }
+  },
+  "metrics": { "queue_depth": 3, "latency_p99_ms": 412.75, "error_rate": 0.0 },
+  "labels": []
+}

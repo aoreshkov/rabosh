@@ -1,0 +1,11 @@
+name:main
+traceFormat:text
+iterations:1
+warmups:1
+iterationTime:200
+iterationTimeUnit:ms
+configurationName:smoke
+include:VariantBenchmark
+include:BitmapBenchmark
+include:IngestBenchmark
+reportFile:C:\build\reports\benchmarks\smoke\2026-07-31T16.05.57.9064946\main.json

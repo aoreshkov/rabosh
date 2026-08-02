@@ -1,0 +1,23 @@
+# No blank issues. The two forms ask for the things that make a report actionable — a version, a
+# JDK, the operating system, a reproduction — and a blank box reliably produces a report missing at
+# least one of them, which costs a round trip before anything can start.
+blank_issues_enabled: false
+
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/aoreshkov/rabosh/security/advisories/new
+    about: >
+      Privately, never as an issue. A crafted document or store file that causes a crash, an
+      out-of-bounds read or an unbounded allocation belongs here.
+
+  - name: Ask a question
+    url: https://github.com/aoreshkov/rabosh/discussions
+    about: >
+      How to do something, whether an approach makes sense, or why the engine behaves the way it
+      does. Not a bug until you know it is one.
+
+  - name: Read the design reasoning
+    url: https://github.com/aoreshkov/rabosh#design
+    about: >
+      Most "why does it do that" questions have an answer in the README or in COMPATIBILITY.md,
+      often with the alternative that was rejected and the reason.

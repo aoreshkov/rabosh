@@ -1,0 +1,29 @@
+# Private analysis and planning documents — never publish (see CLAUDE.md)
+docs/
+
+# IDE
+.idea
+*.iml
+
+# Local Claude Code settings. A global ignore already covers these, which is machine-local
+# protection only — a checkout on another machine would offer them up as untracked and committable.
+.claude/settings.local.json
+.claude/*.local.json
+
+# Gradle
+.gradle/
+.kotlin/
+# Anchored, not `build/`. An unanchored pattern matches a directory named `build` at *any* depth —
+# including a Kotlin package directory — and it silently swallowed
+# `build-logic/src/main/kotlin/app/oreshkov/rabosh/build/`, which is source. Every output directory
+# in this repository is the root's or a module's, so one level is all that is needed.
+/build/
+/*/build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local engine data produced by tests and benchmarks
+*.rabosh/
+/benchmark-data/

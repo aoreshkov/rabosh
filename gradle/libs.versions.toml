@@ -1,0 +1,40 @@
+# Centralised version catalogue. Versions verified 2026-08-01: every entry is the latest stable
+# release. Kotlin 2.4.20-Beta2 exists and is deliberately not taken — pre-releases need asking first.
+#
+# Dependency policy (see CLAUDE.md): JetBrains and Kotlin libraries are pre-approved.
+# Every other third-party library requires explicit confirmation before being added here.
+
+[versions]
+kotlin = "2.4.10"
+# The engine has NO runtime dependencies. kotlinx-io was declared as the one, and phase 4 removed
+# it: it was never referenced. The codec reads `MemorySegment` directly, the write-ahead log needs
+# `FileChannel.force` (kotlinx-io 0.9.1 cannot express fsync at all), and segments are mapped
+# through the FFM API. Every candidate for it wanted `FileChannel` for mapping or forcing, so
+# "zero runtime dependencies" is the honest claim and it is made deliberately rather than
+# discovered. Everything below is test-only or build-only.
+# Test-only: reference oracle for the hand-written JSON parser.
+kotlinx-serialization = "1.11.0"
+junit = "6.1.2"
+dokka = "2.2.0"
+benchmark = "0.4.17"
+# FFM API (Arena, MemorySegment, FileChannel.map with Arena) requires 22+; 25 is the LTS.
+jvmToolchain = "25"
+
+[libraries]
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-benchmark-runtime = { module = "org.jetbrains.kotlinx:kotlinx-benchmark-runtime", version.ref = "benchmark" }
+
+# Versions of the two below come from junit-bom.
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+
+# Consumed by build-logic so convention plugins can apply these by id.
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+dokka-gradle-plugin = { module = "org.jetbrains.dokka:dokka-gradle-plugin", version.ref = "dokka" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+benchmark = { id = "org.jetbrains.kotlinx.benchmark", version.ref = "benchmark" }
+# ABI validation is Kotlin's built-in `abiValidation()` (2.4+), not a separate plugin.

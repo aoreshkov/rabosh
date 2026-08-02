@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [13.3777, 52.5163],
+            [13.3801, 52.5162],
+            [13.3799, 52.5148],
+            [13.3775, 52.5149],
+            [13.3777, 52.5163]
+          ]
+        ]
+      },
+      "properties": {
+        "name": "Brandenburger Tor",
+        "wikidata": "Q82425",
+        "built": 1791,
+        "height_m": 26,
+        "tags": { "tourism": "attraction", "wheelchair": "yes", "opening_hours": "24/7" }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [-0.1276, 51.5072, 11.0] },
+      "properties": {
+        "name": "Charing Cross",
+        "is_origin": true,
+        "elevation_m": 11.0,
+        "aliases": ["Charing X", "十字路"],
+        "closed": null
+      }
+    }
+  ],
+  "bbox": [-0.1276, 51.5072, 13.3801, 52.5163],
+  "generated": "2026-07-25T00:00:00Z"
+}

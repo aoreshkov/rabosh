@@ -1,0 +1,92 @@
+name: Bug report
+description: Something the engine did that it should not have done.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Two things before you start:
+
+        **If this is a security problem — a crafted document or store file that causes a crash, an
+        out-of-bounds read or an unbounded allocation — close this and use
+        [private vulnerability reporting](https://github.com/aoreshkov/rabosh/security/advisories/new)
+        instead.** See [SECURITY.md](https://github.com/aoreshkov/rabosh/blob/main/SECURITY.md).
+
+        **A stack trace is worth more than a description**, and a reproduction is worth more than
+        both. Small and artificial beats large and realistic.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did the engine do, and what did you expect instead?
+      placeholder: |
+        `createIndex` over a store with 40 segments returned, but a query on the indexed path
+        afterwards missed documents in the three oldest segments. Expected the same 4000 keys a
+        brute-force scan returns.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >
+        Code, a document, a query — whatever is smallest that shows it. If it only reproduces on a
+        store with particular history (a compaction, a cancelled index build, a crash), say what got
+        it into that state; that is usually the important half.
+      render: kotlin
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: rabosh version
+      description: A released version, or the commit you built from.
+      placeholder: "0.1.0, or commit a1b2c3d"
+    validations:
+      required: true
+
+  - type: input
+    id: jdk
+    attributes:
+      label: JDK
+      description: Output of `java -version`, including the vendor.
+      placeholder: "Temurin 25.0.1+9"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      description: >
+        This matters more than it usually does. A mapped file cannot be deleted on Windows, so
+        several classes of resource-lifetime bug are visible there and invisible on Linux.
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: stacktrace
+    attributes:
+      label: Stack trace or output
+      description: Paste it whole rather than the interesting line — the frames underneath are the useful part.
+      render: text
+
+  - type: checkboxes
+    id: persistence
+    attributes:
+      label: Does it survive a reopen?
+      description: >
+        Close the store and open it again. Whether the problem is still there separates a bug in
+        what was written from a bug in what is being read, which is most of the diagnosis.
+      options:
+        - label: It still reproduces after closing and reopening the store.
+        - label: It goes away after a reopen.
+        - label: I have not tried / it is not applicable.

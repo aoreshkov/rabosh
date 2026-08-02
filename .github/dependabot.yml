@@ -1,0 +1,45 @@
+# Two ecosystems, both grouped into one pull request each.
+#
+# Grouping is the point rather than a convenience. Ungrouped, a week produces eight separate
+# branches that each run the full two-platform matrix, and a reviewer reads eight diffs to learn one
+# thing. Grouped, the question is "does the build still pass with everything moved forward", which
+# is the question that actually matters.
+#
+# `gradle` reads `gradle/libs.versions.toml` directly, so the rule that versions are centralised and
+# never inlined in a build script survives contact with the bot. `/build-logic` is listed separately
+# because an included build has its own dependency graph that the root resolution never sees.
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    # Actions are pinned by commit SHA with the version in a trailing comment. Dependabot
+    # understands that pin and rewrites both halves; a bare SHA with no comment it would leave alone.
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "Update"
+    labels: ["dependencies"]
+
+  - package-ecosystem: gradle
+    directories:
+      - "/"
+      - "/build-logic"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      gradle:
+        patterns: ["*"]
+    # The toolchain policy is "latest stable, never a pre-release". Kotlin, Dokka and kotlinx-*
+    # all ship -Beta and -RC artifacts to the same coordinates, so the bot has to be told.
+    ignore:
+      - dependency-name: "*"
+        versions: ["*-Beta*", "*-RC*", "*-alpha*", "*-eap*", "*-M[0-9]*"]
+    commit-message:
+      prefix: "Update"
+    labels: ["dependencies"]

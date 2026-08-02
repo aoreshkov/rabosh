@@ -1,0 +1,35 @@
+{
+  "host": "ingest-07.eu-central",
+  "window": { "from_ms": 1784973600000, "to_ms": 1784974200000 },
+  "counters": {
+    "requests_total": 8412991,
+    "bytes_in": 91827364550,
+    "bytes_out": 4455667788990,
+    "errors": { "4xx": 812, "5xx": 3, "timeouts": 0 }
+  },
+  "gauges": {
+    "heap_used_bytes": 3221225472,
+    "gc_pause_p999_ms": 8.75,
+    "cpu_load": 0.7314159265358979,
+    "open_files": 1024
+  },
+  "histogram_ms": [
+    [0.5, 1240918],
+    [1, 3301992],
+    [2.5, 2814003],
+    [5, 812004],
+    [10, 190283],
+    [25, 41902],
+    [50, 8811],
+    [100, 1002],
+    [250, 76],
+    [500, 3]
+  ],
+  "flags": [true, false, true, true, false],
+  "sampling": { "enabled": true, "rate": 1e-3, "seed": -7314159265358979323 },
+  "trace_ids": [
+    "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+    "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+  ],
+  "notes": null
+}

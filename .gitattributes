@@ -1,0 +1,18 @@
+# Normalise to LF in the repository regardless of the checkout platform.
+* text=auto eol=lf
+
+# The Gradle wrapper script is executed by /bin/sh on the Linux CI runner —
+# CRLF here produces a "bad interpreter" failure.
+gradlew text eol=lf
+
+# Batch files must keep CRLF to run correctly on Windows.
+*.bat text eol=crlf
+
+# Binary: never touch line endings.
+*.jar binary
+gradle/wrapper/gradle-wrapper.jar binary
+
+# Golden stores pin permanent on-disk formats. They are compared byte for byte and read by a
+# checksummed reader, so a line-ending "fix" on checkout would turn a compatibility test into a
+# corruption test — on one platform only, which is the worst way to find out.
+**/src/test/resources/golden/** binary

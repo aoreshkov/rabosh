@@ -1,0 +1,26 @@
+{
+  "$schema": "https://example.invalid/schema/engine-2.json",
+  "engine": {
+    "storage": {
+      "path": "C:\\data\\rabosh\\primary",
+      "segment": { "target_bytes": 268435456, "bloom_bits_per_key": 10, "compression": null },
+      "wal": { "sync": "on_commit", "max_bytes": 134217728, "checksum": "crc32c" },
+      "compaction": {
+        "levels": [
+          { "level": 0, "max_files": 4 },
+          { "level": 1, "max_bytes": 1073741824 },
+          { "level": 2, "max_bytes": 10737418240 }
+        ],
+        "throttle": { "enabled": true, "target_mb_per_s": 64.5 }
+      }
+    },
+    "catalog": { "max_dynamic_paths": 1024, "max_dynamic_types": 32, "hll_precision": 14 },
+    "query": { "planner": { "prefer_index": true, "scan_fallback": true }, "timeout_ms": 30000 }
+  },
+  "features": { "retroactive_index": true, "shredding": false, "mvcc_snapshots": true },
+  "limits": { "max_document_bytes": 16777216, "max_depth": 1000, "max_open_segments": 512 },
+  "empty_object": {},
+  "empty_array": [],
+  "unicode_keys": { "ключ": "значение", "キー": "値", "🔑": "🗝" },
+  "escapes": "quote:\" backslash:\\ slash:/ bs:\b ff:\f nl:\n cr:\r tab:\t unicode:\u00e9 astral:\ud83d\ude00 nul:\u0000"
+}

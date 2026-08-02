@@ -1,0 +1,284 @@
+public final class app/oreshkov/rabosh/variant/DuplicateFieldPolicy : java/lang/Enum {
+	public static final field LAST_WINS Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;
+	public static final field REJECT Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;
+	public static fun values ()[Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;
+}
+
+public final class app/oreshkov/rabosh/variant/JsonParseException : app/oreshkov/rabosh/variant/VariantException {
+	public fun <init> (Ljava/lang/String;III)V
+	public final fun getColumn ()I
+	public final fun getLine ()I
+	public final fun getOffset ()I
+}
+
+public final class app/oreshkov/rabosh/variant/JsonParser {
+	public fun <init> ()V
+	public fun <init> (I)V
+	public synthetic fun <init> (IILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun parse ([B)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun parseInto (Lapp/oreshkov/rabosh/variant/VariantBuilder;Ljava/lang/String;)V
+	public final fun parseInto (Lapp/oreshkov/rabosh/variant/VariantBuilder;[B)V
+}
+
+public final class app/oreshkov/rabosh/variant/JsonParserKt {
+	public static final field DEFAULT_MAX_JSON_DEPTH I
+}
+
+public final class app/oreshkov/rabosh/variant/JsonWriteException : app/oreshkov/rabosh/variant/VariantException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class app/oreshkov/rabosh/variant/NumbersKt {
+	public static final field MAX_DECIMAL_PRECISION I
+	public static final field MAX_DECIMAL_SCALE I
+}
+
+public final class app/oreshkov/rabosh/variant/Variant {
+	public static final field Companion Lapp/oreshkov/rabosh/variant/Variant$Companion;
+	public fun <init> (Lapp/oreshkov/rabosh/variant/VariantMetadata;Ljava/lang/foreign/MemorySegment;J)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/variant/VariantMetadata;Ljava/lang/foreign/MemorySegment;JILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lapp/oreshkov/rabosh/variant/VariantMetadata;[B)V
+	public final fun binaryValue ()[B
+	public final fun booleanValue ()Z
+	public final fun decimalValue ()Ljava/math/BigDecimal;
+	public final fun doubleValue ()D
+	public final fun element (I)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun elements ()Ljava/util/List;
+	public final fun epochDay ()I
+	public final fun field (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun fieldId (I)I
+	public final fun fieldName (I)Ljava/lang/String;
+	public final fun fieldValue (I)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun fields ()Ljava/util/List;
+	public final fun getBasicType ()Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public final fun getByteSize ()J
+	public final fun getChildCount ()I
+	public final fun getElementCount ()I
+	public final fun getFieldCount ()I
+	public final fun getKind ()Lapp/oreshkov/rabosh/variant/VariantKind;
+	public final fun getMetadata ()Lapp/oreshkov/rabosh/variant/VariantMetadata;
+	public final fun getOffset ()J
+	public final fun getPrimitiveType ()Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public final fun isNull ()Z
+	public final fun longValue ()J
+	public final fun select (Lapp/oreshkov/rabosh/variant/VariantPath;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun select (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun stringValue ()Ljava/lang/String;
+	public final fun temporalValue ()J
+	public final fun toByteArray ()[B
+	public fun toString ()Ljava/lang/String;
+	public final fun uuidValue ()Lkotlin/uuid/Uuid;
+}
+
+public final class app/oreshkov/rabosh/variant/Variant$Companion {
+	public final fun fromJson (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun fromJson ([B)Lapp/oreshkov/rabosh/variant/Variant;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantBasicType : java/lang/Enum {
+	public static final field ARRAY Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public static final field Companion Lapp/oreshkov/rabosh/variant/VariantBasicType$Companion;
+	public static final field OBJECT Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public static final field PRIMITIVE Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public static final field SHORT_STRING Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getId ()I
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantBasicType;
+	public static fun values ()[Lapp/oreshkov/rabosh/variant/VariantBasicType;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantBasicType$Companion {
+	public final fun ofHeader (B)Lapp/oreshkov/rabosh/variant/VariantBasicType;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantBuilder {
+	public fun <init> ()V
+	public fun <init> (Lapp/oreshkov/rabosh/variant/VariantDictionaryBuilder;Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/variant/VariantDictionaryBuilder;Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun append (Lapp/oreshkov/rabosh/variant/Variant;)V
+	public final fun appendBinary ([B)V
+	public final fun appendBoolean (Z)V
+	public final fun appendDate (I)V
+	public final fun appendDecimal (Ljava/math/BigDecimal;)V
+	public final fun appendDouble (D)V
+	public final fun appendFloat (F)V
+	public final fun appendLong (J)V
+	public final fun appendNull ()V
+	public final fun appendNumberLiteral (Ljava/lang/String;)V
+	public final fun appendString (Ljava/lang/String;)V
+	public final fun appendTimeNtz (J)V
+	public final fun appendTimestampMicros (JZ)V
+	public final fun appendTimestampNanos (JZ)V
+	public final fun appendUuid (Lkotlin/uuid/Uuid;)V
+	public final fun build ()[B
+	public final fun buildVariant ()Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun endArray ()V
+	public final fun endObject ()V
+	public final fun field (Ljava/lang/String;)V
+	public final fun getDictionary ()Lapp/oreshkov/rabosh/variant/VariantDictionaryBuilder;
+	public final fun getSize ()I
+	public final fun reset ()V
+	public final fun startArray ()V
+	public final fun startObject ()V
+}
+
+public final class app/oreshkov/rabosh/variant/VariantDictionaryBuilder {
+	public fun <init> ()V
+	public final fun build ()Lapp/oreshkov/rabosh/variant/VariantMetadata;
+	public final fun getSize ()I
+	public final fun intern (Ljava/lang/String;)I
+	public final fun toByteArray ()[B
+}
+
+public abstract class app/oreshkov/rabosh/variant/VariantException : java/lang/RuntimeException {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class app/oreshkov/rabosh/variant/VariantFormatException : app/oreshkov/rabosh/variant/VariantException {
+	public fun <init> (Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/variant/VariantJsonKt {
+	public static final fun appendJsonTo (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;)V
+	public static final fun toJsonString (Lapp/oreshkov/rabosh/variant/Variant;)Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantKind : java/lang/Enum {
+	public static final field ARRAY Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field BINARY Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field BOOLEAN Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field DATE Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field DECIMAL Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field DOUBLE Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field FLOAT Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field INTEGER Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field NULL Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field OBJECT Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field STRING Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field TIME Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field TIMESTAMP Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static final field UUID Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static fun values ()[Lapp/oreshkov/rabosh/variant/VariantKind;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantMetadata {
+	public static final field Companion Lapp/oreshkov/rabosh/variant/VariantMetadata$Companion;
+	public final fun getByteSize ()J
+	public final fun getSize ()I
+	public final fun getSortedAndUnique ()Z
+	public final fun indexOf (Ljava/lang/String;)I
+	public final fun name (I)Ljava/lang/String;
+	public final fun toByteArray ()[B
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantMetadata$Companion {
+	public final fun getEMPTY ()Lapp/oreshkov/rabosh/variant/VariantMetadata;
+	public final fun of ([B)Lapp/oreshkov/rabosh/variant/VariantMetadata;
+	public final fun read (Ljava/lang/foreign/MemorySegment;J)Lapp/oreshkov/rabosh/variant/VariantMetadata;
+	public static synthetic fun read$default (Lapp/oreshkov/rabosh/variant/VariantMetadata$Companion;Ljava/lang/foreign/MemorySegment;JILjava/lang/Object;)Lapp/oreshkov/rabosh/variant/VariantMetadata;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPath {
+	public static final field Companion Lapp/oreshkov/rabosh/variant/VariantPath$Companion;
+	public fun <init> (Ljava/util/List;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSteps ()Ljava/util/List;
+	public fun hashCode ()I
+	public final fun isRoot ()Z
+	public final fun plus (Lapp/oreshkov/rabosh/variant/VariantPath;)Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun plus (Lapp/oreshkov/rabosh/variant/VariantPathStep;)Lapp/oreshkov/rabosh/variant/VariantPath;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPath$Companion {
+	public final fun getROOT ()Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPathKt {
+	public static final fun variantPathOf ([Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
+}
+
+public abstract interface class app/oreshkov/rabosh/variant/VariantPathStep {
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPathStep$Field : app/oreshkov/rabosh/variant/VariantPathStep {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPathStep$Field;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/variant/VariantPathStep$Field;Ljava/lang/String;ILjava/lang/Object;)Lapp/oreshkov/rabosh/variant/VariantPathStep$Field;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPathStep$Index : app/oreshkov/rabosh/variant/VariantPathStep {
+	public fun <init> (I)V
+	public final fun component1 ()I
+	public final fun copy (I)Lapp/oreshkov/rabosh/variant/VariantPathStep$Index;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/variant/VariantPathStep$Index;IILjava/lang/Object;)Lapp/oreshkov/rabosh/variant/VariantPathStep$Index;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getIndex ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPrimitiveType : java/lang/Enum {
+	public static final field BINARY Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field BOOLEAN_FALSE Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field BOOLEAN_TRUE Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field Companion Lapp/oreshkov/rabosh/variant/VariantPrimitiveType$Companion;
+	public static final field DATE Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field DECIMAL16 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field DECIMAL4 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field DECIMAL8 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field DOUBLE Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field FLOAT Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field INT16 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field INT32 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field INT64 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field INT8 Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field MAX_ID I
+	public static final field NULL Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field STRING Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field TIMESTAMP_NANOS_NTZ Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field TIMESTAMP_NANOS_TZ Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field TIMESTAMP_NTZ Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field TIMESTAMP_TZ Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field TIME_NTZ Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static final field UUID Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getId ()I
+	public final fun getKind ()Lapp/oreshkov/rabosh/variant/VariantKind;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public static fun values ()[Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantPrimitiveType$Companion {
+	public final fun ofHeader (B)Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+	public final fun ofId (I)Lapp/oreshkov/rabosh/variant/VariantPrimitiveType;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantSummaryKt {
+	public static final field DEFAULT_SUMMARY_LIMIT I
+	public static final field SUMMARY_VALUE_LIMIT I
+	public static final fun appendJsonSummaryTo (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;I)V
+	public static synthetic fun appendJsonSummaryTo$default (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;IILjava/lang/Object;)V
+	public static final fun toJsonSummaryString (Lapp/oreshkov/rabosh/variant/Variant;I)Ljava/lang/String;
+	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/Variant;IILjava/lang/Object;)Ljava/lang/String;
+	public static final fun toSummaryString (Lapp/oreshkov/rabosh/variant/Variant;)Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/variant/VariantTypeException : app/oreshkov/rabosh/variant/VariantException {
+	public fun <init> (Ljava/lang/String;)V
+}
+

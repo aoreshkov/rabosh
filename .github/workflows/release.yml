@@ -1,0 +1,335 @@
+name: Release
+
+# The tag is the trigger, and publishing the GitHub Release is the last thing that happens.
+#
+# That order is the whole design. Both ends of this pipeline are one-way doors: Maven Central states
+# that "once released/published, you will not be able to remove/update/modify your components", and a
+# GitHub Release published with immutable releases enabled locks its assets and pins its tag forever —
+# including across a repository being deleted and recreated. Only one of the two can go last, and it
+# has to be the one that makes the public claim, because a release announcing a version Central
+# rejected is a permanent announcement of something that does not exist.
+#
+# So a failure anywhere before the Central publish costs a tag and nothing else: delete it, fix, tag
+# again. That is only true while no release holds the tag, which is why the release is created as a
+# draft and published at the end rather than being the thing that starts the run.
+#
+# The pattern GitHub's own "Publishing Java packages with Gradle" tutorial shows — `on: release:
+# types: [created]` — is the opposite order, and it predates both immutability rules. That page also
+# still deploys through OSSRH, which reached end of life on 2025-06-30, so it is not a page to follow
+# on the destination either.
+#
+# Every action is pinned to a commit SHA; see the note at the top of ci.yml for why, and for why
+# `gradle/actions` is held at v5. It matters more here than there: this job holds the signing key.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release, e.g. v0.1.0'
+        required: true
+        type: string
+      publish:
+        description: 'Publish for real. Unticked, the deployment is validated by Central and then dropped.'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  # Never cancel a release in flight. A run cancelled between the Central upload and the publish call
+  # leaves a deployment nobody drops; cancelled *during* the publish call leaves a version that is
+  # public and a tag that is not.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # The same gates CI runs, on both platforms, at the tagged commit. Windows is not a formality here:
+  # a mapped file cannot be deleted on Windows, so the leak assertions in `ResourceLeakTest`,
+  # `IndexLifecycleTest` and `RaboshLifecycleTest` only actually assert anything there.
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Build and check
+        run: ./gradlew build --stacktrace
+
+      # `CentralBundleReport` decides whether a release goes out, and it lives here. An included
+      # build's tests are not part of the root `build`.
+      - name: Check the build logic
+        run: ./gradlew -p build-logic check --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-test-reports-${{ matrix.os }}
+          path: '**/build/reports/tests/**'
+          retention-days: 7
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write       # create the release and push its assets
+      id-token: write       # OIDC, for the build provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0    # `gh release create --verify-tag` needs the tag to be here
+
+      # The version comes from the tag and from nowhere else. `gradle.properties` says
+      # 0.1.0-SNAPSHOT and stays saying it: a release number in a working tree is a number that can
+      # be stale, and the one thing that cannot be stale is what the tag says.
+      - name: Derive the version from the tag
+        id: version
+        # Through the environment rather than interpolated into the script: `inputs.tag` is whatever
+        # the person dispatching typed, and `${{ }}` substitution happens before bash sees the line,
+        # so interpolating it directly would make the tag box a place to write shell.
+        env:
+          RAW_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          TAG="$RAW_TAG"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::'$TAG' is not a release tag. Expected v<major>.<minor>.<patch>[-qualifier]."
+            exit 1
+          fi
+          VERSION="${TAG#v}"
+          if [[ "$VERSION" == *-SNAPSHOT ]]; then
+            echo "::error::Central does not accept a snapshot through the release path."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $VERSION from $TAG"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      # Stages every published module into one directory, signs each file, zips it, and then reads
+      # the zip back and fails unless it is a complete release: every module with an ABI dump, each
+      # with its POM, its main, sources and Dokka jars, and a `.asc`, `.md5` and `.sha1` beside every
+      # one of them. Central rejects a bundle that is malformed; nothing but this rejects a bundle
+      # that is well-formed and *short*.
+      - name: Build and verify the Central bundle
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./gradlew bundleForCentral -Pversion="$VERSION" --stacktrace
+
+      # Provenance for the jars a consumer actually resolves, generated before anything is uploaded
+      # so that what is attested is what is deployed. Verifiable afterwards with
+      # `gh attestation verify <jar> --repo ${{ github.repository }}`.
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: 'build/staging-deploy/**/*.jar'
+
+      # Uploaded as USER_MANAGED, never AUTOMATIC. AUTOMATIC publishes the moment validation passes,
+      # which throws away the one place in this pipeline where the irreversible step can still be
+      # declined — and it is the place the dry run lives.
+      - name: Upload the deployment to Central
+        id: upload
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          DEPLOYMENT_ID=$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $AUTH" \
+            --form bundle=@build/central-bundle.zip \
+            "https://central.sonatype.com/api/v1/publisher/upload?name=rabosh-$VERSION&publishingType=USER_MANAGED")
+          echo "deployment-id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Deployment $DEPLOYMENT_ID uploaded, not published."
+
+      # Central validates asynchronously, so the upload succeeding says nothing about the deployment
+      # being publishable. FAILED is reported with its own errors rather than as a timeout.
+      - name: Wait for Central to validate it
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.deployment-id }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          for attempt in $(seq 1 60); do
+            BODY=$(curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Authorization: Bearer $AUTH" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$DEPLOYMENT_ID")
+            STATE=$(echo "$BODY" | jq -r '.deploymentState')
+            echo "  $attempt/60: $STATE"
+            case "$STATE" in
+              VALIDATED) exit 0 ;;
+              FAILED)
+                echo "::error::Central rejected the deployment."
+                echo "$BODY" | jq -r '.errors // .'
+                exit 1
+                ;;
+              PENDING|VALIDATING) sleep 15 ;;
+              *)
+                echo "::error::Unexpected deployment state '$STATE'."
+                echo "$BODY" | jq -r '.'
+                exit 1
+                ;;
+            esac
+          done
+          echo "::error::Central did not finish validating within 15 minutes."
+          exit 1
+
+      # The dry run stops here, one call short of the door, having proved everything a real release
+      # proves except the part that cannot be undone: the bundle was accepted by the Portal's own
+      # validator, with this signing key, under this namespace. Worth doing before the first release,
+      # since `publishToMavenLocal` in CI checks the POM and nothing checks the rest.
+      - name: Drop the deployment (dry run)
+        if: github.event_name == 'workflow_dispatch' && inputs.publish != true
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.deployment-id }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          curl --fail-with-body --silent --show-error \
+            --request DELETE \
+            --header "Authorization: Bearer $AUTH" \
+            "https://central.sonatype.com/api/v1/publisher/deployment/$DEPLOYMENT_ID"
+          echo "Validated and dropped. Nothing was published; the tag is still free."
+
+      # ---- everything below this line is irreversible ----
+      - name: Publish to Maven Central
+        id: central
+        if: github.event_name == 'push' || inputs.publish == true
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.deployment-id }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $AUTH" \
+            "https://central.sonatype.com/api/v1/publisher/deployment/$DEPLOYMENT_ID"
+          for attempt in $(seq 1 40); do
+            STATE=$(curl --fail-with-body --silent --show-error \
+              --request POST \
+              --header "Authorization: Bearer $AUTH" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$DEPLOYMENT_ID" | jq -r '.deploymentState')
+            echo "  $attempt/40: $STATE"
+            case "$STATE" in
+              PUBLISHED) exit 0 ;;
+              PUBLISHING) sleep 15 ;;
+              *)
+                # Not a failure of the release: the components are on their way to Central and the
+                # publish call was accepted. Reported so the GitHub Release below is not created
+                # against something unfinished.
+                echo "::error::Deployment left publishing in state '$STATE'."
+                exit 1
+                ;;
+            esac
+          done
+          echo "::error::Publishing did not complete within 10 minutes. Check the Portal before retagging."
+          exit 1
+
+      # Draft first, assets attached, published last — GitHub's own guidance for immutable releases,
+      # and the reason this job can fail at any earlier step without leaving a permanent artefact:
+      # "Create the release as a draft. Attach all associated assets to the draft release. Publish
+      # the draft release."
+      - name: Draft the GitHub Release
+        if: steps.central.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > release-notes.md <<EOF
+          Published to Maven Central as \`app.oreshkov:rabosh-api:$VERSION\` and its five sibling modules.
+
+          \`\`\`kotlin
+          dependencies {
+              implementation("app.oreshkov:rabosh-api:$VERSION")
+          }
+          \`\`\`
+
+          Every jar carries a build provenance attestation:
+
+          \`\`\`
+          gh attestation verify rabosh-api-$VERSION.jar --repo ${{ github.repository }}
+          \`\`\`
+          EOF
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "rabosh $VERSION" \
+            --notes-file release-notes.md \
+            --generate-notes \
+            build/central-bundle.zip
+
+      - name: Publish the GitHub Release
+        if: steps.central.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false
+
+      # A run that died between the upload and the publish call leaves a deployment sitting in
+      # VALIDATED, which counts against the namespace and would collide with the retry. Dropping it
+      # is safe in exactly the states where it is possible — VALIDATED and FAILED — and impossible
+      # once PUBLISHED, so this cannot undo a real release.
+      - name: Drop an unpublished deployment
+        if: failure() && steps.upload.outputs.deployment-id != ''
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          DEPLOYMENT_ID: ${{ steps.upload.outputs.deployment-id }}
+        run: |
+          set -euo pipefail
+          AUTH=$(printf '%s:%s' "$CENTRAL_USERNAME" "$CENTRAL_PASSWORD" | base64 -w0)
+          echo "::add-mask::$AUTH"
+          curl --silent --show-error \
+            --request DELETE \
+            --header "Authorization: Bearer $AUTH" \
+            "https://central.sonatype.com/api/v1/publisher/deployment/$DEPLOYMENT_ID" \
+            || echo "Could not drop $DEPLOYMENT_ID; it may already be published. Check the Portal."

@@ -1,0 +1,161 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "app.oreshkov.rabosh.bench.BitmapBenchmark.andCardinality",
+        "mode" : "thrpt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/opt/java/temurin-25/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "25.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.1+8-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "200 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "200 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "density" : "array"
+        },
+        "primaryMetric" : {
+            "score" : 128057.97436746351,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 128057.97436746351,
+                "50.0" : 128057.97436746351,
+                "90.0" : 128057.97436746351,
+                "95.0" : 128057.97436746351,
+                "99.0" : 128057.97436746351,
+                "99.9" : 128057.97436746351,
+                "99.99" : 128057.97436746351,
+                "99.999" : 128057.97436746351,
+                "99.9999" : 128057.97436746351,
+                "100.0" : 128057.97436746351
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    128057.97436746351
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "app.oreshkov.rabosh.bench.IngestBenchmark.delete",
+        "mode" : "thrpt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/opt/java/temurin-25/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "25.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.1+8-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "200 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "200 ms",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "durability" : "SYNC"
+        },
+        "primaryMetric" : {
+            "score" : 3068.662441163247,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 3068.662441163247,
+                "50.0" : 3068.662441163247,
+                "90.0" : 3068.662441163247,
+                "95.0" : 3068.662441163247,
+                "99.0" : 3068.662441163247,
+                "99.9" : 3068.662441163247,
+                "99.99" : 3068.662441163247,
+                "99.999" : 3068.662441163247,
+                "99.9999" : 3068.662441163247,
+                "100.0" : 3068.662441163247
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    3068.662441163247
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "app.oreshkov.rabosh.bench.VariantBenchmark.fieldByName",
+        "mode" : "thrpt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/opt/java/temurin-25/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "25.0.1",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.1+8-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "200 ms",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "200 ms",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 1.1958971445853371E7,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1.1958971445853371E7,
+                "50.0" : 1.1958971445853371E7,
+                "90.0" : 1.1958971445853371E7,
+                "95.0" : 1.1958971445853371E7,
+                "99.0" : 1.1958971445853371E7,
+                "99.9" : 1.1958971445853371E7,
+                "99.99" : 1.1958971445853371E7,
+                "99.999" : 1.1958971445853371E7,
+                "99.9999" : 1.1958971445853371E7,
+                "100.0" : 1.1958971445853371E7
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    1.1958971445853371E7
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]

@@ -1,0 +1,51 @@
+{
+  "order_id": "SO-2026-000148217",
+  "placed_at": "2026-07-24T18:03:11+02:00",
+  "currency": "EUR",
+  "customer": {
+    "id": 55123,
+    "name": "Ана Петрова",
+    "email": "ana.petrova@example.invalid",
+    "vat_id": null,
+    "addresses": [
+      {
+        "kind": "billing",
+        "line1": "Ул. \"Драган Цанков\" 36",
+        "city": "София",
+        "postcode": "1113",
+        "country": "BG"
+      },
+      {
+        "kind": "shipping",
+        "line1": "Højbro Plads 21",
+        "city": "København",
+        "postcode": "1200",
+        "country": "DK"
+      }
+    ]
+  },
+  "lines": [
+    {
+      "sku": "KB-87-BROWN",
+      "description": "Mechanical keyboard, 87-key\t(tenkeyless)",
+      "quantity": 2,
+      "unit_price": 129.99,
+      "discount_pct": 12.5,
+      "tax": { "rate": 0.2, "included": false, "amount": 45.4965 },
+      "attributes": { "layout": "ISO", "switch": "brown", "backlit": true }
+    },
+    {
+      "sku": "CBL-USB-C-2M",
+      "description": "USB-C cable, 2 m",
+      "quantity": 1,
+      "unit_price": 14.5,
+      "discount_pct": 0,
+      "tax": { "rate": 0.2, "included": false, "amount": 2.9 },
+      "attributes": {}
+    }
+  ],
+  "totals": { "net": 242.4825, "tax": 48.3965, "gross": 290.879, "rounding": -0.001 },
+  "notes": "Leave with the neighbour if absent.\nRing twice.",
+  "gift": false,
+  "loyalty_points": 1450
+}

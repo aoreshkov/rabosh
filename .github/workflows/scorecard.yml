@@ -1,0 +1,76 @@
+name: Scorecard
+
+# OpenSSF Scorecard: an outside opinion on this repository's supply-chain posture, published so it
+# is an opinion anyone can read rather than one only the owner sees.
+#
+# What it is for here is the checks that measure things a maintainer cannot see from inside — a
+# workflow that became injectable, an action that stopped being pinned, a branch rule that was
+# relaxed and forgotten. What it is not for is its own score: several checks measure practices this
+# project has considered and declined, and chasing them would be optimising for the meter.
+#
+# `Fuzzing` will fail. The engine is fuzzed — `rabosh-testkit` carries a property harness and a
+# fault-injecting filesystem, and the crash-safety suites run randomised workloads — but Scorecard
+# looks for OSS-Fuzz or ClusterFuzzLite specifically and finds neither.
+#
+# `CII-Best-Practices` will fail: no OpenSSF badge is registered, which is a form to fill in rather
+# than a property of the code.
+#
+# `Signed-Releases` fails until the first release and then passes: every artefact in the Central
+# bundle carries a detached `.asc`, and `CentralBundleReport` fails the release if one is missing.
+#
+# Every action is pinned to a commit SHA; see the note at the top of ci.yml.
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly. The score moves when a dependency or a repository setting moves, neither of which is
+    # a push-shaped event, so a cron is the only thing that observes them.
+    - cron: '27 4 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload the result to the repository's code-scanning dashboard.
+      security-events: write
+      # Read the workflow run history, which is how the `Dangerous-Workflow` and `Token-Permissions`
+      # checks see what actually ran rather than what the YAML says.
+      actions: read
+      contents: read
+      # OIDC, for publishing the result to the public OpenSSF API below.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run the analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Published to the OpenSSF API, which is what makes the badge in the README resolve and
+          # what lets a consumer check this project without running anything.
+          publish_results: true
+
+      - name: Upload the result as an artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      # Code scanning is where a finding becomes visible next to the code it is about. The upload
+      # action is used on its own here — CodeQL itself is deliberately absent, because it cannot
+      # analyse this codebase: `java-kotlin` supports Kotlin up to 2.3.20 and this build is on 2.4.10.
+      - name: Upload the result to code scanning
+        uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        with:
+          sarif_file: results.sarif

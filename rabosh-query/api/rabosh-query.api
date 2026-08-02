@@ -1,0 +1,307 @@
+public final class app/oreshkov/rabosh/query/Comparison : java/lang/Enum {
+	public static final field EQ Lapp/oreshkov/rabosh/query/Comparison;
+	public static final field GE Lapp/oreshkov/rabosh/query/Comparison;
+	public static final field GT Lapp/oreshkov/rabosh/query/Comparison;
+	public static final field LE Lapp/oreshkov/rabosh/query/Comparison;
+	public static final field LT Lapp/oreshkov/rabosh/query/Comparison;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Comparison;
+	public static fun values ()[Lapp/oreshkov/rabosh/query/Comparison;
+}
+
+public final class app/oreshkov/rabosh/query/Explain {
+	public final fun getProjectsFromColumns ()Z
+	public final fun getQuery ()Lapp/oreshkov/rabosh/query/Query;
+	public final fun getScansUnflushed ()Z
+	public final fun getSegmentsIndexed ()I
+	public final fun getSegmentsScanned ()I
+	public final fun getSources ()Ljava/util/List;
+	public final fun getUsesIndexes ()Z
+	public final fun render ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/ExplainSource {
+	public final fun getCandidates ()I
+	public final fun getCertain ()I
+	public final fun getDescribes ()Ljava/lang/String;
+	public final fun getEstimate ()Ljava/lang/String;
+	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/IndexUse {
+	public final fun getCoverage ()Lapp/oreshkov/rabosh/index/IndexCoverage;
+	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun getSegmentsEvaluated ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/PathRef {
+	public final fun between (JJ)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun between (Ljava/lang/String;Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun between (Ljava/math/BigDecimal;Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun eq (D)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun eq (J)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun eq (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun eq (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun eq (Z)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun exists ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun ge (J)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun ge (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun ge (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun gt (J)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun gt (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun gt (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun isNull ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun le (J)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun le (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun le (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun lt (J)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun lt (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun lt (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun oneOf (Ljava/util/Collection;)Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun oneOf ([Ljava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate;
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class app/oreshkov/rabosh/query/Predicate {
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$And : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate$And;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$And;Ljava/util/List;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$And;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperands ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$AnyOf : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Ljava/util/List;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun component2 ()Ljava/util/List;
+	public final fun copy (Lapp/oreshkov/rabosh/catalog/CatalogPath;Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate$AnyOf;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$AnyOf;Lapp/oreshkov/rabosh/catalog/CatalogPath;Ljava/util/List;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$AnyOf;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getValues ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$Compare : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Comparison;Lapp/oreshkov/rabosh/query/QueryValue;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun component2 ()Lapp/oreshkov/rabosh/query/Comparison;
+	public final fun component3 ()Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun copy (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Comparison;Lapp/oreshkov/rabosh/query/QueryValue;)Lapp/oreshkov/rabosh/query/Predicate$Compare;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$Compare;Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Comparison;Lapp/oreshkov/rabosh/query/QueryValue;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$Compare;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperator ()Lapp/oreshkov/rabosh/query/Comparison;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getValue ()Lapp/oreshkov/rabosh/query/QueryValue;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$Exists : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun copy (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/query/Predicate$Exists;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$Exists;Lapp/oreshkov/rabosh/catalog/CatalogPath;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$Exists;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$False : app/oreshkov/rabosh/query/Predicate {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/query/Predicate$False;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$IsNull : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun copy (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/query/Predicate$IsNull;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$IsNull;Lapp/oreshkov/rabosh/catalog/CatalogPath;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$IsNull;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$Not : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/query/Predicate;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun copy (Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate$Not;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$Not;Lapp/oreshkov/rabosh/query/Predicate;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$Not;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperand ()Lapp/oreshkov/rabosh/query/Predicate;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$Or : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Ljava/util/List;)V
+	public final fun component1 ()Ljava/util/List;
+	public final fun copy (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate$Or;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$Or;Ljava/util/List;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$Or;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperands ()Ljava/util/List;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Predicate$True : app/oreshkov/rabosh/query/Predicate {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/query/Predicate$True;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/PredicateKt {
+	public static final fun paths (Lapp/oreshkov/rabosh/query/Predicate;)Ljava/util/List;
+}
+
+public final class app/oreshkov/rabosh/query/PredicatesKt {
+	public static final fun allOf (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun and (Lapp/oreshkov/rabosh/query/Predicate;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun and ([Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun anyOf (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun not (Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun or (Lapp/oreshkov/rabosh/query/Predicate;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun or ([Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun path (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/query/PathRef;
+	public static final fun path (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/PathRef;
+}
+
+public final class app/oreshkov/rabosh/query/Projection {
+	public static final field Companion Lapp/oreshkov/rabosh/query/Projection$Companion;
+	public final fun getNames ()Ljava/util/List;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Projection$Companion {
+	public final fun getDOCUMENT ()Lapp/oreshkov/rabosh/query/Projection;
+	public final fun getKEY ()Lapp/oreshkov/rabosh/query/Projection;
+	public final fun of (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Projection;
+	public final fun of ([Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Projection;
+}
+
+public final class app/oreshkov/rabosh/query/Query {
+	public static final field Companion Lapp/oreshkov/rabosh/query/Query$Companion;
+	public static final field NO_LIMIT I
+	public final fun getFrom ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun getLimit ()I
+	public final fun getPredicate ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun getProjection ()Lapp/oreshkov/rabosh/query/Projection;
+	public final fun getTo ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun limit (I)Lapp/oreshkov/rabosh/query/Query;
+	public final fun project (Lapp/oreshkov/rabosh/query/Projection;)Lapp/oreshkov/rabosh/query/Query;
+	public final fun project ([Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Query;
+	public final fun range (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/query/Query;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Query$Companion {
+	public final fun all ()Lapp/oreshkov/rabosh/query/Query;
+	public final fun where (Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Query;
+}
+
+public final class app/oreshkov/rabosh/query/QueryCursor : java/lang/AutoCloseable {
+	public fun close ()V
+	public final fun getKey ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun getRow ()Lapp/oreshkov/rabosh/query/Row;
+	public final fun getStats ()Lapp/oreshkov/rabosh/query/QueryStats;
+	public final fun next ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/QueryEngine {
+	public fun <init> (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexCatalog;Lapp/oreshkov/rabosh/catalog/InferredSchema;)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexCatalog;Lapp/oreshkov/rabosh/catalog/InferredSchema;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun execute (Lapp/oreshkov/rabosh/query/Query;)Lapp/oreshkov/rabosh/query/QueryCursor;
+	public final fun execute (Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/query/QueryCursor;
+	public static synthetic fun execute$default (Lapp/oreshkov/rabosh/query/QueryEngine;Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/QueryCursor;
+	public final fun explain (Lapp/oreshkov/rabosh/query/Query;)Lapp/oreshkov/rabosh/query/Explain;
+	public final fun explain (Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/query/Explain;
+	public static synthetic fun explain$default (Lapp/oreshkov/rabosh/query/QueryEngine;Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Explain;
+	public final fun keys (Lapp/oreshkov/rabosh/query/Query;)Ljava/util/List;
+	public final fun keys (Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;)Ljava/util/List;
+	public static synthetic fun keys$default (Lapp/oreshkov/rabosh/query/QueryEngine;Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Ljava/util/List;
+}
+
+public final class app/oreshkov/rabosh/query/QueryStats {
+	public final fun getBlocksScanned ()I
+	public final fun getBlocksSkipped ()I
+	public final fun getCandidateKeys ()I
+	public final fun getDocumentsRead ()I
+	public final fun getIndexes ()Ljava/util/List;
+	public final fun getRowsProjectedFromColumns ()I
+	public final fun getRowsReturned ()I
+	public final fun getScannedUnflushed ()Z
+	public final fun getSegmentsIndexed ()I
+	public final fun getSegmentsScanned ()I
+	public final fun getSegmentsSkipped ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract interface class app/oreshkov/rabosh/query/QueryValue {
+	public static final field Companion Lapp/oreshkov/rabosh/query/QueryValue$Companion;
+}
+
+public final class app/oreshkov/rabosh/query/QueryValue$Bool : app/oreshkov/rabosh/query/QueryValue {
+	public fun <init> (Z)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/QueryValue$Companion {
+	public final fun of (D)Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun of (J)Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun of (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun of (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun of (Z)Lapp/oreshkov/rabosh/query/QueryValue;
+	public final fun ofAny (Ljava/lang/Object;)Lapp/oreshkov/rabosh/query/QueryValue;
+}
+
+public final class app/oreshkov/rabosh/query/QueryValue$Null : app/oreshkov/rabosh/query/QueryValue {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/query/QueryValue$Null;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/QueryValue$Numeric : app/oreshkov/rabosh/query/QueryValue {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Ljava/math/BigDecimal;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/QueryValue$Text : app/oreshkov/rabosh/query/QueryValue {
+	public fun <init> (Ljava/lang/String;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getValue ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/Row {
+	public final fun document ()Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun get (I)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun get (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun getKey ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun toJsonString ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+

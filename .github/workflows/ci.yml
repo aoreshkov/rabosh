@@ -1,0 +1,103 @@
+name: CI
+
+# Every action is pinned to a commit SHA with its version in the comment beside it. A major tag is
+# a moving reference: whoever can move it can run code in a job that has this repository checked
+# out, and that is the attack every recent Actions supply-chain incident has used. The comment is
+# not decoration — it is what Dependabot rewrites and what makes the bump readable in a diff.
+#
+# `gradle/actions` is deliberately held at v5 rather than v6. v6 extracts caching into
+# `gradle-actions-caching`, a proprietary component not covered by the MIT licence, and states that
+# upgrading constitutes accepting its commercial Terms of Use. This project's dependency policy does
+# not let a build acquire one of those silently.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The wrapper jar is committed, so it is code this repository ships. This checks it against
+      # Gradle's published checksums; `distributionSha256Sum` in gradle-wrapper.properties pins the
+      # distribution it downloads. Two different files, two separate pins, both needed.
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          # The engine maps segments via the FFM API, final since JDK 22; 25 is the LTS.
+          java-version: 25
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      # `build` runs compilation, tests, and checkKotlinAbi — a public-API change that is
+      # not reflected in the committed api/*.api dumps fails here.
+      - name: Build and check
+        run: ./gradlew build --stacktrace
+
+      # `build-logic` is included through pluginManagement, so the root `build` does not run its
+      # tests. They decide whether a benchmark that produced no results fails the build, which is
+      # not a thing to leave unrun.
+      - name: Check the build logic
+        run: ./gradlew -p build-logic check --stacktrace
+
+      # Benchmarks are code, and code that nothing runs stops compiling. This runs every suite
+      # once, briefly: it proves they start and measure the thing they name — and since phase 16 it
+      # can actually prove it, because the task now fails when JMH produced no results rather than
+      # passing over a run that never started. The numbers are not comparable between runs and are
+      # not treated as a gate — on a shared runner that would be a test of the runner. The real
+      # suite is `./gradlew :rabosh-bench:mainBenchmark`, run by hand.
+      - name: Smoke the benchmarks
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew :rabosh-bench:smokeBenchmark --stacktrace
+
+      # The published artefacts are part of the deliverable: this catches a broken POM, a Dokka
+      # failure or a missing sources jar at the point it is introduced rather than at a release.
+      - name: Check the publication
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew publishToMavenLocal --stacktrace
+
+      # `publishToMavenLocal` builds each module's own Dokka HTML for the `javadoc` classifier, but
+      # not the aggregated site — that is the root's `rabosh.api-docs`, and only `docs.yml` on `main`
+      # would otherwise run it. A pull request that broke the aggregation would go green here and
+      # fail after merge, on the deployment. So the aggregation is built where it can still be a
+      # review comment.
+      - name: Check the aggregated API documentation
+        if: matrix.os == 'ubuntu-latest'
+        run: ./gradlew dokkaGenerate --stacktrace
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-${{ matrix.os }}
+          path: '**/build/reports/tests/**'
+          retention-days: 7
+
+      - name: Upload benchmark results
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark-smoke
+          path: rabosh-bench/build/reports/benchmarks/**
+          retention-days: 7
+          if-no-files-found: ignore

@@ -1,0 +1,303 @@
+public final class app/oreshkov/rabosh/catalog/CatalogCoverage {
+	public final fun getFraction ()D
+	public final fun getSegmentsCovered ()I
+	public final fun getSegmentsTotal ()I
+	public final fun isComplete ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public abstract class app/oreshkov/rabosh/catalog/CatalogException : java/lang/RuntimeException {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogOptions {
+	public static final field Companion Lapp/oreshkov/rabosh/catalog/CatalogOptions$Companion;
+	public fun <init> ()V
+	public fun <init> (IIIILapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;)V
+	public synthetic fun <init> (IIIILapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getDamagedSketches ()Lapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;
+	public final fun getMaxChildren ()I
+	public final fun getMaxDepth ()I
+	public final fun getMaxPaths ()I
+	public final fun getTextBoundBytes ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogOptions$Companion {
+	public final fun getDEFAULT ()Lapp/oreshkov/rabosh/catalog/CatalogOptions;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogOptionsKt {
+	public static final field DEFAULT_MAX_CHILDREN I
+	public static final field DEFAULT_MAX_DEPTH I
+	public static final field DEFAULT_MAX_PATHS I
+	public static final field DEFAULT_TEXT_BOUND_BYTES I
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogPath : java/lang/Comparable {
+	public static final field Companion Lapp/oreshkov/rabosh/catalog/CatalogPath$Companion;
+	public fun <init> (Ljava/util/List;)V
+	public fun compareTo (Lapp/oreshkov/rabosh/catalog/CatalogPath;)I
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDepth ()I
+	public final fun getSteps ()Ljava/util/List;
+	public fun hashCode ()I
+	public final fun isRoot ()Z
+	public final fun plus (Lapp/oreshkov/rabosh/catalog/CatalogStep;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun startsWith (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogPath$Companion {
+	public final fun getROOT ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogPathKt {
+	public static final fun catalogPathOf ([Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogStateException : app/oreshkov/rabosh/catalog/CatalogException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public abstract interface class app/oreshkov/rabosh/catalog/CatalogStep {
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogStep$AnyElement : app/oreshkov/rabosh/catalog/CatalogStep {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/catalog/CatalogStep$AnyElement;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/CatalogStep$Field : app/oreshkov/rabosh/catalog/CatalogStep {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun copy (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogStep$Field;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/catalog/CatalogStep$Field;Ljava/lang/String;ILjava/lang/Object;)Lapp/oreshkov/rabosh/catalog/CatalogStep$Field;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getName ()Ljava/lang/String;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/CorruptSketchException : app/oreshkov/rabosh/catalog/CatalogException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/catalog/DamagedSketchPolicy : java/lang/Enum {
+	public static final field REBUILD Lapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;
+	public static final field REPORT Lapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;
+	public static fun values ()[Lapp/oreshkov/rabosh/catalog/DamagedSketchPolicy;
+}
+
+public final class app/oreshkov/rabosh/catalog/HyperLogLog {
+	public fun <init> ()V
+	public final fun add (J)V
+	public final fun add ([B)V
+	public final fun copy ()Lapp/oreshkov/rabosh/catalog/HyperLogLog;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEstimate ()J
+	public fun hashCode ()I
+	public final fun isEmpty ()Z
+	public final fun isSparse ()Z
+	public final fun merge (Lapp/oreshkov/rabosh/catalog/HyperLogLog;)V
+	public final fun mergedWith (Lapp/oreshkov/rabosh/catalog/HyperLogLog;)Lapp/oreshkov/rabosh/catalog/HyperLogLog;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/IndexCandidate {
+	public final fun getField ()Lapp/oreshkov/rabosh/catalog/InferredField;
+	public final fun getKind ()Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getReason ()Ljava/lang/String;
+	public final fun getScore ()D
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/IndexCandidateOptions {
+	public static final field Companion Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions$Companion;
+	public fun <init> ()V
+	public fun <init> (JDDJDI)V
+	public synthetic fun <init> (JDDJDIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getLimit ()I
+	public final fun getMinColumnByteShare ()D
+	public final fun getMinDistinct ()J
+	public final fun getMinObservations ()J
+	public final fun getMinPresence ()D
+	public final fun getMinTypeStability ()D
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/IndexCandidateOptions$Companion {
+	public final fun getDEFAULT ()Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions;
+}
+
+public final class app/oreshkov/rabosh/catalog/IndexKind : java/lang/Enum {
+	public static final field INVERTED Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public static final field SHREDDED_COLUMN Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public static fun values ()[Lapp/oreshkov/rabosh/catalog/IndexKind;
+}
+
+public final class app/oreshkov/rabosh/catalog/InferredField {
+	public final fun getAverageBytes ()D
+	public final fun getBounds ()Lapp/oreshkov/rabosh/catalog/ValueBounds;
+	public final fun getDistinctEstimate ()J
+	public final fun getDistinctIsExact ()Z
+	public final fun getDominantType ()Lapp/oreshkov/rabosh/variant/VariantKind;
+	public final fun getNullFraction ()D
+	public final fun getObservations ()J
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getPresence ()D
+	public final fun getSketch ()Lapp/oreshkov/rabosh/catalog/PathSketch;
+	public final fun getTypeStability ()D
+	public final fun getTypes ()Ljava/util/Map;
+	public final fun isStableScalar ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/InferredSchema {
+	public final fun get (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/catalog/InferredField;
+	public final fun get (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/InferredField;
+	public final fun getCoverage ()Lapp/oreshkov/rabosh/catalog/CatalogCoverage;
+	public final fun getDocumentCount ()J
+	public final fun getFields ()Ljava/util/List;
+	public final fun getTruncatedObservations ()J
+	public final fun getTruncatedPathEstimate ()J
+	public final fun isTruncated ()Z
+	public final fun render ()Ljava/lang/String;
+	public final fun required (D)Ljava/util/List;
+	public static synthetic fun required$default (Lapp/oreshkov/rabosh/catalog/InferredSchema;DILjava/lang/Object;)Ljava/util/List;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/NumericRange {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMax ()Ljava/math/BigDecimal;
+	public final fun getMin ()Ljava/math/BigDecimal;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/PathSketch {
+	public final fun count (Lapp/oreshkov/rabosh/variant/VariantKind;)J
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getAverageBytes ()D
+	public final fun getBounds ()Lapp/oreshkov/rabosh/catalog/ValueBounds;
+	public final fun getDistinctEstimate ()J
+	public final fun getDistinctIsExact ()Z
+	public final fun getDominantType ()Lapp/oreshkov/rabosh/variant/VariantKind;
+	public final fun getNullObservations ()J
+	public final fun getObservations ()J
+	public final fun getTotalBytes ()J
+	public final fun getTypeStability ()D
+	public final fun getTypes ()Ljava/util/Map;
+	public fun hashCode ()I
+	public final fun merge (Lapp/oreshkov/rabosh/catalog/PathSketch;)Lapp/oreshkov/rabosh/catalog/PathSketch;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/SchemaCatalog : app/oreshkov/rabosh/core/SegmentObserver {
+	public fun <init> (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/catalog/CatalogOptions;)V
+	public synthetic fun <init> (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/catalog/CatalogOptions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun attach (Lapp/oreshkov/rabosh/core/DocumentStore;)V
+	public final fun attach (Lapp/oreshkov/rabosh/core/DocumentStore;Z)V
+	public static synthetic fun attach$default (Lapp/oreshkov/rabosh/catalog/SchemaCatalog;Lapp/oreshkov/rabosh/core/DocumentStore;ZILjava/lang/Object;)V
+	public fun beginSegment (J)Lapp/oreshkov/rabosh/core/SegmentObservation;
+	public final fun getDirectory ()Ljava/nio/file/Path;
+	public final fun getOptions ()Lapp/oreshkov/rabosh/catalog/CatalogOptions;
+	public final fun getProblems ()Ljava/util/List;
+	public final fun indexCandidates (Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions;)Ljava/util/List;
+	public static synthetic fun indexCandidates$default (Lapp/oreshkov/rabosh/catalog/SchemaCatalog;Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions;ILjava/lang/Object;)Ljava/util/List;
+	public final fun inferSchema ()Lapp/oreshkov/rabosh/catalog/InferredSchema;
+	public final fun isAttached ()Z
+	public fun observerFailed (Ljava/lang/Throwable;)V
+	public final fun rebuild (Lapp/oreshkov/rabosh/core/DocumentStore;)V
+	public fun retain (Ljava/util/Set;)V
+	public final fun sketchOf (J)Lapp/oreshkov/rabosh/catalog/SegmentSketch;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/SegmentSketch {
+	public static final field Companion Lapp/oreshkov/rabosh/catalog/SegmentSketch$Companion;
+	public final fun entries ()Ljava/util/Map;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun get (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/catalog/PathSketch;
+	public final fun getDocumentCount ()J
+	public final fun getDroppedObservations ()J
+	public final fun getEstimatedDroppedPaths ()J
+	public final fun getObservationCount ()J
+	public final fun getPathCount ()I
+	public final fun getPaths ()Ljava/util/Set;
+	public fun hashCode ()I
+	public final fun merge (Lapp/oreshkov/rabosh/catalog/SegmentSketch;I)Lapp/oreshkov/rabosh/catalog/SegmentSketch;
+	public static synthetic fun merge$default (Lapp/oreshkov/rabosh/catalog/SegmentSketch;Lapp/oreshkov/rabosh/catalog/SegmentSketch;IILjava/lang/Object;)Lapp/oreshkov/rabosh/catalog/SegmentSketch;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/SegmentSketch$Companion {
+	public final fun getEMPTY ()Lapp/oreshkov/rabosh/catalog/SegmentSketch;
+}
+
+public final class app/oreshkov/rabosh/catalog/TextRange {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getMax ()Ljava/lang/String;
+	public final fun getMaxIsExact ()Z
+	public final fun getMin ()Ljava/lang/String;
+	public final fun getMinIsExact ()Z
+	public fun hashCode ()I
+	public final fun maxUtf8 ()[B
+	public final fun minUtf8 ()[B
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/UnsupportedSketchFormatException : app/oreshkov/rabosh/catalog/CatalogException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class app/oreshkov/rabosh/catalog/ValueBounds {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getNumeric ()Lapp/oreshkov/rabosh/catalog/NumericRange;
+	public final fun getText ()Lapp/oreshkov/rabosh/catalog/TextRange;
+	public fun hashCode ()I
+	public final fun isEmpty ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/ValueBoundsBuilder {
+	public fun <init> (I)V
+	public final fun add (Lapp/oreshkov/rabosh/catalog/ValueBounds;)V
+	public final fun add (Lapp/oreshkov/rabosh/variant/Variant;)V
+	public final fun addNumber (Ljava/math/BigDecimal;)V
+	public final fun addText ([B)V
+	public final fun build ()Lapp/oreshkov/rabosh/catalog/ValueBounds;
+	public final fun isEmpty ()Z
+}
+
+public final class app/oreshkov/rabosh/catalog/ValueSignature {
+	public static final field BINARY I
+	public static final field BOOLEAN I
+	public static final field INSTANCE Lapp/oreshkov/rabosh/catalog/ValueSignature;
+	public static final field NUMERIC I
+	public static final field TEMPORAL I
+	public static final field TEXT I
+	public static final field UUID I
+	public final fun of (Lapp/oreshkov/rabosh/variant/Variant;)[B
+	public final fun ofBinary ([B)[B
+	public final fun ofBoolean (Z)[B
+	public final fun ofNumber (D)[B
+	public final fun ofNumber (J)[B
+	public final fun ofNumber (Ljava/math/BigDecimal;)[B
+	public final fun ofText (Ljava/lang/String;)[B
+	public final fun tagName (I)Ljava/lang/String;
+}
+

@@ -1,0 +1,434 @@
+public final class app/oreshkov/rabosh/index/Bitmap : app/oreshkov/rabosh/index/ReadableBitmap {
+	public static final field Companion Lapp/oreshkov/rabosh/index/Bitmap$Companion;
+	public fun <init> ()V
+	public final fun add (I)Z
+	public final fun addAll (Lkotlin/ranges/IntRange;)V
+	public fun and (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun andCardinality (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public fun andNot (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun andNotWith (Lapp/oreshkov/rabosh/index/ReadableBitmap;)V
+	public final fun andWith (Lapp/oreshkov/rabosh/index/ReadableBitmap;)V
+	public final fun clear ()V
+	public fun contains (I)Z
+	public final fun copy ()Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun cursor ()Lapp/oreshkov/rabosh/index/BitmapCursor;
+	public fun encode ()[B
+	public fun encodedByteSize ()I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun first ()I
+	public fun getCardinality ()I
+	public fun hashCode ()I
+	public fun intersects (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Z
+	public fun isEmpty ()Z
+	public fun last ()I
+	public fun or (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun orWith (Lapp/oreshkov/rabosh/index/ReadableBitmap;)V
+	public fun rank (I)I
+	public final fun remove (I)Z
+	public final fun removeAll (Lkotlin/ranges/IntRange;)V
+	public fun select (I)I
+	public fun toBitmap ()Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun toIntArray ()[I
+	public fun toString ()Ljava/lang/String;
+	public fun xor (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun xorWith (Lapp/oreshkov/rabosh/index/ReadableBitmap;)V
+}
+
+public final class app/oreshkov/rabosh/index/Bitmap$Companion {
+	public final fun intersection (Ljava/lang/Iterable;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun of ([I)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun ofRange (Lkotlin/ranges/IntRange;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun union (Ljava/lang/Iterable;)Lapp/oreshkov/rabosh/index/Bitmap;
+}
+
+public final class app/oreshkov/rabosh/index/BitmapCursor {
+	public final fun advanceTo (I)Z
+	public final fun getValue ()I
+	public final fun next ()Z
+}
+
+public final class app/oreshkov/rabosh/index/BitmapView : app/oreshkov/rabosh/index/ReadableBitmap {
+	public static final field Companion Lapp/oreshkov/rabosh/index/BitmapView$Companion;
+	public fun and (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun andCardinality (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public fun andNot (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun contains (I)Z
+	public fun cursor ()Lapp/oreshkov/rabosh/index/BitmapCursor;
+	public fun encode ()[B
+	public fun encodedByteSize ()I
+	public fun equals (Ljava/lang/Object;)Z
+	public fun first ()I
+	public final fun getByteSize ()I
+	public fun getCardinality ()I
+	public fun hashCode ()I
+	public fun intersects (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Z
+	public fun isEmpty ()Z
+	public fun last ()I
+	public fun or (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun rank (I)I
+	public fun select (I)I
+	public fun toBitmap ()Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun toIntArray ()[I
+	public fun toString ()Ljava/lang/String;
+	public final fun verify ()V
+	public fun xor (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+}
+
+public final class app/oreshkov/rabosh/index/BitmapView$Companion {
+	public final fun open (Ljava/lang/foreign/MemorySegment;JILjava/lang/String;)Lapp/oreshkov/rabosh/index/BitmapView;
+	public final fun open ([BLjava/lang/String;)Lapp/oreshkov/rabosh/index/BitmapView;
+	public static synthetic fun open$default (Lapp/oreshkov/rabosh/index/BitmapView$Companion;[BLjava/lang/String;ILjava/lang/Object;)Lapp/oreshkov/rabosh/index/BitmapView;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnMatch {
+	public final fun getBlocksScanned ()I
+	public final fun getBlocksSkipped ()I
+	public final fun getMatches ()Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun getResiduals ()Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun getSegmentSkipped ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnPredicate {
+	public static final field Companion Lapp/oreshkov/rabosh/index/ColumnPredicate$Companion;
+	public final fun matches (Lapp/oreshkov/rabosh/variant/Variant;)Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnPredicate$Companion {
+	public final fun booleanEqualTo (Z)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun exists ()Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun isNull ()Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun numericEqualTo (J)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun numericEqualTo (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun numericRange (Ljava/math/BigDecimal;Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun numericRange (Ljava/math/BigDecimal;ZLjava/math/BigDecimal;Z)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun textEqualTo (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun textRange (Ljava/lang/String;Ljava/lang/String;)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+	public final fun textRange (Ljava/lang/String;ZLjava/lang/String;Z)Lapp/oreshkov/rabosh/index/ColumnPredicate;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnQuery {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/index/ColumnQuery;
+	public final fun keysMatching (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/ColumnReader;Lapp/oreshkov/rabosh/index/ColumnPredicate;)Lapp/oreshkov/rabosh/index/ColumnScan;
+	public final fun scanKeys (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/ColumnReader;Lapp/oreshkov/rabosh/index/ColumnPredicate;)Lapp/oreshkov/rabosh/index/ColumnScan;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnReader : java/lang/AutoCloseable {
+	public final fun canProject (J)Z
+	public final fun canProject (JI)Z
+	public fun close ()V
+	public final fun columnTypes ()Ljava/util/List;
+	public final fun documentOrdinals (J)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun evaluate (JLapp/oreshkov/rabosh/index/ColumnPredicate;)Lapp/oreshkov/rabosh/index/ColumnMatch;
+	public final fun getCoverage ()Lapp/oreshkov/rabosh/index/IndexCoverage;
+	public final fun getHasUnflushedDocuments ()Z
+	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getSnapshot ()Lapp/oreshkov/rabosh/core/Snapshot;
+	public final fun getUncoveredSegments ()Ljava/util/Set;
+	public final fun getUsableSegments ()Ljava/util/List;
+	public final fun isAuthoritative ()Z
+	public final fun isUniqueKey (Lapp/oreshkov/rabosh/core/Key;J)Z
+	public final fun keyAt (JI)Lapp/oreshkov/rabosh/core/Key;
+	public final fun ordinalRange (JLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lkotlin/ranges/IntRange;
+	public final fun presentOrdinals (J)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public fun toString ()Ljava/lang/String;
+	public final fun valueAt (JI)Lapp/oreshkov/rabosh/variant/Variant;
+}
+
+public final class app/oreshkov/rabosh/index/ColumnScan {
+	public final fun getBlocksScanned ()I
+	public final fun getBlocksSkipped ()I
+	public final fun getCoverage ()Lapp/oreshkov/rabosh/index/IndexCoverage;
+	public final fun getDocumentsRead ()I
+	public final fun getKeys ()Ljava/util/List;
+	public final fun getSegmentsSkipped ()I
+	public final fun getUsedColumn ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/CompositeSegmentObserver : app/oreshkov/rabosh/core/SegmentObserver {
+	public fun <init> (Ljava/util/List;)V
+	public fun <init> ([Lapp/oreshkov/rabosh/core/SegmentObserver;)V
+	public fun beginSegment (J)Lapp/oreshkov/rabosh/core/SegmentObservation;
+	public final fun getObservers ()Ljava/util/List;
+	public fun observerFailed (Ljava/lang/Throwable;)V
+	public fun retain (Ljava/util/Set;)V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/CorruptBitmapException : app/oreshkov/rabosh/index/IndexException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/index/CorruptIndexException : app/oreshkov/rabosh/index/IndexException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getFile ()Ljava/lang/String;
+	public final fun getOffset ()J
+}
+
+public final class app/oreshkov/rabosh/index/DamagedIndexPolicy : java/lang/Enum {
+	public static final field REBUILD Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+	public static final field REPORT Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+	public static fun values ()[Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+}
+
+public final class app/oreshkov/rabosh/index/IndexBuild {
+	public final fun await ()Lapp/oreshkov/rabosh/index/IndexBuildProgress;
+	public final fun await (JLjava/util/concurrent/TimeUnit;)Z
+	public final fun cancel ()V
+	public final fun getFailure ()Ljava/lang/Throwable;
+	public final fun getHandle ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun getProgress ()Lapp/oreshkov/rabosh/index/IndexBuildProgress;
+	public final fun getState ()Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public final fun isDone ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexBuildProgress {
+	public final fun getFraction ()D
+	public final fun getSegmentsBuilt ()I
+	public final fun getSegmentsTotal ()I
+	public final fun getSegmentsVisited ()I
+	public final fun getState ()Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public final fun isDone ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexBuildState : java/lang/Enum {
+	public static final field CANCELLED Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public static final field COMPLETED Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public static final field FAILED Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public static final field RUNNING Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexBuildState;
+	public static fun values ()[Lapp/oreshkov/rabosh/index/IndexBuildState;
+}
+
+public final class app/oreshkov/rabosh/index/IndexCatalog : app/oreshkov/rabosh/core/SegmentObserver, java/lang/AutoCloseable {
+	public fun <init> (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/index/IndexOptions;)V
+	public synthetic fun <init> (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/index/IndexOptions;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun attach (Lapp/oreshkov/rabosh/core/DocumentStore;)V
+	public final fun attach (Lapp/oreshkov/rabosh/core/DocumentStore;Z)V
+	public static synthetic fun attach$default (Lapp/oreshkov/rabosh/index/IndexCatalog;Lapp/oreshkov/rabosh/core/DocumentStore;ZILjava/lang/Object;)V
+	public fun beginSegment (J)Lapp/oreshkov/rabosh/core/SegmentObservation;
+	public final fun buildIndexesInBackground (Lapp/oreshkov/rabosh/core/DocumentStore;)Lapp/oreshkov/rabosh/index/IndexBuild;
+	public fun close ()V
+	public final fun createIndex (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun createIndexInBackground (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexBuild;
+	public final fun dropIndex (Lapp/oreshkov/rabosh/index/IndexHandle;)V
+	public final fun getDirectory ()Ljava/nio/file/Path;
+	public final fun getOptions ()Lapp/oreshkov/rabosh/index/IndexOptions;
+	public final fun getProblems ()Ljava/util/List;
+	public final fun index (I)Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun indexes ()Ljava/util/List;
+	public final fun isAttached ()Z
+	public fun observerFailed (Ljava/lang/Throwable;)V
+	public final fun read (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexHandle;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/index/IndexReader;
+	public final fun readColumn (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexHandle;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/index/ColumnReader;
+	public final fun rebuild (Lapp/oreshkov/rabosh/core/DocumentStore;)V
+	public fun retain (Ljava/util/Set;)V
+	public final fun stopBackgroundBuilds ()V
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexCoverage {
+	public final fun getFraction ()D
+	public final fun getSegmentsCovered ()I
+	public final fun getSegmentsStale ()I
+	public final fun getSegmentsTotal ()I
+	public final fun getSegmentsUncovered ()I
+	public final fun isComplete ()Z
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexDefinition {
+	public static final field Companion Lapp/oreshkov/rabosh/index/IndexDefinition$Companion;
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getKind ()Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexDefinition$Companion {
+	public final fun column (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun column (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun inverted (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun inverted (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun of (Lapp/oreshkov/rabosh/catalog/IndexCandidate;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+}
+
+public abstract class app/oreshkov/rabosh/index/IndexException : java/lang/RuntimeException {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class app/oreshkov/rabosh/index/IndexHandle {
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getCreatedAtSequence ()J
+	public final fun getDefinition ()Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun getId ()I
+	public final fun getKind ()Lapp/oreshkov/rabosh/catalog/IndexKind;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexOptions {
+	public static final field Companion Lapp/oreshkov/rabosh/index/IndexOptions$Companion;
+	public fun <init> ()V
+	public fun <init> (IIIILapp/oreshkov/rabosh/index/DamagedIndexPolicy;II)V
+	public synthetic fun <init> (IIIILapp/oreshkov/rabosh/index/DamagedIndexPolicy;IIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getColumnTextBoundBytes ()I
+	public final fun getDamagedSidecars ()Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+	public final fun getMaxChildren ()I
+	public final fun getMaxColumnValuesPerSegment ()I
+	public final fun getMaxDepth ()I
+	public final fun getMaxTermBytes ()I
+	public final fun getMaxTermsPerSegment ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexOptions$Companion {
+	public final fun getDEFAULT ()Lapp/oreshkov/rabosh/index/IndexOptions;
+}
+
+public final class app/oreshkov/rabosh/index/IndexQuery {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/index/IndexQuery;
+	public final fun keysAbsent (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;)Ljava/util/List;
+	public final fun keysAnyOf (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;Ljava/util/Collection;)Ljava/util/List;
+	public final fun keysEqualTo (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;Lapp/oreshkov/rabosh/index/IndexTerm;)Ljava/util/List;
+	public final fun keysExisting (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;)Ljava/util/List;
+	public final fun scanKeys (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;)Ljava/util/List;
+	public static synthetic fun scanKeys$default (Lapp/oreshkov/rabosh/index/IndexQuery;Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexReader;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Ljava/util/List;
+}
+
+public final class app/oreshkov/rabosh/index/IndexReader : java/lang/AutoCloseable {
+	public final fun absent ()Lapp/oreshkov/rabosh/index/KeyCursor;
+	public final fun absentOrdinals (J)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun answers (Lapp/oreshkov/rabosh/index/IndexTerm;)Z
+	public final fun candidateOrdinals (JLapp/oreshkov/rabosh/index/IndexTerm;)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun candidateOrdinals (JLjava/util/Collection;)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun candidates (Lapp/oreshkov/rabosh/index/IndexTerm;)Lapp/oreshkov/rabosh/index/KeyCursor;
+	public final fun candidates (Ljava/util/Collection;)Lapp/oreshkov/rabosh/index/KeyCursor;
+	public fun close ()V
+	public final fun documentOrdinals (J)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public final fun existing ()Lapp/oreshkov/rabosh/index/KeyCursor;
+	public final fun getCoverage ()Lapp/oreshkov/rabosh/index/IndexCoverage;
+	public final fun getHasUnflushedDocuments ()Z
+	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getSnapshot ()Lapp/oreshkov/rabosh/core/Snapshot;
+	public final fun getUncoveredSegments ()Ljava/util/Set;
+	public final fun getUsableSegments ()Ljava/util/List;
+	public final fun isAuthoritative ()Z
+	public final fun isUniqueKey (Lapp/oreshkov/rabosh/core/Key;J)Z
+	public final fun keyAt (JI)Lapp/oreshkov/rabosh/core/Key;
+	public final fun ordinalRange (JLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lkotlin/ranges/IntRange;
+	public final fun presentOrdinals (J)Lapp/oreshkov/rabosh/index/ReadableBitmap;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexStateException : app/oreshkov/rabosh/index/IndexException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class app/oreshkov/rabosh/index/IndexTerm : java/lang/Comparable {
+	public static final field Companion Lapp/oreshkov/rabosh/index/IndexTerm$Companion;
+	public fun compareTo (Lapp/oreshkov/rabosh/index/IndexTerm;)I
+	public synthetic fun compareTo (Ljava/lang/Object;)I
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getSize ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/index/IndexTerm$Companion {
+	public final fun of (Lapp/oreshkov/rabosh/variant/Variant;)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun of (Lapp/oreshkov/rabosh/variant/Variant;Lapp/oreshkov/rabosh/index/IndexOptions;)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofBinary ([B)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofBoolean (Z)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofNumber (D)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofNumber (J)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofNumber (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/index/IndexTerm;
+	public final fun ofString (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexTerm;
+}
+
+public final class app/oreshkov/rabosh/index/KeyCursor {
+	public final fun getKey ()Lapp/oreshkov/rabosh/core/Key;
+	public final fun getSegmentNumber ()J
+	public final fun next ()Z
+	public final fun toKeyList ()Ljava/util/List;
+}
+
+public abstract interface class app/oreshkov/rabosh/index/ReadableBitmap {
+	public fun and (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun andCardinality (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public fun andNot (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun contains (I)Z
+	public fun cursor ()Lapp/oreshkov/rabosh/index/BitmapCursor;
+	public fun encode ()[B
+	public fun encodedByteSize ()I
+	public fun first ()I
+	public abstract fun getCardinality ()I
+	public fun intersects (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Z
+	public fun isEmpty ()Z
+	public fun last ()I
+	public fun or (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun rank (I)I
+	public fun select (I)I
+	public fun toBitmap ()Lapp/oreshkov/rabosh/index/Bitmap;
+	public fun toIntArray ()[I
+	public fun xor (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+}
+
+public final class app/oreshkov/rabosh/index/ReadableBitmap$DefaultImpls {
+	public static fun and (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public static fun andCardinality (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public static fun andNot (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public static fun contains (Lapp/oreshkov/rabosh/index/ReadableBitmap;I)Z
+	public static fun cursor (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/BitmapCursor;
+	public static fun encode (Lapp/oreshkov/rabosh/index/ReadableBitmap;)[B
+	public static fun encodedByteSize (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public static fun first (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public static fun intersects (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)Z
+	public static fun isEmpty (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Z
+	public static fun last (Lapp/oreshkov/rabosh/index/ReadableBitmap;)I
+	public static fun or (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public static fun rank (Lapp/oreshkov/rabosh/index/ReadableBitmap;I)I
+	public static fun select (Lapp/oreshkov/rabosh/index/ReadableBitmap;I)I
+	public static fun toBitmap (Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public static fun toIntArray (Lapp/oreshkov/rabosh/index/ReadableBitmap;)[I
+	public static fun xor (Lapp/oreshkov/rabosh/index/ReadableBitmap;Lapp/oreshkov/rabosh/index/ReadableBitmap;)Lapp/oreshkov/rabosh/index/Bitmap;
+}
+
+public final class app/oreshkov/rabosh/index/RoaringPortable {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/index/RoaringPortable;
+	public final fun decode ([BLjava/lang/String;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public static synthetic fun decode$default (Lapp/oreshkov/rabosh/index/RoaringPortable;[BLjava/lang/String;ILjava/lang/Object;)Lapp/oreshkov/rabosh/index/Bitmap;
+	public final fun encode (Lapp/oreshkov/rabosh/index/ReadableBitmap;)[B
+}
+
+public final class app/oreshkov/rabosh/index/TermExtractor {
+	public fun <init> (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)V
+	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function2;)V
+	public final fun isEmpty ()Z
+}
+
+public final class app/oreshkov/rabosh/index/UnsupportedBitmapFormatException : app/oreshkov/rabosh/index/IndexException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class app/oreshkov/rabosh/index/UnsupportedIndexFormatException : app/oreshkov/rabosh/index/IndexException {
+	public fun <init> (Ljava/lang/String;)V
+}
+

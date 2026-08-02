@@ -1,0 +1,4 @@
+# Review is requested from the owner for everything. A single-maintainer project does not need a
+# routing table; what this file buys is that the request is automatic rather than remembered, and
+# that a ruleset can require it later without a second list to keep in step.
+* @aoreshkov
