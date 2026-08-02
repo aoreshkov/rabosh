@@ -513,16 +513,27 @@ is major-version zero and free to move, so a versioned copy would document somet
 told not to rely on. Each release also ships its own module documentation as the `javadoc`
 classifier artefact, for anyone who needs to pin one.
 
-Published under the Maven group `app.oreshkov`; all code lives under the `app.oreshkov.rabosh`
-package. `./gradlew publishToMavenLocal` produces the jars, sources and Dokka HTML with a complete
-POM. Nothing is published to a registry yet, and the on-disk format is no longer what is holding it:
-that is declared in [COMPATIBILITY.md](COMPATIBILITY.md). The pipeline is not what is holding it
-either — pushing a `v*` tag runs [`release.yml`](.github/workflows/release.yml), which verifies on
-both platforms, signs and bundles every module, checks the bundle is a *complete* release rather than
-merely a valid one, attests the jars' provenance, and stops one call short of the irreversible step
-when run as a dry run. What remains is a verified namespace and the signing credentials, which are
-the owner's to hold rather than the build's to arrange. When they exist, the coordinates will be
-`app.oreshkov:rabosh-api` and its five siblings.
+Published to Maven Central under the group `app.oreshkov`; all code lives under the
+`app.oreshkov.rabosh` package. `rabosh-api` brings the other five with it:
+
+```kotlin
+dependencies {
+    implementation("app.oreshkov:rabosh-api:0.1.0")
+}
+```
+
+Every jar carries a build provenance attestation, so what you resolved can be checked against the
+workflow run that built it:
+
+```sh
+gh attestation verify rabosh-api-0.1.0.jar --repo aoreshkov/rabosh
+```
+
+Releases are cut by pushing a `v*` tag, which runs [`release.yml`](.github/workflows/release.yml):
+it verifies on both platforms, signs and bundles every module, checks the bundle is a *complete*
+release rather than merely a valid one, attests the jars' provenance, and publishes the GitHub
+Release only after Central has accepted the deployment. `./gradlew publishToMavenLocal` produces the
+same jars, sources and Dokka HTML locally.
 
 ## Contributing
 
