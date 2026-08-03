@@ -7,6 +7,8 @@ import app.oreshkov.rabosh.core.StoreOptions
 import app.oreshkov.rabosh.testkit.json.JsonValue
 import app.oreshkov.rabosh.testkit.json.toJsonString
 import app.oreshkov.rabosh.variant.Variant
+import app.oreshkov.rabosh.variant.VariantPath
+import app.oreshkov.rabosh.variant.VariantPathStep
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicLong
@@ -100,6 +102,46 @@ internal fun expectedObservations(document: JsonValue): List<Pair<CatalogPath, J
     }
 
     walk(emptyList(), document)
+    return out
+}
+
+/**
+ * The nodes [path] stands for in a document, worked out independently of [forEachNodeIn].
+ *
+ * The same instrument as [expectedObservations] and the same reason for it — a second walk over the
+ * testkit's JSON model, so that agreement is evidence rather than the expander agreeing with itself.
+ * What it does differently is what the expander does differently: it keeps the element *index* where
+ * the sketch collapses it, which is the entire content of the phase.
+ *
+ * Duplicate field names resolve last-wins here too, because the encoder resolves them that way.
+ */
+internal fun expectedNodes(path: CatalogPath, document: JsonValue): List<Pair<VariantPath, JsonValue>> {
+    val out = ArrayList<Pair<VariantPath, JsonValue>>()
+
+    fun walk(depth: Int, location: List<VariantPathStep>, value: JsonValue) {
+        if (depth == path.steps.size) {
+            out += VariantPath(location) to value
+            return
+        }
+        when (val step = path.steps[depth]) {
+            is CatalogStep.Field -> {
+                if (value !is JsonValue.Obj) return
+                val resolved = LinkedHashMap<String, JsonValue>()
+                for ((name, fieldValue) in value.fields) resolved[name] = fieldValue
+                val child = resolved[step.name] ?: return
+                walk(depth + 1, location + VariantPathStep.Field(step.name), child)
+            }
+
+            CatalogStep.AnyElement -> {
+                if (value !is JsonValue.Arr) return
+                value.elements.forEachIndexed { index, element ->
+                    walk(depth + 1, location + VariantPathStep.Index(index), element)
+                }
+            }
+        }
+    }
+
+    walk(0, emptyList(), document)
     return out
 }
 

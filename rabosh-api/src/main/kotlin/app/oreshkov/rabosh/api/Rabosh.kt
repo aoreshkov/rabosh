@@ -179,6 +179,27 @@ public class Rabosh private constructor(
      * does not change that either: the plan, the recheck and the scan of what no index covers are
      * all the engine's, unaltered.
      *
+     * **A query narrows to documents; a path expands within one.** `Query.where` answers *which
+     * documents* match — it cannot say which `$.items[N]` inside one of them did, because an index
+     * maps a value to a document and stops there. The second half is a walk of the one document the
+     * caller now has, and `CatalogPath.forEachNodeIn` is that walk:
+     *
+     * ```kotlin
+     * val query = Query.where(path("$.items[*].sku") eq "ABC-123").project(Projection.DOCUMENT)
+     * val items = CatalogPath.parse("$.items[*]")
+     *
+     * db.query(query).use { rows ->
+     *     while (rows.next()) items.forEachNodeIn(rows.row.document()) { node ->
+     *         if (node.value.field("sku")?.stringValue() == "ABC-123") println(node.toJsonSummaryString())
+     *     }
+     * }
+     * ```
+     *
+     * Note the projection. `Query.where` projects `Projection.KEY`, which is what makes
+     * `documentsRead == 0` reachable at all — and it also makes `Row.document()` throw, which is a
+     * surprise worth spending two words to avoid. Ask for `Projection.DOCUMENT` when the second half
+     * is going to happen.
+     *
      * @throws IllegalStateException if [RaboshOptions.indexes] is `false`.
      */
     @JvmOverloads

@@ -34,6 +34,10 @@ public sealed interface CatalogStep {
  * its own type, and the relationship is one-way: every `VariantPath` has a `CatalogPath` shape, and
  * a `CatalogPath` describes a set of `VariantPath`s.
  *
+ * That set is not abstract. [forEachNodeIn] enumerates it **against a document** — which is the only
+ * way it can be enumerated, since `[*]` stands for as many locations as that document has elements.
+ * The direction stays one-way: there is no `CatalogPath.toVariantPath`, and there cannot be.
+ *
  * **Why the indices are collapsed at all.** A ten-thousand-element array would otherwise produce ten
  * thousand paths, exhaust the path budget on its own, and push everything genuinely worth modelling
  * into the overflow bucket. Collapsing also produces the path an inverted index over array elements
@@ -96,6 +100,22 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
          * place of a numeric index. A numeric index is **rejected** rather than silently collapsed:
          * `$.items[0]` means something this type cannot represent, and quietly widening it to
          * `$.items[*]` would answer a question the caller did not ask.
+         *
+         * **A field name that is not `[A-Za-z0-9_]+` requires the bracket form**, and the example
+         * that matters is not an odd one. `$.@type` does not parse — the dot form takes an
+         * identifier — so a protobuf-JSON corpus, where `@type` is on *every* message, is written
+         * `$["@type"]` throughout. In Kotlin the readable spelling is a raw string:
+         *
+         * ```kotlin
+         * CatalogPath.parse("""$["@type"]""")
+         * CatalogPath.parse("""$.players[*]["@type"]""")
+         * ```
+         *
+         * Inside the quotes a **backslash escapes the next character literally**, so `$["a\nb"]` is
+         * the three-character name `anb` and not `a`, newline, `b`. That is self-consistent and it
+         * is deliberately **not** RFC 9535 §2.7's escaping — see
+         * [app.oreshkov.rabosh.variant.VariantPath.toNormalizedPath] for the interchange spelling,
+         * which is the one to hand to something outside the engine.
          *
          * @throws IllegalArgumentException with the offending position, for malformed input.
          */

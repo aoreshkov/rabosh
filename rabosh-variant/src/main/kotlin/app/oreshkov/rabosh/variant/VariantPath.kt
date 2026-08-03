@@ -49,6 +49,29 @@ public class VariantPath(public val steps: List<VariantPathStep>) {
         }
     }
 
+    /**
+     * This location in RFC 9535 §2.7's **Normalized Path** form: `$['items'][0]['sku']`.
+     *
+     * The interchange spelling, and deliberately not the engine's. [toString] writes `$.items[0].sku`
+     * and falls back to a bracket only for a name that is not a bare identifier; §2.7 has no dot form
+     * and no fork, so **one location has exactly one normalized rendering**. That is the property
+     * which makes two of these comparable as text, and it is the one [toString] cannot claim.
+     *
+     * Member names are single-quoted, with the seven escapes §2.7 names — `\'`, `\\`, `\b`, `\f`,
+     * `\n`, `\r`, `\t` — and `\u00xx` in lowercase for the remaining control characters. A double
+     * quote is *not* escaped, and neither is a solidus: inside single quotes both are ordinary.
+     * [parseNormalized] is the inverse and round-trips this exactly.
+     *
+     * **This is not what the engine writes to disk.** A path is persisted as [toString] and read back
+     * by [parse]. Reach for this to hand a location to something outside the engine, and for
+     * [toString] everywhere else.
+     *
+     * @throws IllegalArgumentException if a field name holds an unpaired surrogate, which §2.7 has no
+     *   production for. A name decoded from a stored document cannot hold one — UTF-8 has no encoding
+     *   for a lone surrogate — so this is reachable only from a path built in memory.
+     */
+    public fun toNormalizedPath(): String = buildString { appendNormalizedPath(steps) }
+
     public companion object {
         /** The path that selects the document itself. */
         public val ROOT: VariantPath = VariantPath(emptyList())
@@ -65,6 +88,18 @@ public class VariantPath(public val steps: List<VariantPathStep>) {
          *
          * Deliberately not full JSONPath. Wildcards, slices and filters are query concerns; a path
          * here identifies exactly one location, which is what makes it usable as an index key.
+         *
+         * **A field name that is not `[A-Za-z0-9_]+` requires the bracket form**, and `$["odd name"]`
+         * above understates how ordinary that is. `$.@type` does not parse — the dot form takes an
+         * identifier — so in a protobuf-JSON corpus, where `@type` is on every message, the bracket
+         * form is not an edge case but the rule. In Kotlin the readable spelling is a raw string:
+         * `VariantPath.parse("""$["@type"]""")`.
+         *
+         * Inside the quotes a **backslash escapes the next character literally**, so `$["a\nb"]` is
+         * the three-character name `anb` and not `a`, newline, `b`; a real newline in a name is
+         * written raw and round-trips. Self-consistent, and deliberately **not** RFC 9535 §2.7's
+         * escaping — [toNormalizedPath] and [parseNormalized] are that grammar, and they are the pair
+         * to reach for when the path is going somewhere outside the engine.
          *
          * @throws IllegalArgumentException with the offending position, for malformed input.
          */
@@ -132,6 +167,28 @@ public class VariantPath(public val steps: List<VariantPathStep>) {
             }
             return VariantPath(steps)
         }
+
+        /**
+         * Parses an RFC 9535 §2.7 Normalized Path, and **only** a Normalized Path.
+         *
+         * The inverse of [VariantPath.toNormalizedPath], strict on purpose. This is the direction in
+         * which a location arrives from somewhere else, and a lenient reader is what makes two
+         * implementations disagree later: accepting `$.a` beside `$['a']`, or `A` beside `a`,
+         * would give one location several spellings and quietly undo the single-rendering property
+         * the normalized form exists for.
+         *
+         * So each of these is rejected rather than understood — a dot step, a wildcard, a slice, a
+         * filter, a double-quoted name, a raw control character, an unpaired surrogate, an escape
+         * §2.7 does not name, an uppercase hexadecimal digit, a `\u` escape for a character that has
+         * a named escape, and an index carrying a sign or a leading zero. [parse] is the lenient
+         * sibling, and it is the one that reads the engine's own spelling.
+         *
+         * An index is additionally bounded by `Int.MAX_VALUE` rather than by §2.7's 2^53-1, because
+         * that is what a [VariantPathStep.Index] holds.
+         *
+         * @throws IllegalArgumentException with the offending position, for anything else.
+         */
+        public fun parseNormalized(expression: String): VariantPath = parseNormalizedPath(expression)
     }
 }
 

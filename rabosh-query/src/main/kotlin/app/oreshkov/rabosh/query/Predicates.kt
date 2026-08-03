@@ -9,6 +9,15 @@ import java.math.BigDecimal
  * The receiver half of the DSL, and nothing more: it holds a [CatalogPath] and builds leaves. The
  * overloads exist so that a literal is typed at the call site rather than boxed and sorted out later
  * — `path("$.score") ge 10` cannot be written against a string bound by accident.
+ *
+ * **"Some value at this path" is meant literally, and two leaves over the same `[*]` do not agree on
+ * which.** Every method below reads *some value at this path satisfies this*, so
+ * `and(path("$.items[*].sku") eq "A", path("$.items[*].qty") eq 5)` is satisfied by a document whose
+ * `sku` matches in one element and whose `qty` matches in another. [Predicate] states the semantics
+ * in full, with the two-document example and with what to do when the correlation is what you wanted.
+ *
+ * And a leaf narrows to *documents*. Which element inside one of them matched is a walk of that
+ * document — `CatalogPath.forEachNodeIn` — not something a predicate can report.
  */
 public class PathRef internal constructor(public val path: CatalogPath) {
 

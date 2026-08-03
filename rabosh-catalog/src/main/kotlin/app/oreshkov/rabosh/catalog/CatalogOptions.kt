@@ -72,6 +72,15 @@ public class CatalogOptions(
      * truncation always **widens**: a minimum is cut to a prefix, which cannot be larger than the
      * value it came from, and a maximum is cut and then incremented, which cannot be smaller. So a
      * truncated bound stays a correct bound, which is what lets phase 7 skip on it.
+     *
+     * **A corpus of long shared-prefix strings is where the default stops earning its keep**, and it
+     * is worth naming because it is a common shape rather than a pathological one. Protobuf-JSON
+     * `@type` values begin `type.googleapis.com/`, which is 20 of the default 64 bytes:
+     * `type.googleapis.com/com.example.game.player.v1.PlayerDTO` is 56 and still discriminates, one
+     * package deeper does not, and at that point every bound in the segment is the same prefix and
+     * prunes nothing. Widening [textBoundBytes] is the dial. Nothing about it is a correctness
+     * question — truncation widens — so this is tuning, and nobody has measured where the dial
+     * should sit.
      */
     public val textBoundBytes: Int = DEFAULT_TEXT_BOUND_BYTES,
     /** What to do about a sidecar that will not decode. See [DamagedSketchPolicy]. */

@@ -186,6 +186,15 @@ public final class app/oreshkov/rabosh/variant/VariantMetadata$Companion {
 	public static synthetic fun read$default (Lapp/oreshkov/rabosh/variant/VariantMetadata$Companion;Ljava/lang/foreign/MemorySegment;JILjava/lang/Object;)Lapp/oreshkov/rabosh/variant/VariantMetadata;
 }
 
+public final class app/oreshkov/rabosh/variant/VariantNode {
+	public fun <init> (Lapp/oreshkov/rabosh/variant/VariantPath;Lapp/oreshkov/rabosh/variant/Variant;)V
+	public final fun getLocation ()Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun getValue ()Lapp/oreshkov/rabosh/variant/Variant;
+	public final fun toJsonSummaryString (I)Ljava/lang/String;
+	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/VariantNode;IILjava/lang/Object;)Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class app/oreshkov/rabosh/variant/VariantPath {
 	public static final field Companion Lapp/oreshkov/rabosh/variant/VariantPath$Companion;
 	public fun <init> (Ljava/util/List;)V
@@ -195,12 +204,14 @@ public final class app/oreshkov/rabosh/variant/VariantPath {
 	public final fun isRoot ()Z
 	public final fun plus (Lapp/oreshkov/rabosh/variant/VariantPath;)Lapp/oreshkov/rabosh/variant/VariantPath;
 	public final fun plus (Lapp/oreshkov/rabosh/variant/VariantPathStep;)Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun toNormalizedPath ()Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class app/oreshkov/rabosh/variant/VariantPath$Companion {
 	public final fun getROOT ()Lapp/oreshkov/rabosh/variant/VariantPath;
 	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun parseNormalized (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
 }
 
 public final class app/oreshkov/rabosh/variant/VariantPathKt {

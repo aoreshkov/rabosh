@@ -16,3 +16,12 @@ gradle/wrapper/gradle-wrapper.jar binary
 # checksummed reader, so a line-ending "fix" on checkout would turn a compatibility test into a
 # corruption test — on one platform only, which is the worst way to find out.
 **/src/test/resources/golden/** binary
+
+# Vendored conformance fixtures are committed *verbatim*, with their upstream commit and a SHA-256
+# recorded beside them, because the whole point of them is that another implementation wrote the
+# bytes. The rule above would rewrite those bytes: the JSONPath suite's LICENSE arrives with CRLF,
+# and normalising it to LF makes the file 15 bytes shorter than the hash its README states. `-text`
+# rather than `binary` because these are text and worth diffing — what must not happen is a
+# conversion, not a rendering.
+rabosh-variant/src/test/resources/jsonpath/** -text
+rabosh-index/src/test/resources/roaring/** -text

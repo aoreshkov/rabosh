@@ -58,6 +58,11 @@ public final class app/oreshkov/rabosh/catalog/CatalogPathKt {
 	public static final fun catalogPathOf ([Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
 }
 
+public final class app/oreshkov/rabosh/catalog/CatalogPathNodesKt {
+	public static final fun forEachNodeIn (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function1;)V
+	public static final fun nodesIn (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/variant/Variant;)Ljava/util/List;
+}
+
 public final class app/oreshkov/rabosh/catalog/CatalogStateException : app/oreshkov/rabosh/catalog/CatalogException {
 	public fun <init> (Ljava/lang/String;)V
 }
