@@ -15,12 +15,22 @@ import app.oreshkov.rabosh.variant.VariantBasicType
  * what a path even *is* — which array elements collapse, how deep a document is followed, what counts
  * as a leaf.
  *
- * **This is a filtered walk, not a path expander.** A [CatalogPath] holding `[*]` describes a *set* of
- * locations and `VariantPath` describes one, and nothing in the engine converts between them. Nothing
- * needs to: writing asks "for each scalar under one of these paths, what is its signature", which the
- * walk answers natively because the walk is what produces `[*]` in the first place. Reading asks
- * "which ordinals carry this signature", which the posting file answers. Neither ever enumerates the
- * locations a wildcard stands for.
+ * **This is a filtered walk, not a path expander**, and it stays one. A [CatalogPath] holding `[*]`
+ * describes a *set* of locations and `VariantPath` describes one; writing asks "for each scalar under
+ * one of these paths, what is its signature", which this walk answers natively because it is the walk
+ * that produces `[*]` in the first place, and reading asks "which ordinals carry this signature",
+ * which the posting file answers. Neither ever enumerates the locations a wildcard stands for, and
+ * neither should: an ordinal per element would be a second ordinal space per segment, a `.idx` layout
+ * change and a `BASE_VERSION` bump.
+ *
+ * **A reader that does want them has `CatalogPath.forEachNodeIn`** — phase 20, in `rabosh-catalog`,
+ * where the wildcard step lives. It is not this walk with a different sink and must not be confused
+ * for one. It runs when somebody asks about one document they already hold, not inside compaction, so
+ * it carries **no** [IndexOptions.maxDepth] or [IndexOptions.maxChildren] budget; the direction that
+ * makes that safe is that its nodes are a *superset* of the terms emitted here, never a subset, and
+ * `NodeExpansionDifferentialTest` is where the two are compared. The sentence above used to read
+ * "nothing in the engine converts between them, and nothing needs to". The first half was made false
+ * by that function; the second half was only ever true of the *writer*, and that is what it now says.
  *
  * **Candidates are narrowed on the way down, so an unindexed subtree is not walked at all.** Each
  * step keeps only the paths still matching, and an empty set prunes the whole subtree. A store with

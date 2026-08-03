@@ -383,6 +383,45 @@ Over ten million documents that conjunction returns in **0.6 s** against **6.0 s
 with no index — identical results, no document opened, and the ordering of the intersection decided by
 what each index actually admits rather than by a guess.
 
+**Narrow with the index, then expand within the document.** A query answers *which documents* match.
+It does not answer which `$.items[N]` inside one of them did, and it structurally cannot: an index
+maps a value to a document and stops there. The second half is a walk of the one document you now
+have, and it is a function rather than something to write by hand — `CatalogPath.forEachNodeIn` hands
+back **nodes**, RFC 9535's word for a value together with its location.
+
+```kotlin
+val query = Query.where(path("$.items[*].sku") eq "ABC-123").project(Projection.DOCUMENT)
+val items = CatalogPath.parse("$.items[*]")
+
+db.query(query).use { rows ->
+    while (rows.next()) items.forEachNodeIn(rows.row.document()) { node ->
+        if (node.value.field("sku")?.stringValue() == "ABC-123") println(node.toJsonSummaryString())
+        // $['items'][3] {"qty":2,"sku":"ABC-123"}
+    }
+}
+```
+
+Two details worth the line each. `Query.where` projects keys, which is what makes `documentsRead == 0`
+reachable — so ask for `Projection.DOCUMENT` when you mean to read one. And a node's location is a
+`VariantPath`, not a string: `document.select(node.location)` returns the value it was reported with,
+and `node.location.toNormalizedPath()` writes it in RFC 9535 §2.7's form for anything outside the
+engine to read.
+
+**A conjunction over `[*]` is not correlated, and that is a defined semantics rather than an
+oversight.** Each leaf is existential over the values at *its* path, independently:
+
+```kotlin
+// {"items":[{"sku":"A","qty":1},{"sku":"B","qty":5}]}
+and(path("$.items[*].sku") eq "A", path("$.items[*].qty") eq 5)   // matches: sku from element 0, qty from element 1
+```
+
+The indexed and unindexed answers are identical, which is the invariant holding exactly. If you need
+the two to come from the *same* element, split the document — one key per element,
+`order:00123#item:00007` — and the correlation becomes exact because each element is a document.
+An ordered-key LSM is unusually good at this: a range scan reassembles the parent in one contiguous
+read, and `$.items[*].sku` collapses to `$.sku`. It needs no engine feature, and it is what current
+Elasticsearch guidance puts ahead of the mechanisms that do.
+
 ## What it guarantees
 
 These are the promises the engine makes, and next to each one what checks it. None of them is

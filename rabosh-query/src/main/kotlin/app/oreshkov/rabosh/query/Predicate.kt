@@ -31,6 +31,30 @@ public enum class Comparison {
  * any of them satisfies it. A "for all" reading would need a second walk and a second definition of
  * what a path means, which is the thing this engine most consistently refuses.
  *
+ * **Each leaf is existential *independently*, so a conjunction over `[*]` is not correlated.** This is
+ * the consequence of the rule above that surprises people, and it is a defined semantics rather than
+ * an oversight:
+ *
+ * ```
+ * {"items":[{"sku":"A","qty":1},{"sku":"B","qty":5}]}    matches
+ * {"items":[{"sku":"A","qty":5},{"sku":"B","qty":1}]}    matches
+ *
+ * and($.items[*].sku eq "A", $.items[*].qty eq 5)
+ * ```
+ *
+ * The first document matches although no single element satisfies both: the `sku` comes from element
+ * 0 and the `qty` from element 1. Each leaf is settled by *any* value at its own path, and the
+ * conjunction is then over the two per-leaf answers rather than over elements. The indexed and
+ * unindexed answers are identical, which is the invariant holding exactly — an index changed the
+ * speed and not the answer.
+ *
+ * **To correlate, split the document.** One key per element — `order:00123#item:00007` — makes each
+ * element a document, so the conjunction is over one document and the correlation is exact. It costs
+ * no engine feature, an ordered-key LSM reassembles the parent in one contiguous range scan, and
+ * `$.items[*].sku` collapses to `$.sku`. Elasticsearch's `nested` and MongoDB's `$elemMatch` are the
+ * mechanisms built for this question, and current Elasticsearch guidance itself puts document
+ * splitting ahead of them.
+ *
  * **[Not] is the document-level complement of that**, so `not($.tags[*] eq "a")` holds for a document
  * whose tags are all something else, for one whose tags are numbers, and for one with no `tags` at
  * all. Which values count as comparable is type bracketing — a numeric predicate matches numbers only

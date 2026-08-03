@@ -222,15 +222,8 @@ class VariantSummaryTest {
 
     // --- properties ---------------------------------------------------------------------------
 
-    /**
-     * The closed form of the outline's length, derived from the contract rather than remembered.
-     *
-     * Per shown child: a name of at most [SUMMARY_VALUE_LIMIT] characters each escaping to at most
-     * six (`\u00xx`), plus two quotes and an elision; the same again for a value, whose widest
-     * spelling is a string under the byte gate; plus a colon and a separator. Then the brackets and
-     * the `…N more` tail, at most an `Int`'s ten digits wide.
-     */
-    private fun maxSummaryLength(limit: Int): Int = 2 + limit * (2 * (6 * SUMMARY_VALUE_LIMIT + 3) + 2) + 24
+    /** See [maxJsonSummaryLength], which `VariantNodeTest` bounds a node against too. */
+    private fun maxSummaryLength(limit: Int): Int = maxJsonSummaryLength(limit)
 
     @Test
     fun `an outline is bounded by its limit and not by the document`() {
