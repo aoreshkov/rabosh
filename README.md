@@ -1,5 +1,6 @@
 # rabosh
 
+[![Maven Central](https://img.shields.io/maven-central/v/app.oreshkov/rabosh-api?color=blue)](https://central.sonatype.com/artifact/app.oreshkov/rabosh-api)
 [![CI](https://github.com/aoreshkov/rabosh/actions/workflows/ci.yml/badge.svg)](https://github.com/aoreshkov/rabosh/actions/workflows/ci.yml)
 [![API docs](https://img.shields.io/badge/API-Dokka-7F52FF)](https://aoreshkov.github.io/rabosh/)
 [![JDK 25](https://img.shields.io/badge/JDK-25-437291)](#building)
