@@ -108,6 +108,19 @@ public final class app/oreshkov/rabosh/query/Predicate$Compare : app/oreshkov/ra
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class app/oreshkov/rabosh/query/Predicate$ElemMatch : app/oreshkov/rabosh/query/Predicate {
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Predicate;)V
+	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun component2 ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun copy (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate$ElemMatch;
+	public static synthetic fun copy$default (Lapp/oreshkov/rabosh/query/Predicate$ElemMatch;Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/query/Predicate;ILjava/lang/Object;)Lapp/oreshkov/rabosh/query/Predicate$ElemMatch;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getOperand ()Lapp/oreshkov/rabosh/query/Predicate;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class app/oreshkov/rabosh/query/Predicate$Exists : app/oreshkov/rabosh/query/Predicate {
 	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;)V
 	public final fun component1 ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
@@ -175,6 +188,8 @@ public final class app/oreshkov/rabosh/query/PredicatesKt {
 	public static final fun and (Lapp/oreshkov/rabosh/query/Predicate;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
 	public static final fun and ([Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
 	public static final fun anyOf (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun elemMatch (Lapp/oreshkov/rabosh/query/PathRef;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
+	public static final fun elemMatch (Ljava/lang/String;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
 	public static final fun not (Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
 	public static final fun or (Lapp/oreshkov/rabosh/query/Predicate;Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;
 	public static final fun or ([Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Predicate;

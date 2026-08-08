@@ -84,8 +84,12 @@ internal object QueryPlanner {
         val opened = HashMap<Int, LeafReader>()
         fun open(handle: IndexHandle): LeafReader = opened.getOrPut(handle.id) {
             val reader = when (handle.kind) {
-                app.oreshkov.rabosh.catalog.IndexKind.INVERTED ->
-                    LeafReader.Inverted(indexes.read(store, handle, snapshot))
+                // A composite index's sidecar is a posting file, so it is read by the same reader.
+                // The difference between the two is entirely in how a term is spelled, which happened
+                // before this point.
+                app.oreshkov.rabosh.catalog.IndexKind.INVERTED,
+                app.oreshkov.rabosh.catalog.IndexKind.COMPOSITE_TERM,
+                -> LeafReader.Inverted(indexes.read(store, handle, snapshot))
 
                 app.oreshkov.rabosh.catalog.IndexKind.SHREDDED_COLUMN ->
                     LeafReader.Column(indexes.readColumn(store, handle, snapshot))
@@ -97,7 +101,7 @@ internal object QueryPlanner {
         val expression: OrdinalExpression?
         val projection: ProjectionColumns?
         try {
-            expression = if (available.isEmpty()) null else build(schema, normal, available, ::open)
+            expression = if (available.isEmpty()) null else build(schema, normal, available, options, ::open)
             projection = ProjectionColumns.bind(query.projection, available, ::open)
         } catch (failure: Throwable) {
             readers.forEach { runCatching { it.close() } }
@@ -138,6 +142,7 @@ internal object QueryPlanner {
         schema: InferredSchema?,
         normal: Normal,
         available: List<IndexHandle>,
+        options: IndexOptions,
         open: (IndexHandle) -> LeafReader,
     ): OrdinalExpression? {
         fun visit(node: Normal): OrdinalExpression? = when (node) {
@@ -146,7 +151,28 @@ internal object QueryPlanner {
             Normal.AlwaysTrue, Normal.AlwaysFalse -> null
 
             is Normal.Leaf -> chooseIndex(node, available)?.let { handle ->
-                OrdinalExpression.Source(LeafSource(node, open(handle)))
+                OrdinalExpression.Source(LeafSource.of(node, open(handle)))
+            }
+
+            // An `elemMatch` has two chances, in this order and for this reason.
+            //
+            // A composite index spells the whole tuple and therefore *decides* the node — the fast
+            // path, and the only one that reaches zero documents read. Failing that, the node is
+            // decomposed into ordinary leaves over concatenated paths, so the indexes a caller
+            // already has narrow it before the element walk runs. The second is what makes a range
+            // inside an element, a subset of a tuple's fields and a disjunction cost an index lookup
+            // instead of ~400 ns per element; it is worth strictly less than the first and is
+            // strictly better than nothing.
+            is Normal.Element -> chooseComposite(node, available, options)?.let { (handle, terms) ->
+                OrdinalExpression.Source(LeafSource.composite(node, terms, open(handle)))
+            } ?: decomposeElement(node)?.let { (rewritten, exact) ->
+                visit(rewritten)?.let { narrowed ->
+                    // An inexact decomposition narrows without deciding, and saying so is the whole
+                    // of its soundness: two conjuncts satisfied by two different elements survive it
+                    // and fail the recheck. `complete = false` is the mechanism a dropped conjunct
+                    // already uses, which is why this needs no new one.
+                    if (exact) narrowed else OrdinalExpression.All(listOf(narrowed), complete = false)
+                }
             }
 
             is Normal.Conjunction -> {

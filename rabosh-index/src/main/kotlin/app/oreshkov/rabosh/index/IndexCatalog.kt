@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.IndexKind
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
@@ -486,7 +487,10 @@ public class IndexCatalog(
      * of every segment it touched — which `IndexLifecycleTest` asserts in both directions.
      */
     public fun read(store: DocumentStore, handle: IndexHandle, snapshot: Snapshot): IndexReader {
-        require(handle.kind == IndexKind.INVERTED) {
+        // A composite index's sidecar *is* a posting file — same dictionary, same postings, same
+        // presence bitmap — so it is read by this reader and not by a third one. What differs is only
+        // how a term is spelled, which is the caller's business and not the reader's.
+        require(handle.kind == IndexKind.INVERTED || handle.kind == IndexKind.COMPOSITE_TERM) {
             "index #${handle.id} is a ${handle.kind}; open it with readColumn"
         }
         val pinned = pin(store)
@@ -612,16 +616,37 @@ public class IndexCatalog(
         private val base = BaseSidecarBuilder()
         private val extractor = TermExtractor(targets.map { it.path }, options)
 
-        // One builder per target, of whichever kind the index is. Both are fed from the same walk,
-        // which is what keeps an inverted index and a column over the same path agreeing about what
-        // that path contains.
+        // One builder per target, of whichever kind the index is. All three are fed from a walk of
+        // the same document, which is what keeps an inverted index, a column and a composite term
+        // over the same path agreeing about what that path contains.
         private val postings = arrayOfNulls<PostingBuilder>(targets.size)
         private val columns = arrayOfNulls<ColumnBuilder>(targets.size)
+
+        /**
+         * The composite targets, with the second walk they need.
+         *
+         * A composite index is over the *elements* at its path, and `TermExtractor` reaches its sink
+         * for scalars alone — so it needs `ElementExtractor` to find the elements and a nested
+         * `TermExtractor` to read the declared fields out of each. Built once per segment rather than
+         * per document, because a segment is millions of documents and these hold no per-document
+         * state.
+         */
+        private val composites: List<CompositeTarget> = targets.mapIndexedNotNull { index, handle ->
+            if (handle.kind != IndexKind.COMPOSITE_TERM) {
+                null
+            } else {
+                CompositeTarget(index, handle, TermExtractor(handle.definition.fields, options))
+            }
+        }
+
+        private val elements = ElementExtractor(composites.map { it.handle.path }, options)
 
         init {
             targets.forEachIndexed { index, handle ->
                 when (handle.kind) {
-                    IndexKind.INVERTED -> postings[index] = PostingBuilder(options.maxTermsPerSegment)
+                    IndexKind.INVERTED, IndexKind.COMPOSITE_TERM ->
+                        postings[index] = PostingBuilder(options.maxTermsPerSegment)
+
                     IndexKind.SHREDDED_COLUMN -> columns[index] = ColumnBuilder(options)
                 }
             }
@@ -633,13 +658,44 @@ public class IndexCatalog(
             // would make the numbering depend on which versions a segment happens to hold, and the
             // write path and the backfill path would stop agreeing.
             base.observe(userKey, sequence, isPut = document != null)
-            if (document == null || extractor.isEmpty) return
-            extractor.extract(document) { pathIndex, value ->
-                postings[pathIndex]?.let { builder ->
-                    val term = IndexTerm.of(value, options)
-                    if (term == null) builder.addPresenceOnly(ordinal) else builder.add(term.bytes, ordinal)
+            if (document == null) return
+            if (!extractor.isEmpty) {
+                extractor.extract(document) { pathIndex, value ->
+                    // A composite target's own path is in this walk too and reaches nothing, because
+                    // it names a container. Its terms come from the element walk below.
+                    // The kind check is load-bearing rather than defensive: a composite index over
+                    // `$.items[*]` on a document whose `items` are *scalars* has its container path
+                    // reach a scalar, so without it the element's own value would be filed as an
+                    // inverted term in the composite's dictionary — a term no query could ever spell,
+                    // in a file whose presence bitmap would then claim a tuple that does not exist.
+                    postings[pathIndex]?.let { builder ->
+                        if (targets[pathIndex].kind == IndexKind.INVERTED) {
+                            val term = IndexTerm.of(value, options)
+                            if (term == null) builder.addPresenceOnly(ordinal) else builder.add(term.bytes, ordinal)
+                        }
+                    }
+                    columns[pathIndex]?.add(ordinal, value)
                 }
-                columns[pathIndex]?.add(ordinal, value)
+            }
+            if (!elements.isEmpty) observeElements(ordinal, document)
+        }
+
+        /**
+         * One tuple per element that has every declared field.
+         *
+         * An element missing one — or holding a container or a JSON null there — contributes no term
+         * and no presence: a composite index's presence bitmap means *this document has an element
+         * with a complete tuple*, which is the only reading under which the index can answer its own
+         * `elemMatch` exactly. Recording presence for an incomplete element would make the existence
+         * half of the leaf claim something the terms do not support.
+         */
+        private fun observeElements(ordinal: Int, document: Variant) {
+            elements.extract(document) { compositeIndex, element ->
+                val target = composites[compositeIndex]
+                val values = arrayOfNulls<Variant>(target.fields.size)
+                target.extractor.extract(element) { fieldIndex, value -> values[fieldIndex] = value }
+                val term = CompositeTerm.of(values.asList(), options)
+                if (term != null) postings[target.position]?.add(term, ordinal)
             }
         }
 
@@ -692,6 +748,7 @@ public class IndexCatalog(
                             path = handle.path.toString(),
                             documentCount = base.count,
                             largestSequence = base.largestSequence,
+                            kind = IndexFormat.indexKindId(handle.kind),
                         ),
                     )
                 }
@@ -729,6 +786,17 @@ public class IndexCatalog(
         override fun abandon() {
             // Nothing to undo: nothing is written until `complete`, and nothing is published until
             // the sidecars are on disk.
+        }
+
+        /** One composite index of this observation: where its builder is, and how to read an element. */
+        private inner class CompositeTarget(
+            /** Its position in [targets], and therefore in [postings]. */
+            val position: Int,
+            val handle: IndexHandle,
+            /** Over the *relative* field paths, applied to one element rather than to the document. */
+            val extractor: TermExtractor,
+        ) {
+            val fields: List<CatalogPath> get() = handle.definition.fields
         }
 
         private fun uncovered(handle: IndexHandle, reason: String) {

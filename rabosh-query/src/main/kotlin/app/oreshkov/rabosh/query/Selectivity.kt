@@ -60,6 +60,15 @@ internal object Selectivity {
     }
 
     /** How a leaf's estimate reads in an [Explain]. */
-    fun describe(leaf: Normal.Leaf, schema: InferredSchema?): String =
-        estimate(leaf, schema)?.let { "~${"%.1f".format(it * 100)}% of documents" } ?: "no estimate"
+    /**
+     * A one-line estimate for [leaf], or "no estimate".
+     *
+     * [leaf] is `null` for a source answering an `elemMatch`, and the honest answer there is that
+     * there is none: a sketch counts how many *documents* carry a path, and what a composite term
+     * narrows by is how many carry a **tuple** — a number nothing in the catalog observes. Reporting
+     * a path-level estimate beside a measured tuple-level cardinality would be putting two different
+     * quantities in one row.
+     */
+    fun describe(leaf: Normal.Leaf?, schema: InferredSchema?): String =
+        leaf?.let { estimate(it, schema) }?.let { "~${"%.1f".format(it * 100)}% of documents" } ?: "no estimate"
 }

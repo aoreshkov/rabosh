@@ -87,7 +87,13 @@ class IndexCrashTest {
                 assertEquals(segments, baseSidecarNumbers(directory))
                 for (handle in catalog.indexes()) {
                     val built = when (handle.kind) {
-                        app.oreshkov.rabosh.catalog.IndexKind.INVERTED -> postingFiles(directory)
+                        // A composite index's sidecar is a posting file, so the residue rules that
+                        // apply to one apply to it unchanged — which is the point of reusing the file
+                        // rather than inventing a third.
+                        app.oreshkov.rabosh.catalog.IndexKind.INVERTED,
+                        app.oreshkov.rabosh.catalog.IndexKind.COMPOSITE_TERM,
+                        -> postingFiles(directory)
+
                         app.oreshkov.rabosh.catalog.IndexKind.SHREDDED_COLUMN -> columnFiles(directory)
                     }
                     assertEquals(

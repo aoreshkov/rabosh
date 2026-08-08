@@ -127,6 +127,23 @@ public fun anyOf(operands: List<Predicate>): Predicate = Predicate.Or(operands)
 /** The operand does not hold, of the document. See [Predicate] for what that means at a path. */
 public fun not(operand: Predicate): Predicate = Predicate.Not(operand)
 
+/**
+ * One element at [path] satisfies [operand], whose paths are **relative to the element**.
+ *
+ * ```kotlin
+ * elemMatch(path("$.items[*]"), and(path("$.sku") eq "A", path("$.qty") eq 5))
+ * ```
+ *
+ * The correlated question, and a different one from `and` over the same two leaves — that matches a
+ * document whose `sku` came from one element and `qty` from another. See [Predicate.ElemMatch], and
+ * note that `$.sku` inside means the *element's* `sku` rather than the document's.
+ */
+public fun elemMatch(path: PathRef, operand: Predicate): Predicate = Predicate.ElemMatch(path.path, operand)
+
+/** The same, from an expression: `elemMatch("$.items[*]", …)`. */
+public fun elemMatch(expression: String, operand: Predicate): Predicate =
+    Predicate.ElemMatch(CatalogPath.parse(expression), operand)
+
 /** Both hold. */
 public infix fun Predicate.and(other: Predicate): Predicate = Predicate.And(listOf(this, other))
 

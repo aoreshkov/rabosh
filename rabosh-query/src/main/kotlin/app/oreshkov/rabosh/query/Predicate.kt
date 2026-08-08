@@ -48,12 +48,18 @@ public enum class Comparison {
  * unindexed answers are identical, which is the invariant holding exactly — an index changed the
  * speed and not the answer.
  *
- * **To correlate, split the document.** One key per element — `order:00123#item:00007` — makes each
- * element a document, so the conjunction is over one document and the correlation is exact. It costs
- * no engine feature, an ordered-key LSM reassembles the parent in one contiguous range scan, and
- * `$.items[*].sku` collapses to `$.sku`. Elasticsearch's `nested` and MongoDB's `$elemMatch` are the
- * mechanisms built for this question, and current Elasticsearch guidance itself puts document
- * splitting ahead of them.
+ * **To correlate, ask for it: [ElemMatch].** `elemMatch(path("$.items[*]"), and(…))` holds only when
+ * *one element* satisfies the whole of its operand. It is a separate node rather than a mode of
+ * [And] precisely because the reading above is a defined semantics that must not change: an existing
+ * conjunction means what it has always meant, and the correlated question is a different question
+ * with a different spelling.
+ *
+ * **Splitting the document is still the other answer, and still a good one.** One key per element —
+ * `order:00123#item:00007` — makes each element a document, so the conjunction is over one document
+ * and the correlation is exact. It costs no engine feature, an ordered-key LSM reassembles the parent
+ * in one contiguous range scan, and `$.items[*].sku` collapses to `$.sku`. Which to reach for is a
+ * modelling decision: split when the elements are the things you query, and use [ElemMatch] when the
+ * document is.
  *
  * **[Not] is the document-level complement of that**, so `not($.tags[*] eq "a")` holds for a document
  * whose tags are all something else, for one whose tags are numbers, and for one with no `tags` at
@@ -107,9 +113,46 @@ public sealed interface Predicate {
 
     /** Some value at [path] is the JSON null. */
     public data class IsNull(public val path: CatalogPath) : Predicate
+
+    /**
+     * Some **single element** at [path] satisfies [operand], whose paths are relative to that element.
+     *
+     * ```
+     * {"items":[{"sku":"A","qty":1},{"sku":"B","qty":5}]}
+     *
+     * and(     $.items[*].sku eq "A",  $.items[*].qty eq 5)    matches — different elements
+     * elemMatch($.items[*], and($.sku eq "A", $.qty eq 5))     does not
+     * ```
+     *
+     * **The paths inside are relative, and that is the whole of the type discipline here.** [path]
+     * names the elements — a `CatalogPath` ending in `[*]`, ordinarily — and every path in [operand]
+     * is read from an element as if it were the document. `$.sku` inside means the element's `sku`,
+     * never the document's. Nesting is therefore ordinary: an `ElemMatch` inside an `ElemMatch` walks
+     * two levels of elements, and each level's paths are relative to its own.
+     *
+     * **Existential over elements, and negated at the document like every other leaf.**
+     * `not(elemMatch(…))` holds for a document where *no* element satisfies the operand — including
+     * one with no elements at all, and one whose `items` is a string. It is not "some element fails
+     * it"; the same rule, and the same reason, as [Not] over a `Compare`.
+     *
+     * **What it costs, and what makes it worth asking for.** Without an index this is a walk of each
+     * element per document, which is what a caller was writing by hand anyway. With a
+     * `IndexKind.COMPOSITE_TERM` index over [path] declaring exactly the fields the operand compares,
+     * it is one dictionary lookup and the answer is *exact* — no recheck, no document opened. The
+     * measurement that justified building that index is the gap this node closes: over corpora whose
+     * element fields vary independently the uncorrelated conjunction returns **5-6x** the documents a
+     * caller keeps.
+     */
+    public data class ElemMatch(public val path: CatalogPath, public val operand: Predicate) : Predicate
 }
 
-/** Every path this predicate mentions, deduplicated, in the order first seen. */
+/**
+ * Every path this predicate mentions **of the document**, deduplicated, in the order first seen.
+ *
+ * A [Predicate.ElemMatch] contributes its own path and *not* the paths inside it: those are read from
+ * an element rather than from the document, so `$.sku` inside one is not the document's `$.sku` and
+ * listing it here would name a location this predicate never looks at.
+ */
 public fun Predicate.paths(): List<CatalogPath> {
     val paths = LinkedHashSet<CatalogPath>()
     fun walk(predicate: Predicate) {
@@ -122,6 +165,7 @@ public fun Predicate.paths(): List<CatalogPath> {
             is Predicate.AnyOf -> paths.add(predicate.path)
             is Predicate.Exists -> paths.add(predicate.path)
             is Predicate.IsNull -> paths.add(predicate.path)
+            is Predicate.ElemMatch -> paths.add(predicate.path)
         }
     }
     walk(this)

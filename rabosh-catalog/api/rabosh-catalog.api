@@ -146,6 +146,7 @@ public final class app/oreshkov/rabosh/catalog/IndexCandidateOptions$Companion {
 }
 
 public final class app/oreshkov/rabosh/catalog/IndexKind : java/lang/Enum {
+	public static final field COMPOSITE_TERM Lapp/oreshkov/rabosh/catalog/IndexKind;
 	public static final field INVERTED Lapp/oreshkov/rabosh/catalog/IndexKind;
 	public static final field SHREDDED_COLUMN Lapp/oreshkov/rabosh/catalog/IndexKind;
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;

@@ -13,7 +13,59 @@ promise does not wait for `1.0`. Anything affecting it is stated in
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`rabosh-jsonpath`** — a seventh published module: [RFC 9535](https://www.rfc-editor.org/info/rfc9535/)
+  JSONPath over a document you are already holding. `JsonPathQuery.compile(…)` and then
+  `forEachNodeIn` / `nodesIn`, answering with the `VariantNode`s `rabosh-variant` already defines.
+
+  It expresses the two things a `CatalogPath` cannot: **a condition** — `$.items[?@.sku == 'A' && @.qty == 5]`
+  selects the element where *both* hold, which is the recheck callers were writing by hand — and **a
+  descendant segment**, `$..sku`, for documents whose nesting depth is not known in advance.
+
+  Scoped deliberately. `match` and `search` are defined over RFC 9485 I-Regexp and are **refused at
+  compile time** rather than half-answered, so the claim is "RFC 9535 less `match` and `search`": 647
+  of the JSONPath Compliance Test Suite's 703 cases run and pass, and the 56 excluded are excluded by
+  tag with the count asserted. The module depends on `rabosh-variant` and nothing else, and nothing
+  in the storage chain depends on it — which is what keeps RFC 9535's comparison rules and the query
+  language's, which genuinely disagree, from ever deciding the same question.
+
+- **Correlated queries over one array element** — `elemMatch`, and a composite index to answer it.
+
+  ```kotlin
+  // only the document where ONE item has both
+  Query.where(elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5)))
+  db.createIndex(IndexDefinition.composite("$.items[*]", "$.sku", "$.qty"))
+  ```
+
+  A plain conjunction over an array path is existential in each leaf independently and goes on meaning
+  exactly what it did — `elemMatch` is a different question with its own spelling, and its inner paths
+  are read from the element rather than from the document. The new `IndexKind.COMPOSITE_TERM` keys the
+  *tuple* of an element's declared fields, so the answer is **exact**: the plan decides it and opens no
+  document. It answers a fully known equality conjunction and nothing else — Postgres `jsonb_path_ops`'
+  limit — and anything it cannot spell falls back to the walk with the same answer.
+
+  It is opt-in and never recommended, because the measurement behind it says the benefit is a property
+  of the data: the uncorrelated conjunction returns **5-6x** the documents a caller keeps where element
+  fields vary independently, and exactly the right ones where they move together
+  (`./gradlew :rabosh-bench:runCorrelationCost`).
+
+  **What the composite index cannot spell, your ordinary indexes now narrow.** An `elemMatch` over a
+  range, over some of an index's fields, or over a disjunction is rewritten into leaves over the
+  concatenated paths, so an existing index over `$.items[*].sku` does the work before the element walk
+  runs. A single-leaf `elemMatch` is not correlated at all and is answered **exactly** — zero documents
+  opened — while a decomposed conjunction narrows and the walk decides. No new index kind, and nothing
+  to configure.
+
+### Compatibility
+
+No format change in either sense that matters. The JSONPath module writes nothing to disk. The
+composite index is **additive**: a new permanent index-kind id, a `.pst` that is a posting file in
+every byte but one header field, and the declared fields carried in the registry through the kind byte
+rather than through a version bump — no version was bumped, no section kind was spent, and no golden
+store was added. A store written by an earlier release opens unchanged; an earlier release meeting a
+store that defines a composite index reports it as written by a newer build, which is what an unknown
+id has always meant here. No existing `.api` dump lost an entry; one was added, for the new module.
 
 ## [0.1.0] — 2026-08-02
 

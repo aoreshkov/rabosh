@@ -20,6 +20,28 @@ public enum class IndexKind {
      * not touch the documents at all.
      */
     SHREDDED_COLUMN,
+
+    /**
+     * A composite term over one array element: the values of several fields *of the same element*,
+     * keyed together.
+     *
+     * The one kind that answers a **correlated** question. An ordinary conjunction over an array path
+     * is existential in each leaf independently, so `and($.items[*].sku eq "A", $.items[*].qty eq 5)`
+     * matches a document whose `sku` came from one element and `qty` from another — a defined
+     * semantics, and one that returned **5-6x** the documents a caller wanting the correlated question
+     * keeps, measured over corpora whose element fields vary independently. This kind keys the tuple,
+     * so the correlated question is answered by a dictionary lookup.
+     *
+     * **Never recommended, only asked for.** The same measurement found the rate is exactly zero on a
+     * corpus whose element fields move together, so a recommender would be spending bytes on a shape
+     * it cannot see from a sketch. [IndexCandidate]s are never of this kind; it is created by name,
+     * with the fields named too.
+     *
+     * It answers a *fully known* conjunction and nothing else — every declared field compared for
+     * equality, in one `elemMatch` — which is Postgres `jsonb_path_ops`'s documented limit and the
+     * reason this **supplements** the leaf indexes rather than replacing them.
+     */
+    COMPOSITE_TERM,
 }
 
 /**

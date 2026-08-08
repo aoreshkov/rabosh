@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.query
 
+import app.oreshkov.rabosh.index.ElementExtractor
 import app.oreshkov.rabosh.index.IndexOptions
 import app.oreshkov.rabosh.index.TermExtractor
 import app.oreshkov.rabosh.variant.Variant
@@ -21,9 +22,15 @@ import java.util.IdentityHashMap
  * three traversals. That is also the difference from `IndexQuery`, which builds an extractor per
  * path per call, and from `ColumnQuery.satisfies`, which builds one per document.
  *
+ * **An `elemMatch` is one more level of exactly the same thing.** Its paths read an *element*, so
+ * they cannot join the document's walk; instead each [Normal.Element] gets an [ElementExtractor] over
+ * its container path and a **nested `DocumentMatcher`** over its operand. The composite index builds
+ * its terms with those same two classes over the same options, so the recheck rule holds one level
+ * down as well — and it holds recursively, because a nested matcher is this class.
+ *
  * Not thread-safe: it reuses one array across documents. One matcher per cursor.
  */
-internal class DocumentMatcher(private val normal: Normal, options: IndexOptions) {
+internal class DocumentMatcher(private val normal: Normal, private val options: IndexOptions) {
 
     private val leaves: List<Normal.Leaf> = normal.leaves()
     private val paths = leaves.map { it.path }.distinct()
@@ -41,16 +48,43 @@ internal class DocumentMatcher(private val normal: Normal, options: IndexOptions
 
     private val satisfied = BooleanArray(leaves.size)
 
+    /**
+     * One walk and one nested matcher per element node, built once rather than per document.
+     *
+     * Empty for every predicate that does not correlate, which is why nothing here costs anything to
+     * a query that never asks: the array is empty, the fold never reaches an element branch, and the
+     * document's own walk is the one it always was.
+     */
+    private val elementNodes: List<Normal.Element> = normal.elements()
+    private val elementExtractor = ElementExtractor(elementNodes.map { it.path }, options)
+    private val elementMatchers: List<DocumentMatcher> = elementNodes.map { DocumentMatcher(it.inner, options) }
+    private val indexOfElement = IdentityHashMap<Normal.Element, Int>(elementNodes.size).apply {
+        elementNodes.forEachIndexed { index, node -> put(node, index) }
+    }
+    private val elementSatisfied = BooleanArray(elementNodes.size)
+
     /** Whether [document] satisfies the predicate. */
     fun matches(document: Variant): Boolean {
-        if (leaves.isEmpty()) return fold(normal)
+        if (leaves.isEmpty() && elementNodes.isEmpty()) return fold(normal)
         satisfied.fill(false)
-        extractor.extract(document) { pathIndex, value ->
-            for (leaf in leavesOfPath[pathIndex]) {
-                // A leaf is existential over the values at its path, so the first value that
-                // satisfies it settles it — and `negated` is applied to that answer, at the end,
-                // for the document rather than for the value.
-                if (!satisfied[leaf] && leaves[leaf].test(value)) satisfied[leaf] = true
+        elementSatisfied.fill(false)
+        if (paths.isNotEmpty()) {
+            extractor.extract(document) { pathIndex, value ->
+                for (leaf in leavesOfPath[pathIndex]) {
+                    // A leaf is existential over the values at its path, so the first value that
+                    // satisfies it settles it — and `negated` is applied to that answer, at the end,
+                    // for the document rather than for the value.
+                    if (!satisfied[leaf] && leaves[leaf].test(value)) satisfied[leaf] = true
+                }
+            }
+        }
+        if (elementNodes.isNotEmpty()) {
+            // Existential over *elements*, settled by the first one that satisfies the whole operand.
+            // That is the difference from a conjunction of leaves, in one line.
+            elementExtractor.extract(document) { nodeIndex, element ->
+                if (!elementSatisfied[nodeIndex] && elementMatchers[nodeIndex].matches(element)) {
+                    elementSatisfied[nodeIndex] = true
+                }
             }
         }
         return fold(normal)
@@ -63,5 +97,9 @@ internal class DocumentMatcher(private val normal: Normal, options: IndexOptions
         is Normal.Disjunction -> node.operands.any(::fold)
         is Normal.Leaf -> satisfied[checkNotNull(indexOfLeaf[node]) { "$node is not a leaf of this tree" }] !=
             node.negated
+
+        is Normal.Element ->
+            elementSatisfied[checkNotNull(indexOfElement[node]) { "$node is not an element node of this tree" }] !=
+                node.negated
     }
 }

@@ -158,6 +158,13 @@ public final class app/oreshkov/rabosh/index/CompositeSegmentObserver : app/ores
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class app/oreshkov/rabosh/index/CompositeTerm {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/index/CompositeTerm;
+	public static final field MAX_FIELDS I
+	public final fun of (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)[B
+	public final fun requireSingleValued (Ljava/util/List;)V
+}
+
 public final class app/oreshkov/rabosh/index/CorruptBitmapException : app/oreshkov/rabosh/index/IndexException {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -178,6 +185,12 @@ public final class app/oreshkov/rabosh/index/DamagedIndexPolicy : java/lang/Enum
 	public static fun getEntries ()Lkotlin/enums/EnumEntries;
 	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
 	public static fun values ()[Lapp/oreshkov/rabosh/index/DamagedIndexPolicy;
+}
+
+public final class app/oreshkov/rabosh/index/ElementExtractor {
+	public fun <init> (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)V
+	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function2;)V
+	public final fun isEmpty ()Z
 }
 
 public final class app/oreshkov/rabosh/index/IndexBuild {
@@ -251,9 +264,10 @@ public final class app/oreshkov/rabosh/index/IndexCoverage {
 
 public final class app/oreshkov/rabosh/index/IndexDefinition {
 	public static final field Companion Lapp/oreshkov/rabosh/index/IndexDefinition$Companion;
-	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;)V
-	public synthetic fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;Ljava/util/List;)V
+	public synthetic fun <init> (Lapp/oreshkov/rabosh/catalog/CatalogPath;Lapp/oreshkov/rabosh/catalog/IndexKind;Ljava/util/List;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun equals (Ljava/lang/Object;)Z
+	public final fun getFields ()Ljava/util/List;
 	public final fun getKind ()Lapp/oreshkov/rabosh/catalog/IndexKind;
 	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
 	public fun hashCode ()I
@@ -263,6 +277,8 @@ public final class app/oreshkov/rabosh/index/IndexDefinition {
 public final class app/oreshkov/rabosh/index/IndexDefinition$Companion {
 	public final fun column (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/index/IndexDefinition;
 	public final fun column (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun composite (Lapp/oreshkov/rabosh/catalog/CatalogPath;Ljava/util/List;)Lapp/oreshkov/rabosh/index/IndexDefinition;
+	public final fun composite (Ljava/lang/String;[Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexDefinition;
 	public final fun inverted (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Lapp/oreshkov/rabosh/index/IndexDefinition;
 	public final fun inverted (Ljava/lang/String;)Lapp/oreshkov/rabosh/index/IndexDefinition;
 	public final fun of (Lapp/oreshkov/rabosh/catalog/IndexCandidate;)Lapp/oreshkov/rabosh/index/IndexDefinition;
@@ -353,6 +369,7 @@ public final class app/oreshkov/rabosh/index/IndexTerm : java/lang/Comparable {
 }
 
 public final class app/oreshkov/rabosh/index/IndexTerm$Companion {
+	public final fun composite (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)Lapp/oreshkov/rabosh/index/IndexTerm;
 	public final fun of (Lapp/oreshkov/rabosh/variant/Variant;)Lapp/oreshkov/rabosh/index/IndexTerm;
 	public final fun of (Lapp/oreshkov/rabosh/variant/Variant;Lapp/oreshkov/rabosh/index/IndexOptions;)Lapp/oreshkov/rabosh/index/IndexTerm;
 	public final fun ofBinary ([B)Lapp/oreshkov/rabosh/index/IndexTerm;

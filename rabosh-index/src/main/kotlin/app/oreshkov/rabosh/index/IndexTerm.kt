@@ -80,6 +80,17 @@ public class IndexTerm private constructor(internal val bytes: ByteArray) : Comp
         /** The term a byte string is indexed under. */
         public fun ofBinary(value: ByteArray): IndexTerm = IndexTerm(ValueSignature.ofBinary(value))
 
+        /**
+         * The composite term keying [parts] together, or `null` if it cannot be spelled.
+         *
+         * `null` when the tuple would exceed [IndexOptions.maxTermBytes] — the same bound the writer
+         * applied to the same bytes, so a tuple the index dropped is one a query declines to look up
+         * rather than one it takes a false negative from. The parts are in the index's **declared**
+         * field order, which is a property of the file rather than of the query; the planner reorders.
+         */
+        public fun composite(parts: List<IndexTerm>, options: IndexOptions): IndexTerm? =
+            CompositeTerm.ofSignatures(parts.map { it.bytes }, options)?.let(::IndexTerm)
+
         internal fun ofSignature(signature: ByteArray): IndexTerm = IndexTerm(signature)
     }
 }

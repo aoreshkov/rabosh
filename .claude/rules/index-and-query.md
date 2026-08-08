@@ -56,6 +56,60 @@ differential suites that hold every claim here in `.claude/rules/testing.md`.
   definition, used by the column scan, the fallback document scan and every query leaf alike —
   including leaves over paths with no column, and including the strictness of `<` and `>`, which is
   why exclusive bounds live in `ColumnPredicate` rather than being bolted on by a caller.
+- **A conjunction is uncorrelated and `elemMatch` is correlated, and neither may drift into the
+  other.** `and($.items[*].sku eq "A", $.items[*].qty eq 5)` settles each leaf from any value at its
+  own path, so it matches a document whose two values came from different elements;
+  `elemMatch($.items[*], and($.sku eq "A", $.qty eq 5))` requires one element to satisfy the whole
+  operand, and its inner paths are read **from the element** rather than from the document. Two
+  spellings because they are two questions. A refactor making the first correlated would look like a
+  fix, would change answers, and would be caught by neither differential oracle — both evaluate leaves
+  the same way — which is why `CorrelationSemanticsTest` and `ElemMatchTest` pin the two directions
+  against each other rather than leaving either to a comment.
+
+  What the second is worth is measured rather than assumed: `CorrelationCost` puts the uncorrelated
+  conjunction at **5-6x** the documents a caller keeps on corpora whose element fields vary
+  independently, and at **exactly the right ones** where the fields move together. That spread is why
+  a composite index is asked for by name and never recommended — a sketch cannot see which shape a
+  corpus is.
+
+- **A composite term is exact, and that is a property of storing the tuple rather than hashing it.**
+  A term exists only for an element carrying *every* declared field, so an ordinal in the posting list
+  is a document with a satisfying element rather than a candidate for one — the plan may decide the
+  node and open nothing. Had the tuple been hashed, as `jsonb_path_ops` does, every answer would have
+  been candidates-only and the selectivity would depend on a hash quality nobody measured. The cost
+  taken instead is visible and bounded: a tuple above `maxTermBytes` is not keyed, and the planner
+  applies the same bound to the same bytes so that what the writer dropped is what the query declines.
+
+- **A composite index answers a fully known conjunction and nothing else.** Every declared field
+  compared for equality, no more and no fewer, nothing negated, no range, no disjunction. Anything
+  else gets **no** source *from the tuple* — the `jsonb_path_ops` limit, inherited deliberately, and
+  the reason this kind *supplements* the leaf indexes rather than replacing them. A planner that
+  answered a subset of the declared fields from the tuple would return a subset of the answer with
+  nothing anywhere reporting a problem.
+
+- **What the tuple cannot spell, the ordinary indexes still narrow — and whether that is exact turns
+  on one quantifier identity.** An element node decomposes into leaves over concatenated paths,
+  because the values at `p + r` are exactly the union over the elements at `p` of the values at `r`
+  within each. From there:
+
+  | inside the `elemMatch` | decomposition | exact? |
+  |---|---|---|
+  | one leaf | `leaf(p + r)` | **yes** — there is nothing to correlate |
+  | a disjunction | the disjunction of the parts | **yes** — `∃e(A∨B) ⟺ ∃eA ∨ ∃eB` |
+  | a conjunction | the conjunction of the parts | **no** — `∃e(A∧B) ⊆ ∃eA ∧ ∃eB` |
+  | a nested `elemMatch` | `elemMatch(p + q, …)` | yes at this level |
+  | anything negated | declined | — |
+
+  The third row **is** the correlation gap, seen from the other side: it is why a composite term
+  exists, and it is why a decomposed conjunction is marked `complete = false` so the element walk
+  decides. Getting that mark wrong is the one way this construction returns wrong answers, and it is
+  the reason the exactness travels with the rewrite rather than being inferred later.
+
+  This is what §10.6's gate measured as the real gap and it cost **no format change, no index kind and
+  no id** — the ordinary indexes a caller already has, put in front of a walk that measured at ~400 ns
+  per element. An element ordinal space was refused against it; the numbers are in the open-work
+  index's Tier 2 record.
+
 - **A negated leaf is never a flipped operator.** `not($.a >= 10)` holds for a document whose `a` is
   a string and for one with no `a`; `$.a < 10` holds for neither. The normaliser keeps the negation on
   the leaf and applies it to the *document's* answer. The rewrite is the most natural-looking

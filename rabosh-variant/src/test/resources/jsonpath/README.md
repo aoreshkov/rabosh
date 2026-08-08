@@ -50,10 +50,20 @@ things per case and nothing else:
    parsed path must yield `result[i]`. That is the node contract — a location and a value travelling
    together — pinned against a pairing this repository did not choose.
 
-**The selectors are deliberately not asserted.** Both files hold selector cases, including invalid
-ones, and this engine implements §2.7 and nothing else: `$..[?@.a == 1]` is a feature phase 20
-declined to build, and asserting against fixtures for it would claim a compliance the README is
-careful not to claim. The cases are present because the file is verbatim, not because they are used.
+**The selectors are deliberately not asserted *here*.** Both files hold selector cases, including
+invalid ones, and `rabosh-variant` implements §2.7 and nothing else: `VariantPath.parse` is the
+engine's own bracket grammar and is not JSONPath. The cases are present because the file is verbatim,
+not because this module uses them.
+
+**They are asserted one module over.** `rabosh-jsonpath` vendors the whole `tests/` tree from the
+same commit — these two files among them, byte for byte — and runs the selector cases against an
+RFC 9535 implementation. The duplication is deliberate: this module's test source set must not
+acquire a dependency on a module above it, and 29 KB of duplicated test resources is cheaper than a
+test-fixture edge between two modules. See
+`rabosh-jsonpath/src/test/resources/jsonpath/README.md`, which records the same commit and the same
+hashes for these two files; a fixture updated in one place and not the other is then a visible
+difference rather than a silent one. The sentence that used to stand here — that the selectors are
+a feature phase 20 declined to build — was true when it was written and is not now.
 
 ## What they hold, and why both files
 

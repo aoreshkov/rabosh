@@ -39,7 +39,18 @@ segment outside `usableSegments` and must never answer emptily: an empty bitmap 
 "no matches here", which is an index changing an answer rather than a speed. `TermExtractor` is public for
 the same class of reason — the recheck has to *be* the code that built the index, not agree with it.
 
-**The two index kinds answer different questions and must not be confused.** An inverted index answers
+Since phase 22 there is a **third kind**, `COMPOSITE_TERM`, and the thing to understand about it is how
+little it added: its sidecar *is* a `.pst`, written by the same `PostingBuilder`, read by the same
+`PostingFile` and `IndexReader`, with the same dictionary, the same two posting encodings and the same
+two checksums. What differs is one header byte and how a term is spelled — a tuple of an element's
+declared fields, built by `ElementExtractor` plus a nested `TermExtractor` and encoded by
+`CompositeTerm`. It is stored whole rather than hashed; that argument is in `CompositeTerm`'s KDoc and
+its consequence — the answer is *exact*, so a plan opens no document — is in
+`.claude/rules/index-and-query.md`. The declared fields live in the `IndexDefinition` and reached the
+registry through the kind byte rather than through a version bump; `format-permanence.md` says why
+that was available here.
+
+**The three index kinds answer different questions and must not be confused.** An inverted index answers
 equality, `IN` and existence; its terms are sorted for *lookup*, so `NUMERIC || "10"` precedes
 `NUMERIC || "9"` and it cannot answer `<` at all. A shredded column answers ranges and answers them
 without opening a document, because at a common scale its unscaled integers are ordered *by value*. Both
