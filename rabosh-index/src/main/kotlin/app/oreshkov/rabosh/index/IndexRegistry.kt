@@ -1,6 +1,7 @@
 package app.oreshkov.rabosh.index
 
 import app.oreshkov.rabosh.catalog.CatalogPath
+import app.oreshkov.rabosh.catalog.IndexKind
 import java.io.IOException
 import java.lang.foreign.MemorySegment
 import java.nio.ByteBuffer
@@ -100,6 +101,14 @@ internal object IndexRegistry {
             payload.pad(3)
             payload.writeString(handle.path.toString())
             payload.writeLong(handle.createdAtSequence)
+            // The record *continues* for one kind, and only for a kind no earlier build knows. An
+            // older reader stops at the kind byte above — `indexKindOfId` answers `null` and the
+            // registry is reported as written by a newer build — so it never reaches these bytes and
+            // never mis-parses the records after them. The kind byte doing what an encoding byte does.
+            if (handle.kind == IndexKind.COMPOSITE_TERM) {
+                payload.writeU32(handle.definition.fields.size)
+                for (field in handle.definition.fields) payload.writeString(field.toString())
+            }
         }
         val body = payload.toByteArray()
 
@@ -186,6 +195,27 @@ internal object IndexRegistry {
             val createdAt = reader.i64(at, "index creation sequence")
             at += 8
 
+            val fields = ArrayList<CatalogPath>()
+            if (kind == IndexKind.COMPOSITE_TERM) {
+                val fieldCount = reader.u32(at, "composite field count", CompositeTerm.MAX_FIELDS)
+                at += 4
+                repeat(fieldCount) {
+                    val fieldLength = reader.u32(at, "composite field length", bytes.size - at - 4)
+                    at += 4
+                    val text = try {
+                        reader.bytes(at, fieldLength, "composite field").decodeToString(throwOnInvalidSequence = true)
+                    } catch (failure: java.nio.charset.CharacterCodingException) {
+                        reader.corrupt("a composite index field is not valid UTF-8", at, failure)
+                    }
+                    at += fieldLength
+                    fields += try {
+                        CatalogPath.parse(text)
+                    } catch (failure: IllegalArgumentException) {
+                        reader.corrupt("index #$id has an unreadable field path '$text'", cause = failure)
+                    }
+                }
+            }
+
             if (id >= nextIndexId) {
                 reader.corrupt("index #$id is at or above the next id $nextIndexId, so an id could be reused")
             }
@@ -195,7 +225,14 @@ internal object IndexRegistry {
             } catch (failure: IllegalArgumentException) {
                 reader.corrupt("index #$id has an unreadable path '$path'", cause = failure)
             }
-            indexes += IndexHandle(id, IndexDefinition(parsed, kind), createdAt)
+            val definition = try {
+                IndexDefinition(parsed, kind, fields)
+            } catch (failure: IllegalArgumentException) {
+                // A registry naming a composite index with no fields, or with a wildcard in one, is a
+                // file this build cannot act on: reported, never repaired into something plausible.
+                reader.corrupt("index #$id over '$path' is not a definition this build can hold", cause = failure)
+            }
+            indexes += IndexHandle(id, definition, createdAt)
         }
         if (at != bytes.size) reader.corrupt("the index registry has trailing bytes after its last index", at)
         return RegistryContents(nextIndexId, indexes.sortedBy { it.id })

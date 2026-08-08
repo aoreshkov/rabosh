@@ -93,6 +93,12 @@ private fun holds(predicate: Predicate, document: JsonValue): Boolean = when (pr
     is Predicate.And -> predicate.operands.all { holds(it, document) }
     is Predicate.Or -> predicate.operands.any { holds(it, document) }
     is Predicate.Not -> !holds(predicate.operand, document)
+    // Written out by hand, as everything in this oracle is: *some* element satisfies the whole
+    // operand, with the operand read against that element as if it were the document. The negation
+    // is the caller's `Not` around this node, so "no element satisfies it" falls out rather than
+    // being a second rule.
+    is Predicate.ElemMatch -> elementsAt(document, predicate.path).any { holds(predicate.operand, it) }
+
     is Predicate.Exists -> valuesAt(document, predicate.path).isNotEmpty()
     is Predicate.IsNull -> valuesAt(document, predicate.path).any { it == JsonValue.Null }
     is Predicate.Compare -> valuesAt(document, predicate.path).any {
@@ -194,4 +200,38 @@ internal fun assertMatchesScan(
     assertEquals(expected, actual, "$note: the plan changed the answer")
     assertEquals(actual.sorted(), actual, "$note: rows must come back in key order")
     return stats
+}
+
+/**
+ * The values a catalog path stands for, **containers included** — what an `elemMatch` walks.
+ *
+ * `valuesAt` deliberately drops containers, because a leaf compares scalars; this one deliberately
+ * keeps whatever the path arrives at, because an element is ordinarily an object. Two functions
+ * rather than a flag, so neither can be used for the other's question by accident.
+ */
+internal fun elementsAt(document: JsonValue, path: CatalogPath): List<JsonValue> {
+    val found = ArrayList<JsonValue>()
+
+    fun walk(value: JsonValue, depth: Int) {
+        if (depth == path.steps.size) {
+            found.add(value)
+            return
+        }
+        when (val step = path.steps[depth]) {
+            is CatalogStep.Field -> {
+                if (value !is JsonValue.Obj) return
+                val resolved = LinkedHashMap<String, JsonValue>()
+                for ((name, fieldValue) in value.fields) resolved[name] = fieldValue
+                resolved[step.name]?.let { walk(it, depth + 1) }
+            }
+
+            CatalogStep.AnyElement -> {
+                if (value !is JsonValue.Arr) return
+                for (element in value.elements) walk(element, depth + 1)
+            }
+        }
+    }
+
+    walk(document, 0)
+    return found
 }

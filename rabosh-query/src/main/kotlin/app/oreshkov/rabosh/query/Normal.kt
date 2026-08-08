@@ -43,6 +43,11 @@ private fun Predicate.rewrite(negated: Boolean): Predicate = when (this) {
         }
     }
 
+    // An element node is atomic to this rewrite: De Morgan may not reach inside it, because "no
+    // element satisfies P" is not "some element satisfies not P". The operand is normalised in its
+    // own right — unnegated — and the negation stays on the node, exactly as it does on a leaf.
+    is Predicate.ElemMatch -> Predicate.ElemMatch(path, operand.rewrite(negated = false)).negatedIf(negated)
+
     // A leaf, and the operator is never flipped by a negation. See the file KDoc.
     is Predicate.Compare, is Predicate.Exists, is Predicate.IsNull -> negatedIf(negated)
 }
@@ -124,6 +129,23 @@ internal sealed interface Normal {
         override fun toString(): String =
             (if (negated) "not " else "") + "$path ${predicates.joinToString(" or ")}"
     }
+
+    /**
+     * One element at [path] satisfies [inner], whose paths are relative to that element.
+     *
+     * **Atomic to everything above it, and that is what keeps the semantics honest.** [inner] is a
+     * whole lowered tree over a *different* universe of paths, so `leaves()` does not descend into it
+     * and the outer `TermExtractor` never sees its paths. The negation is at this node, applied to
+     * the document's answer — "no element satisfies it" — for the same reason a leaf's is.
+     */
+    class Element(
+        val path: CatalogPath,
+        val inner: Normal,
+        val negated: Boolean,
+    ) : Normal {
+        override fun toString(): String =
+            (if (negated) "not " else "") + "elemMatch($path, $inner)"
+    }
 }
 
 /** What a leaf asks, which is what decides whether an index kind can answer it. */
@@ -149,6 +171,8 @@ internal fun Predicate.lower(options: IndexOptions): Normal = when (this) {
     // may not have run it, so this pushes rather than refuses — the same De Morgan, one level down.
     is Predicate.Not -> operand.lower(options).negate()
 
+    is Predicate.ElemMatch -> Normal.Element(path, operand.lower(options), negated = false)
+
     is Predicate.Exists -> leaf(path, LeafKind.EXISTS, listOf(ColumnPredicate.exists()), terms = null)
     is Predicate.IsNull -> leaf(path, LeafKind.IS_NULL, listOf(ColumnPredicate.isNull()), null)
 
@@ -172,6 +196,9 @@ private fun Normal.negate(): Normal = when (this) {
     Normal.AlwaysTrue -> Normal.AlwaysFalse
     Normal.AlwaysFalse -> Normal.AlwaysTrue
     is Normal.Leaf -> Normal.Leaf(path, kind, predicates, terms, negated = !negated)
+    // The flag flips and `inner` is left alone: pushing the negation inside would turn "no element
+    // satisfies P" into "some element satisfies not P", which is a different set of documents.
+    is Normal.Element -> Normal.Element(path, inner, negated = !negated)
     is Normal.Conjunction -> Normal.Disjunction(operands.map { it.negate() })
     is Normal.Disjunction -> Normal.Conjunction(operands.map { it.negate() })
 }
@@ -247,7 +274,14 @@ private fun range(path: CatalogPath, operator: Comparison, value: QueryValue): N
     return leaf(path, LeafKind.RANGE, listOf(predicate), terms = null)
 }
 
-/** Every leaf of a normalised tree, in the order they appear. */
+/**
+ * Every leaf of a normalised tree that reads **the document**, in the order they appear.
+ *
+ * Deliberately does not descend into a [Normal.Element]: its leaves read an *element*, so handing
+ * them to the document's `TermExtractor` would ask for `$.sku` of the document when the predicate
+ * asked for `$.sku` of an item. `DocumentMatcher` builds a nested matcher for each element node
+ * instead, which is the same class over the same walk one level down.
+ */
 internal fun Normal.leaves(): List<Normal.Leaf> = buildList { collectLeaves(this@leaves, this) }
 
 private fun collectLeaves(normal: Normal, into: MutableList<Normal.Leaf>) {
@@ -255,6 +289,19 @@ private fun collectLeaves(normal: Normal, into: MutableList<Normal.Leaf>) {
         is Normal.Leaf -> into.add(normal)
         is Normal.Conjunction -> normal.operands.forEach { collectLeaves(it, into) }
         is Normal.Disjunction -> normal.operands.forEach { collectLeaves(it, into) }
+        is Normal.Element -> Unit
         Normal.AlwaysTrue, Normal.AlwaysFalse -> Unit
+    }
+}
+
+/** Every element node of a normalised tree, in the order they appear. Not recursive into one another. */
+internal fun Normal.elements(): List<Normal.Element> = buildList { collectElements(this@elements, this) }
+
+private fun collectElements(normal: Normal, into: MutableList<Normal.Element>) {
+    when (normal) {
+        is Normal.Element -> into.add(normal)
+        is Normal.Conjunction -> normal.operands.forEach { collectElements(it, into) }
+        is Normal.Disjunction -> normal.operands.forEach { collectElements(it, into) }
+        is Normal.Leaf, Normal.AlwaysTrue, Normal.AlwaysFalse -> Unit
     }
 }

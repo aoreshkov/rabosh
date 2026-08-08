@@ -21,20 +21,47 @@ public class IndexDefinition(
     public val path: CatalogPath,
     /** What kind of index. */
     public val kind: IndexKind = IndexKind.INVERTED,
+    /**
+     * For [IndexKind.COMPOSITE_TERM], the fields keyed together — **relative to the element** at
+     * [path], and empty for every other kind.
+     *
+     * The one place a definition is more than a path and a kind, and the exception is argued rather
+     * than convenient: a composite term *is* a tuple, so a definition without the tuple's members
+     * would not say what the index is over. It stays part of the definition rather than becoming an
+     * option for the same reason the kind is — two indexes over `$.items[*]` keying different fields
+     * are different indexes, and making them compare equal would let one silently answer for the
+     * other.
+     *
+     * Order is significant, because a term carries each value's declared position; `(sku, qty)` and
+     * `(qty, sku)` produce different bytes for the same element. The planner matches a query's fields
+     * against these as a *set* and reorders, so the order is a property of the file and never
+     * something a caller has to get right.
+     */
+    public val fields: List<CatalogPath> = emptyList(),
 ) {
     init {
         require(!path.isRoot) {
             "an index over the root path would be an index over every document with no term to look " +
                 "it up by; index a field within it instead"
         }
+        if (kind == IndexKind.COMPOSITE_TERM) {
+            CompositeTerm.requireSingleValued(fields)
+        } else {
+            require(fields.isEmpty()) {
+                "only a composite index keys several fields together; a $kind index over $path cannot " +
+                    "carry $fields"
+            }
+        }
     }
 
     override fun equals(other: Any?): Boolean =
-        this === other || (other is IndexDefinition && path == other.path && kind == other.kind)
+        this === other ||
+            (other is IndexDefinition && path == other.path && kind == other.kind && fields == other.fields)
 
-    override fun hashCode(): Int = 31 * path.hashCode() + kind.hashCode()
+    override fun hashCode(): Int = 31 * (31 * path.hashCode() + kind.hashCode()) + fields.hashCode()
 
-    override fun toString(): String = "$path -> $kind"
+    override fun toString(): String =
+        if (fields.isEmpty()) "$path -> $kind" else "$path(${fields.joinToString(", ")}) -> $kind"
 
     public companion object {
         /** An inverted index over [path]. Equality, `IN` and existence. */
@@ -53,6 +80,35 @@ public class IndexDefinition(
 
         /** A shredded typed column over the path [expression] names. */
         public fun column(expression: String): IndexDefinition = column(CatalogPath.parse(expression))
+
+        /**
+         * A composite term over the elements at [path], keying [fields] together.
+         *
+         * The kind to reach for when a conjunction over an array must hold **within one element**:
+         *
+         * ```kotlin
+         * IndexDefinition.composite("$.items[*]", "$.sku", "$.qty")
+         * // answers: elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5))
+         * ```
+         *
+         * Without it that question is asked as an uncorrelated conjunction, which is a *superset*:
+         * measured over corpora whose element fields vary independently, it returns **5-6x** the
+         * documents a caller keeps, and the rate rises with the elements per document. Over a corpus
+         * whose fields move together it returns exactly the right ones, and this index earns nothing —
+         * which is why it is asked for rather than recommended.
+         *
+         * [fields] are relative to one element and must be single-valued within it: field steps only,
+         * no wildcard. See [CompositeTerm].
+         *
+         * @throws IllegalArgumentException if [fields] is empty, names a path twice, or holds a
+         *   wildcard.
+         */
+        public fun composite(path: CatalogPath, fields: List<CatalogPath>): IndexDefinition =
+            IndexDefinition(path, IndexKind.COMPOSITE_TERM, fields)
+
+        /** The same, from expressions: `composite("$.items[*]", "$.sku", "$.qty")`. */
+        public fun composite(expression: String, vararg fields: String): IndexDefinition =
+            composite(CatalogPath.parse(expression), fields.map(CatalogPath::parse))
 
         /**
          * The index a catalog recommendation asks for.

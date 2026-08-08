@@ -64,7 +64,14 @@ internal class PostingBuilder(private val maxTerms: Int) {
      * @param path the canonical text of the indexed path, repeated into the file so a posting file
      *   can be checked against the registry that names it.
      */
-    fun build(segmentNumber: Long, indexId: Int, path: String, documentCount: Int, largestSequence: Long): ByteArray {
+    fun build(
+        segmentNumber: Long,
+        indexId: Int,
+        path: String,
+        documentCount: Int,
+        largestSequence: Long,
+        kind: Int = IndexFormat.INDEX_KIND_INVERTED,
+    ): ByteArray {
         check(!overflowed) { "a posting file must not be built after the term budget was exceeded" }
 
         val pathBytes = path.encodeToByteArray()
@@ -76,7 +83,11 @@ internal class PostingBuilder(private val maxTerms: Int) {
         val out = IndexWriter(termsOffset + 16 * terms.size)
         out.write(IndexFormat.POSTING_MAGIC)
         out.writeU32(IndexFormat.POSTING_VERSION)
-        out.writeByte(IndexFormat.INDEX_KIND_INVERTED)
+        // The only thing a composite posting file does differently. Everything below — the sorted
+        // dictionary, the front-coding, the singleton encoding, both checksums — is the same code
+        // producing the same bytes over terms that happen to be tuples.
+        check(kind in IndexFormat.POSTING_INDEX_KINDS) { "index kind $kind is not stored as a posting file" }
+        out.writeByte(kind)
         out.pad(3)
         out.writeLong(segmentNumber)
         out.writeLong(largestSequence)
@@ -388,7 +399,7 @@ internal class PostingFile private constructor(
                 if (version == IndexFormat.POSTING_VERSION) IndexFormat.POSTING_V2_TERM_ENTRY_BYTES
                 else IndexFormat.POSTING_V1_TERM_ENTRY_BYTES
             val kind = bytes.u8(12, "posting file index kind")
-            if (kind != IndexFormat.INDEX_KIND_INVERTED) {
+            if (kind !in IndexFormat.POSTING_INDEX_KINDS) {
                 throw UnsupportedIndexFormatException(
                     "the posting file $file holds index kind $kind, which this build does not read",
                 )

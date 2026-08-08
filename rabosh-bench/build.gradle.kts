@@ -228,6 +228,80 @@ tasks.register<JavaExec>("runQueryCost") {
 }
 
 /**
+ * Where a corpus keeps things: distinct location shapes, and how far a type scatters across them.
+ * See `CorpusShapeMain`.
+ *
+ * ```
+ * ./gradlew :rabosh-bench:runCorpusShape --args="C:/path/to/corpus.json @type --shapes"
+ * ```
+ */
+tasks.register<JavaExec>("runCorpusShape") {
+    group = "benchmark"
+    description = "Distinct CatalogPath shapes in a corpus, and how far each discriminated type scatters."
+    mainClass = "app.oreshkov.rabosh.bench.CorpusShapeMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xmx4g")
+}
+
+/**
+ * What exploding a nested document into one document per element would cost. See `ExplodeCostMain`.
+ *
+ * Takes a corpus path, so unlike the diagnostics above it measures somebody's data rather than a
+ * generated fixture — which is the point, and which is why nothing in CI runs it. The arithmetic it
+ * uses is covered by `ExplodeCostTest` in the ordinary build.
+ *
+ * ```
+ * ./gradlew :rabosh-bench:runExplodeCost --args="C:/path/to/corpus.json @type"
+ * ```
+ */
+tasks.register<JavaExec>("runExplodeCost") {
+    group = "benchmark"
+    description = "Stored bytes per original byte if every discriminated element became a document."
+    mainClass = "app.oreshkov.rabosh.bench.ExplodeCostMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xmx4g")
+}
+
+/**
+ * How much the uncorrelated conjunction over-returns. See `CorrelationCostMain`.
+ *
+ * The gate on a composite-term index: a sweep over elements per document, run over the shape that
+ * argues for the feature and the shape that argues against it. Generated rather than corpus-driven,
+ * because the two shapes bracket what real data can do; the arithmetic is covered by
+ * `CorrelationCostTest` in the ordinary build.
+ *
+ * ```
+ * ./gradlew :rabosh-bench:runCorrelationCost
+ * ```
+ */
+tasks.register<JavaExec>("runCorrelationCost") {
+    group = "benchmark"
+    description = "False-positive rate of an uncorrelated conjunction, against elements per document."
+    mainClass = "app.oreshkov.rabosh.bench.CorrelationCostMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xmx2g")
+}
+
+/**
+ * What an element ordinal space could remove from a query. See `ElementAccessCostMain`.
+ *
+ * The gate on §10.6: the element walk timed against the document read it rides on, swept over
+ * elements per document. The arithmetic it feeds is covered by `ElementAccessCostTest` in the
+ * ordinary build; the timings are a diagnostic and nothing asserts them.
+ *
+ * ```
+ * ./gradlew :rabosh-bench:runElementAccessCost
+ * ```
+ */
+tasks.register<JavaExec>("runElementAccessCost") {
+    group = "benchmark"
+    description = "Cost of the element walk against the document read it rides on."
+    mainClass = "app.oreshkov.rabosh.bench.ElementAccessCostMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xmx4g")
+}
+
+/**
  * Reads against a store grown past the machine's RAM. See `PageCacheMain`.
  *
  * Writes tens of gigabytes and runs for a long time; nothing in CI goes near it.

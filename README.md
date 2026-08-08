@@ -416,12 +416,88 @@ oversight.** Each leaf is existential over the values at *its* path, independent
 and(path("$.items[*].sku") eq "A", path("$.items[*].qty") eq 5)   // matches: sku from element 0, qty from element 1
 ```
 
-The indexed and unindexed answers are identical, which is the invariant holding exactly. If you need
-the two to come from the *same* element, split the document — one key per element,
-`order:00123#item:00007` — and the correlation becomes exact because each element is a document.
-An ordered-key LSM is unusually good at this: a range scan reassembles the parent in one contiguous
-read, and `$.items[*].sku` collapses to `$.sku`. It needs no engine feature, and it is what current
-Elasticsearch guidance puts ahead of the mechanisms that do.
+The indexed and unindexed answers are identical, which is the invariant holding exactly.
+
+**When you need the two to come from the same element, ask for that — `elemMatch`.** It is a
+different question with a different spelling, so the conjunction above goes on meaning what it always
+meant:
+
+```kotlin
+// matches only the document where one element has both
+Query.where(elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5)))
+```
+
+Paths inside are relative to the element: `$.sku` is the item's `sku`, not the document's. Negation is
+the document's, as everywhere else — `not(elemMatch(…))` holds for a document where *no* element
+satisfies it, including one with no items at all.
+
+**What it costs without an index, and what an index does to it.** On its own this is a walk of each
+element per document — the walk you were writing by hand. Declare a **composite index** and it becomes
+one dictionary lookup:
+
+```kotlin
+db.createIndex(IndexDefinition.composite("$.items[*]", "$.sku", "$.qty"))
+```
+
+The index keys the *tuple* of an element's declared fields, so a match is exact and the plan opens no
+document at all. It answers a fully known conjunction and nothing else — every declared field compared
+for equality — which is Postgres `jsonb_path_ops`'s limit, and the reason it supplements your leaf
+indexes rather than replacing them.
+
+**What it cannot spell, your ordinary indexes narrow anyway.** An `elemMatch` over a range, over some
+of the fields, or over a disjunction is rewritten into leaves over the concatenated paths — so an
+index over `$.items[*].sku` you already had does the work before any element is walked. A single-leaf
+`elemMatch` is not a correlated question at all, and is answered **exactly**:
+
+```kotlin
+// identical questions; the second is what the planner turns the first into
+elemMatch("$.items[*]", path("$.sku") eq "A")
+path("$.items[*].sku") eq "A"
+```
+
+A conjunction is the one shape that cannot be taken apart this way — `∃e(A∧B)` is not `∃eA ∧ ∃eB`,
+which is the correlation gap itself — so it narrows and the walk decides. Nothing to configure.
+
+It is opt-in on purpose, and the measurement says why. Over corpora whose element fields vary
+independently, the uncorrelated conjunction returns **5-6×** the documents a caller keeps; over corpora
+whose fields move together it returns exactly the right ones and this index earns nothing. Nothing in
+a schema sketch can tell those apart, so the engine never recommends one — see
+`./gradlew :rabosh-bench:runCorrelationCost`.
+
+**Splitting the document is still the other answer, and still a good one.** One key per element —
+`order:00123#item:00007` — makes each element a document, so the correlation is exact with no engine
+feature at all. An ordered-key LSM is unusually good at it: a range scan reassembles the parent in one
+contiguous read, and `$.items[*].sku` collapses to `$.sku`. Split when the elements are the things you
+query; use `elemMatch` when the document is.
+
+**Where the walk needs a condition rather than a path, there is a JSONPath query.** A `CatalogPath`
+says *where*; a filter says *which*, and no sink or wrapper turns the first into the second. So
+`rabosh-jsonpath` compiles RFC 9535 and applies it to a document you are already holding:
+
+```kotlin
+val correlated = JsonPathQuery.compile("$.items[?@.sku == 'ABC-123' && @.qty == 5]")
+
+db.query(query).use { rows ->
+    while (rows.next()) correlated.forEachNodeIn(rows.row.document()) { node ->
+        println(node.toJsonSummaryString())
+        // $['items'][3] {"qty":5,"sku":"ABC-123"}
+    }
+}
+```
+
+Two things it is, and one it is not. It is the recheck in the paragraph above made *expressible* —
+the engine still narrows uncorrelated, and this is the per-document walk you were otherwise writing
+by hand. It carries the descendant segment, `$..sku`, which is what a document whose nesting depth is
+not known in advance needs. And it is deliberately **not** part of the query language: nothing in the
+storage chain depends on this module, so RFC 9535's comparison rules and `Predicate`'s — which
+genuinely disagree, on negation and on what an operand is — can never decide the same question.
+
+The artefact is separate because that is the only way the claim can be scoped honestly.
+`rabosh-jsonpath` implements RFC 9535 **less `match` and `search`**, which are defined over RFC 9485
+I-Regexp and are refused by `compile` rather than half-answered; `VariantPath.parse` and
+`CatalogPath.parse` remain the engine's own grammar and are still not JSONPath. 647 of the JSONPath
+Compliance Test Suite's 703 cases run and pass; the other 56 are excluded by tag, and the exclusion is
+counted rather than skipped.
 
 ## What it guarantees
 
@@ -467,7 +543,14 @@ rabosh-api       Rabosh: one lifecycle over the layers below
               └── rabosh-catalog    path sketches, schema inference
                     └── rabosh-core       LSM: WAL, memtable, SSTable, manifest, compaction
                           └── rabosh-variant    Open Variant encoding, path navigation
+
+rabosh-jsonpath  RFC 9535 over one document — beside the chain, not in it
+  └── rabosh-variant
 ```
+
+`rabosh-jsonpath` depends on `rabosh-variant` and nothing else, and **nothing above depends on it**.
+That is a mechanical guarantee rather than an intention: the filter selector cannot become a second
+front end to the planner by accident, because the build would have to acquire the edge deliberately.
 
 ## Samples
 

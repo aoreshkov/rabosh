@@ -31,7 +31,8 @@ ids live inside are in `.claude/rules/index-sidecar-format.md`.
   manifest edit tags (1..5), the sidecar's bound tags and `SketchFormat.typeId` ids, `BitmapFormat`'s
   version and its container kind ids (`ARRAY` = 1, `BITSET` = 2, `RUN` = 3) together with its header
   and directory layout, `IndexFormat`'s section kinds (`META` = 1, `KEYS` = 2, `PRESENT` = 3,
-  `COLUMN` = 4 reserved), its index kinds (`INVERTED` = 1, `SHREDDED_COLUMN` = 2), its posting
+  `COLUMN` = 4 reserved), its index kinds (`INVERTED` = 1, `SHREDDED_COLUMN` = 2,
+  `COMPOSITE_TERM` = 3), its posting
   encodings (`BITMAP` = 1, `SINGLE` = 2), its `KEY_RESTART_INTERVAL` of 16, its
   `KEY_V1_ENTRY_HEADER_BYTES` of 8 and all three of its header and directory
   layouts, `ColumnFormat`'s own section kinds (`META` = 1 … `STATS` = 7, `FIDELITY` = 8) and its
@@ -45,6 +46,17 @@ ids live inside are in `.claude/rules/index-sidecar-format.md`.
   version; `BitmapFormat`'s `kind` byte is the same extension point for a denser container; and
   `IndexFormat`'s section-`kind` and posting-`encoding` bytes are the same again, which is what made a
   shredded column and — in phase 11 — a singleton posting list new ids rather than new file versions.
+
+  **`INDEX_KIND_COMPOSITE_TERM = 3` is the strongest demonstration of that so far, because it
+  extended a *record* and not just a meaning.** A composite index needs its declared fields in the
+  registry, and the registry's per-index record had nowhere to put them. The kind byte was the answer:
+  the record **continues** for kind 3 alone, and an older build never reaches those bytes because
+  `indexKindOfId` answers `null` at the kind and reports the file as written by a newer build. So a
+  new *field* arrived with no version bump, no section kind spent, and no golden store added — and it
+  is worth noticing why that was safe here and would not have been in the `.pst`: the registry
+  validates the discriminator before it reads anything positioned after it, which is exactly what an
+  extension point has to do to be one. A record whose unknown discriminator is read *after* the fields
+  it governs cannot be extended this way at all.
 
 - **A version bump is not a renumbering, and this engine has taken exactly two.** The rule above is
   about *ids*, because an id is read by a build that never heard of the value that replaced it and has

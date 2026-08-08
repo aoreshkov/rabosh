@@ -13,6 +13,7 @@ import java.util.zip.CRC32C
  * index     := indexId:u32 kind:u8 reserved:u8[3]
  *              pathLength:u32 path                the canonical `$.items[*].sku`, UTF-8
  *              createdAtSequence:u64
+ *              [fieldCount:u32 (fieldLength:u32 field)*]   COMPOSITE_TERM only, kind 3
  *
  * %010d.idx := header entry[sectionCount] section*                              version 2
  * header    := magic["JKDB-IDX"] version:u32 sectionCount:u32 crc32c:u32         (20 bytes)
@@ -395,10 +396,34 @@ internal object IndexFormat {
     fun indexKindId(kind: IndexKind): Int = when (kind) {
         IndexKind.INVERTED -> 1
         IndexKind.SHREDDED_COLUMN -> 2
+        IndexKind.COMPOSITE_TERM -> 3
     }
 
     const val INDEX_KIND_INVERTED: Int = 1
     const val INDEX_KIND_SHREDDED_COLUMN: Int = 2
+
+    /**
+     * A composite term over one array element. Permanent, and **additive in three places at once**.
+     *
+     * The whole of what this kind cost the format, which is the argument for it being a kind rather
+     * than anything larger:
+     *
+     * - the registry's per-index record **continues** for this kind alone, with the declared fields
+     *   after `createdAtSequence`. An older build stops at the kind byte — `indexKindOfId` answers
+     *   `null` and the registry is reported as written by a newer build — so it never reaches the
+     *   extension and never mis-parses the records after it. That is the kind byte doing exactly what
+     *   an encoding byte does one level down: reinterpreting a record rather than replacing a layout.
+     * - the `.pst` is **unchanged**. A composite index's file is a posting file whose terms happen to
+     *   be tuples; the dictionary, the directory, the presence bitmap, the two posting encodings and
+     *   both checksums are the same bytes doing the same job, and `PostingFile` learned one extra
+     *   value for a header field it was already validating.
+     * - no version was bumped, no section kind was spent, and no golden store was added, because no
+     *   file any earlier build can write means anything different.
+     */
+    const val INDEX_KIND_COMPOSITE_TERM: Int = 3
+
+    /** Index kinds whose sidecar is a `.pst`. A composite index reuses the posting file entire. */
+    val POSTING_INDEX_KINDS: IntArray = intArrayOf(INDEX_KIND_INVERTED, INDEX_KIND_COMPOSITE_TERM)
 
     private val KIND_BY_ID: Array<IndexKind?> = arrayOfNulls<IndexKind>(8).also { table ->
         IndexKind.entries.forEach { table[indexKindId(it)] = it }

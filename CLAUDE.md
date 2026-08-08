@@ -25,6 +25,10 @@ itself.
 | `.claude/rules/testing.md` | any test source root, `rabosh-testkit`, `rabosh-bench`, `build-logic` | the property harness, the three crash-safety instruments, golden stores, byte identity, benchmark gating |
 | `<module>/CLAUDE.md` | that module | what the module owns, and which of its shapes exist once on purpose |
 
+`rabosh-jsonpath` is the one module none of the format or planner rules govern — it writes nothing to
+disk and holds no plan. Its own `CLAUDE.md` is the whole of its conventions, and the first of them is
+why it must stay beside the dependency chain rather than in it.
+
 A path-scoped rule arrives when a matching file is **read**, so it can still be absent while you are
 planning. Before designing a change to an on-disk shape, an index, a plan or the write path, open the
 rule that covers it rather than working from the summaries below.
@@ -65,9 +69,14 @@ Dependencies flow strictly downward. Do not introduce an upward or sideways edge
 
 Each module's own conventions live beside it and load when you work under that directory:
 `rabosh-index/CLAUDE.md`, `rabosh-query/CLAUDE.md`, `rabosh-api/CLAUDE.md`,
-`rabosh-catalog/CLAUDE.md`, `rabosh-core/CLAUDE.md`. Read the one for the module you are
-changing before changing it — each states what that module owns and, more importantly, which of its
-shapes exist once on purpose.
+`rabosh-catalog/CLAUDE.md`, `rabosh-core/CLAUDE.md`, `rabosh-jsonpath/CLAUDE.md`. Read the one for
+the module you are changing before changing it — each states what that module owns and, more
+importantly, which of its shapes exist once on purpose.
+
+**`rabosh-jsonpath` sits *beside* the chain and is the exception to the sentence above the table.**
+It depends on `rabosh-variant` and nothing else, and nothing in the chain depends on it. That is not
+tidiness: it is what keeps RFC 9535's comparison semantics unable to reach the planner, and adding an
+edge onto it from any other module is a decision rather than a refactoring.
 
 ## Design rules that must not be quietly broken
 

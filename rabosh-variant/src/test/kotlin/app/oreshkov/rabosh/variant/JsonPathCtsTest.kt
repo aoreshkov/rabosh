@@ -22,6 +22,11 @@ import kotlin.test.assertTrue
  * `kotlinx-serialization-json` reads the fixtures and [JsonOracle] compares the values, both in the
  * role they already have in this module: an oracle sharing no implementation with the code under
  * test.
+ *
+ * **The selectors in these files are asserted in `rabosh-jsonpath`, not here**, over the whole
+ * vendored suite rather than two of its fifteen files. What stays here is §2.7 alone, because that is
+ * what this module implements — and it stays here rather than moving up, so the Normalized Path is
+ * pinned in the module that owns it even if nothing above it existed.
  */
 class JsonPathCtsTest {
 

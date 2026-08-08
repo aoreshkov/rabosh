@@ -24,4 +24,5 @@ gradle/wrapper/gradle-wrapper.jar binary
 # rather than `binary` because these are text and worth diffing — what must not happen is a
 # conversion, not a rendering.
 rabosh-variant/src/test/resources/jsonpath/** -text
+rabosh-jsonpath/src/test/resources/jsonpath/** -text
 rabosh-index/src/test/resources/roaring/** -text

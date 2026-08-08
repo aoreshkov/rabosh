@@ -137,7 +137,9 @@ internal class SegmentIndex private constructor(
                     // means that index does not cover this segment yet, which is the state a build in
                     // progress is in.
                     when (handle.kind) {
-                        IndexKind.INVERTED -> {
+                        // Two kinds, one sidecar: a composite index's terms are tuples and its file is
+                        // an ordinary posting file, so there is nothing here to tell them apart by.
+                        IndexKind.INVERTED, IndexKind.COMPOSITE_TERM -> {
                             val path = directory.resolve(postingFileName(segmentNumber, handle.id))
                             val mapping = map(arena, path) ?: continue
                             postings[handle.id] = PostingFile.open(
