@@ -247,7 +247,8 @@ jobs:
             --request DELETE \
             --header "Authorization: Bearer $AUTH" \
             "https://central.sonatype.com/api/v1/publisher/deployment/$DEPLOYMENT_ID"
-          echo "Validated and dropped. Nothing was published; the tag is still free."
+          echo "Validated and dropped. Nothing was published, and this tag is still releasable:"
+          echo "a dry run spends the deployment, not the tag. Re-dispatch it with publish ticked."
 
       # ---- everything below this line is irreversible ----
       - name: Publish to Maven Central
