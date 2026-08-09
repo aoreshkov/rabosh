@@ -78,6 +78,18 @@ promise does not wait for `1.0`. Anything affecting it is stated in
   opened — while a decomposed conjunction narrows and the walk decides. No new index kind, and nothing
   to configure.
 
+  **And a query asking for *more* than the index declares now uses it too.** `elemMatch($.items[*],
+  and($.sku eq "A", $.qty eq 5, $.note eq "x"))` against an index over `(sku, qty)` is narrowed by the
+  tuple — correlatedly, which is what no ordinary index can do — and the extra conjunct is settled by
+  the element walk over what survives. Dropping a conjunct inside the existential only widens it, so
+  this needed no new mechanism and no format change; the exact case, where the tuple accounts for the
+  whole conjunction, still opens zero documents.
+
+  Asking for **fewer** fields than the index declares still gets nothing from it, and that is a
+  correctness limit rather than a gap: a term exists only for an element carrying every declared field,
+  so an element with a `sku` and no `qty` is keyed nowhere. Index the field on its own if you query it
+  on its own.
+
 ### Compatibility
 
 No format change in either sense that matters. The JSONPath module writes nothing to disk. The

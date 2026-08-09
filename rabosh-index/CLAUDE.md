@@ -50,6 +50,18 @@ its consequence — the answer is *exact*, so a plan opens no document — is in
 registry through the kind byte rather than through a version bump; `format-permanence.md` says why
 that was available here.
 
+**A composite term cannot be scanned by prefix, and `CompositeTermPrefixTest` is why.** The conjecture
+is a natural one to have twice — the fields are written in declaration order, so a query fixing a
+prefix of them looks answerable by a range scan over a sorted, bisectable dictionary, with no new kind
+and no id. Two of its premises are **true** and are pinned there: a sub-tuple is a byte prefix of the
+tuple extending it and cannot alias one, because each field record is `index | length | signature`
+with both header fields fixed-width; and the run sharing a prefix is contiguous and found by a bisect
+rather than a walk. The third is false and decides it: **a term exists only for an element carrying
+every declared field**, so an element with `sku = "A"` and no `qty` contributes no term, and a prefix
+run is a *subset* of the answer rather than a superset. Presence cannot repair it — for a composite
+index it too means "a complete tuple". The same property that makes a full lookup exact is what makes
+a partial one lossy, which is the sentence to remember if the idea comes back.
+
 **The three index kinds answer different questions and must not be confused.** An inverted index answers
 equality, `IN` and existence; its terms are sorted for *lookup*, so `NUMERIC || "10"` precedes
 `NUMERIC || "9"` and it cannot answer `<` at all. A shredded column answers ranges and answers them
