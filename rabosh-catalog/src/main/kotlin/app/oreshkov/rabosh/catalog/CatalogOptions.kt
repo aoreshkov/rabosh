@@ -71,16 +71,25 @@ public class CatalogOptions(
      * A path whose values are whole documents would otherwise put two of them in every sketch. The
      * truncation always **widens**: a minimum is cut to a prefix, which cannot be larger than the
      * value it came from, and a maximum is cut and then incremented, which cannot be smaller. So a
-     * truncated bound stays a correct bound, which is what lets phase 7 skip on it.
+     * truncated bound stays a correct bound.
      *
-     * **A corpus of long shared-prefix strings is where the default stops earning its keep**, and it
-     * is worth naming because it is a common shape rather than a pathological one. Protobuf-JSON
+     * **This dial does not decide what a query skips, and an earlier version of this comment said it
+     * did.** A sketch bound is *descriptive*: it is rendered by [InferredSchema.render], readable
+     * through [InferredField.bounds], and written to the `.cat` sidecar.
+     * Nothing in `rabosh-query` reads it. Skipping is decided by a **shredded column's** bounds, which
+     * are built from the same [ValueBoundsBuilder] — that is the sharing this module exists to enforce
+     * — but truncated at `IndexOptions.columnTextBoundBytes`, a separate dial in `rabosh-index` that
+     * also happens to default to 64. Widen *that* one to buy pruning; widen this one to see more of a
+     * value when you look at the model.
+     *
+     * **A corpus of long shared-prefix strings is where either default stops earning its keep**, and
+     * it is worth naming because it is a common shape rather than a pathological one. Protobuf-JSON
      * `@type` values begin `type.googleapis.com/`, which is 20 of the default 64 bytes:
      * `type.googleapis.com/com.example.game.player.v1.PlayerDTO` is 56 and still discriminates, one
-     * package deeper does not, and at that point every bound in the segment is the same prefix and
-     * prunes nothing. Widening [textBoundBytes] is the dial. Nothing about it is a correctness
-     * question — truncation widens — so this is tuning, and nobody has measured where the dial
-     * should sit.
+     * package deeper does not, and at that point every bound is the same prefix. Here that costs
+     * legibility; on a column it costs pruning, and `:rabosh-bench:runTextBoundCost` is the sweep that
+     * prices it. Nothing about either is a correctness question — truncation widens — so both are
+     * tuning.
      */
     public val textBoundBytes: Int = DEFAULT_TEXT_BOUND_BYTES,
     /** What to do about a sidecar that will not decode. See [DamagedSketchPolicy]. */

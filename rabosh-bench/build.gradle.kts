@@ -302,6 +302,28 @@ tasks.register<JavaExec>("runElementAccessCost") {
 }
 
 /**
+ * What a shredded column's text bound width buys in pruning, and costs in bytes. See
+ * `TextBoundCostMain`.
+ *
+ * The §10.4 sweep, over `IndexOptions.columnTextBoundBytes` — the dial that decides skipping, which is
+ * **not** `CatalogOptions.textBoundBytes` however alike the two look. Generated rather than
+ * corpus-driven, and run over a clustered corpus and its own permutation, because block pruning is a
+ * locality property and the unfavourable case has to be arranged. The arithmetic is covered by
+ * `TextBoundCostTest` in the ordinary build.
+ *
+ * ```
+ * ./gradlew :rabosh-bench:runTextBoundCost
+ * ```
+ */
+tasks.register<JavaExec>("runTextBoundCost") {
+    group = "benchmark"
+    description = "Blocks a column's text bound rules out, against the bytes the bound costs."
+    mainClass = "app.oreshkov.rabosh.bench.TextBoundCostMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED", "-Xmx4g")
+}
+
+/**
  * Reads against a store grown past the machine's RAM. See `PageCacheMain`.
  *
  * Writes tens of gigabytes and runs for a long time; nothing in CI goes near it.
