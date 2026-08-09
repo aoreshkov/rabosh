@@ -42,6 +42,9 @@ internal object GoldenStoreV2 : GoldenCorpus {
     /** Phase 11 predates `SECTION_FIDELITY` by one phase, so these columns claim nothing either. */
     override val columnsClaimFidelity: Boolean = false
 
+    /** Eleven phases before index kind 3. Its registry records stop at `createdAtSequence`. */
+    override val compositeIndex: IndexDefinition? = null
+
     override val modelledPaths: List<String> =
         listOf("$.team", "$.uid", "$.score", "$.price", "$.tags[*]", "$.live", "$.note")
 

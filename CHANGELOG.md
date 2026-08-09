@@ -13,6 +13,16 @@ promise does not wait for `1.0`. Anything affecting it is stated in
 
 ## [Unreleased]
 
+### Compatibility
+
+- **The composite index's on-disk shape is now pinned by committed bytes**, in a fifth golden store
+  written by the `v0.2.0` tree. 0.2.0 added index kind 3 without a version bump or a section kind, and
+  recorded that no golden store was needed — true of every file written *before* it, and the wrong
+  test: a store defining a composite index carries a registry record no committed file held, and the
+  only thing standing behind it was a round trip through the same writer. `golden/store-v5` holds the
+  kind-3 registry continuation, the composite kind byte and a tuple dictionary, and is read by the
+  compatibility suite alongside the four older stores. Nothing in the engine changed.
+
 ## [0.2.0] — 2026-08-09
 
 **A document's interior became addressable.** 0.1.0 could tell you *which documents* matched and
