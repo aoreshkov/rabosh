@@ -13,11 +13,11 @@ import kotlin.test.assertTrue
 /**
  * What `compile` accepts, what it refuses, and what it says when it refuses.
  *
- * The compliance suite already asserts that 241 invalid selectors are rejected — this is the part of
+ * The compliance suite already asserts that 247 invalid selectors are rejected — this is the part of
  * the contract the suite has no opinion about: that the failure carries a *position*, that the two
- * limits on a query exist and are the query's rather than the document's, that an unimplemented
- * function is refused rather than answered, and that the engine's own bracket grammar is untouched by
- * any of it.
+ * limits on a query exist and are the query's rather than the document's, that a regular expression
+ * the specification does not admit is an *answer* rather than a refusal, and that the engine's own
+ * bracket grammar is untouched by any of it.
  */
 class JsonPathSyntaxTest {
 
@@ -37,20 +37,30 @@ class JsonPathSyntaxTest {
     }
 
     /**
-     * `match` and `search` are refused at compile time, and the message says why.
+     * A pattern RFC 9485 does not admit is a *result*, never a compile failure.
      *
-     * The alternative — compiling them into something that returns a nodelist — is the failure this
-     * module's whole exclusion discipline exists to prevent: a query that quietly answers a question
-     * this build cannot answer. Rejected at *compile* rather than at evaluation, so a caller learns
-     * once rather than per document.
+     * The rule is §2.4.6's — a second argument that is not "a string conforming to RFC 9485" makes
+     * the result `LogicalFalse` — and it is the one place where this module's strictness has to stop.
+     * `'['` is not an I-Regexp; `$[?match(@.a, '[')]` is nevertheless a perfectly good JSONPath query,
+     * and refusing it would be this parser overruling the specification it implements. Asserted for a
+     * literal *and* for a pattern read from the document, because those are two different code paths
+     * and only the first is decided while compiling.
      */
     @Test
-    fun `an unimplemented function is refused, and the message says which and why`() {
-        for (query in listOf("$[?match(@.a, 'a.*')]", "$[?search(@.a, 'b')]")) {
-            val failure = assertFailsWith<IllegalArgumentException> { JsonPathQuery.compile(query) }
-            assertTrue("I-Regexp" in failure.message.orEmpty(), failure.message.orEmpty())
-            assertTrue("not implemented" in failure.message.orEmpty(), failure.message.orEmpty())
+    fun `a pattern that is not an I-Regexp selects nothing rather than failing to compile`() {
+        val document = Variant.fromJson("""{"rows":["a","[","ab"],"bad":"[","good":"a."}""")
+
+        for (query in listOf("$.rows[?match(@, '[')]", "$.rows[?search(@, '\\\\d')]", "$.rows[?match(@, $.bad)]")) {
+            assertEquals(0, JsonPathQuery.compile(query).nodesIn(document).size, query)
         }
+        // The same shape with a pattern that *is* an I-Regexp, so the assertion above is not passing
+        // because the fixture selects nothing whatever is asked of it.
+        assertContentEquals(
+            listOf("$['rows'][2]"),
+            JsonPathQuery.compile("$.rows[?match(@, $.good)]").nodesIn(document).map {
+                it.location.toNormalizedPath()
+            },
+        )
     }
 
     @Test

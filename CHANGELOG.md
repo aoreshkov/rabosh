@@ -23,12 +23,33 @@ promise does not wait for `1.0`. Anything affecting it is stated in
   selects the element where *both* hold, which is the recheck callers were writing by hand — and **a
   descendant segment**, `$..sku`, for documents whose nesting depth is not known in advance.
 
-  Scoped deliberately. `match` and `search` are defined over RFC 9485 I-Regexp and are **refused at
-  compile time** rather than half-answered, so the claim is "RFC 9535 less `match` and `search`": 647
-  of the JSONPath Compliance Test Suite's 703 cases run and pass, and the 56 excluded are excluded by
-  tag with the count asserted. The module depends on `rabosh-variant` and nothing else, and nothing
-  in the storage chain depends on it — which is what keeps RFC 9535's comparison rules and the query
-  language's, which genuinely disagree, from ever deciding the same question.
+  **All 703** of the JSONPath Compliance Test Suite's cases run and pass, with nothing excluded. The
+  module depends on `rabosh-variant` and nothing else, and nothing in the storage chain depends on it
+  — which is what keeps RFC 9535's comparison rules and the query language's, which genuinely
+  disagree, from ever deciding the same question.
+
+- **`match` and `search`, over an [RFC 9485](https://www.rfc-editor.org/info/rfc9485/) I-Regexp
+  matcher written for the job.** The two function extensions were declared and refused while the
+  matcher was missing; they are now answered, which is what took the compliance claim from 647 cases
+  to 703 and let it stop saying "less `match` and `search`".
+
+  ```kotlin
+  JsonPathQuery.compile("$.items[?match(@.sku, 'ABC-[0-9]{3}')]")
+  ```
+
+  **Not `java.util.regex`, and the reason is a security one rather than a preference.** A filter runs
+  once per *document* over a corpus, and RFC 9535 lets the pattern itself come from the document — so
+  a backtracking engine would put `(a|aa)+b` behind somebody's data. This is a Thompson construction:
+  each instruction is visited at most once per input position, so a match costs the pattern times the
+  subject and never more, and the bound is asserted in **transitions** rather than on a clock. The
+  answers are additionally checked against `java.util.regex` over the sub-language both can spell.
+
+  Two behaviours worth knowing. A pattern that RFC 9485 does not admit — including `\d`, `\s`, `\w`,
+  lookaround, backreferences and Unicode blocks, all of which it removed from XSD deliberately — makes
+  the *result* `LogicalFalse` rather than failing to compile, which is what §2.4.6 requires. And a
+  pattern is refused outright above 10 000 compiled instructions or 64 levels of group nesting, which
+  is the resource bound RFC 9485 §7 asks for; a pattern from a hostile document costs a comparison
+  rather than a hang.
 
 - **Correlated queries over one array element** — `elemMatch`, and a composite index to answer it.
 

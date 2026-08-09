@@ -29,13 +29,13 @@ import app.oreshkov.rabosh.variant.VariantNode
  * *node* while `Not` there complements the *document* — and two definitions of comparison are a
  * defect exactly when both can decide the same question. Here they cannot.
  *
- * **Conformance, stated at the strength of its evidence.** The grammar, the selectors, the
- * descendant segment, the filter selector and the `length`, `count` and `value` function extensions
- * are implemented and checked against the JSONPath Compliance Test Suite: 647 of its 703 cases run,
- * every one of them passes, and the 56 that do not run are excluded by tag and counted. Those 56 are
- * `match` and `search`, which are defined over RFC 9485 I-Regexp; [compile] **rejects** a query
- * naming either rather than compiling something that would answer. So this is not "RFC 9535" without
- * qualification, and it will not be described as such until the number is 703.
+ * **Conformance, stated at the strength of its evidence.** The grammar, the selectors, the descendant
+ * segment, the filter selector and all five function extensions are implemented and checked against
+ * the JSONPath Compliance Test Suite: **all 703 of its cases run and pass**, with nothing excluded and
+ * the corpus's shape asserted before any case does. `match` and `search` are answered by an
+ * [RFC 9485](https://www.rfc-editor.org/info/rfc9485/) I-Regexp matcher written for this module — a
+ * Thompson construction, so it costs the pattern times the subject and never backtracks, which is
+ * what makes a filter safe to run over a corpus with a pattern that came from the data.
  *
  * **Immutable and thread-safe.** Compiling is the expensive half and holding the result is the point
  * of the name — a query re-parsed per document is what this API exists to stop. One instance may be
@@ -99,9 +99,13 @@ public class JsonPathQuery private constructor(private val text: String, private
          * bounds on what the caller wrote: at most **1024 selectors**, and at most **64** levels of
          * nested filters, parentheses and function calls.
          *
+         * **A regular expression is not one of the things this refuses.** `match` and `search` take
+         * an RFC 9485 I-Regexp, and §2.4.6 rules that a second argument which is not one makes the
+         * *result* `LogicalFalse` — so `$[?match(@.a, '[')]` compiles, and selects nothing. A literal
+         * pattern is compiled here all the same, so that applying the query touches no grammar.
+         *
          * @throws IllegalArgumentException if [query] is not a valid JSONPath query, with the
-         *   offending position; if it exceeds either limit; or if it names `match` or `search`,
-         *   which this build declares and does not implement — see the class documentation.
+         *   offending position, or if it exceeds either limit.
          */
         public fun compile(query: String): JsonPathQuery = JsonPathQuery(query, JsonPathParser(query).parse())
     }

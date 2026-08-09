@@ -104,14 +104,21 @@ class JsonPathQueryTest {
      * *not* thread-safe, so a reader who knows this codebase will ask. The answer is that a compiled
      * query holds no evaluation state at all — the walk's stack, its locations and its comparisons
      * are per call.
+     *
+     * **The I-Regexp matcher is in the fixture on purpose.** It is the one part of the module with a
+     * loop that could have broken this: a compiled pattern is shared by every thread, and its thread
+     * lists and visit marks are allocated *per run* rather than held on the program. A one-slot memo
+     * for a document-supplied pattern was considered and declined, and this is the assertion that
+     * would fail if one were added carelessly.
      */
     @Test
     fun `one compiled query serves many threads`() {
         val documents = List(THREADS) { index ->
-            Variant.fromJson("""{"items":[{"n":$index},{"n":${index + 1}}]}""")
+            Variant.fromJson("""{"items":[{"n":$index,"s":"a$index"},{"n":${index + 1},"s":"b$index"}]}""")
         }
-        val query = JsonPathQuery.compile("$.items[?@.n > 0].n")
+        val query = JsonPathQuery.compile("$.items[?@.n > 0 && match(@.s, '[ab][0-9]')].n")
         val expected = documents.map { document -> query.nodesIn(document).map { it.value.toJsonString() } }
+        assertTrue(expected.any { it.isNotEmpty() }, "the fixture must select something")
 
         val pool = Executors.newFixedThreadPool(THREADS)
         try {

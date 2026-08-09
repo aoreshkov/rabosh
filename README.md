@@ -493,11 +493,16 @@ storage chain depends on this module, so RFC 9535's comparison rules and `Predic
 genuinely disagree, on negation and on what an operand is — can never decide the same question.
 
 The artefact is separate because that is the only way the claim can be scoped honestly.
-`rabosh-jsonpath` implements RFC 9535 **less `match` and `search`**, which are defined over RFC 9485
-I-Regexp and are refused by `compile` rather than half-answered; `VariantPath.parse` and
-`CatalogPath.parse` remain the engine's own grammar and are still not JSONPath. 647 of the JSONPath
-Compliance Test Suite's 703 cases run and pass; the other 56 are excluded by tag, and the exclusion is
-counted rather than skipped.
+`rabosh-jsonpath` implements RFC 9535 — **all 703** of the JSONPath Compliance Test Suite's cases run
+and pass, with nothing excluded; `VariantPath.parse` and `CatalogPath.parse` remain the engine's own
+grammar and are still not JSONPath.
+
+That includes `match` and `search`, which are defined over [RFC 9485][rfc9485] I-Regexp and are
+answered by a matcher written for this module rather than by `java.util.regex`. The reason is not
+purity: a filter runs once per *document* over a corpus, RFC 9535 lets the pattern come from the
+document too, and a backtracking engine turns `(a|aa)+b` into a complexity attack on a storage engine.
+This one is a Thompson construction — it costs the pattern times the subject, never backtracks, and
+the bound is asserted in transitions rather than on a clock.
 
 ## What it guarantees
 
@@ -674,3 +679,4 @@ vulnerability in an engine that opens no sockets and whose two inputs are both a
 
 [variant]: https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
 [shredding]: https://parquet.apache.org/docs/file-format/types/variantshredding/
+[rfc9485]: https://www.rfc-editor.org/info/rfc9485/
