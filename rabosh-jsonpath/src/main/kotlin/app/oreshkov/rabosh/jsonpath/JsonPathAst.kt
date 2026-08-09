@@ -135,7 +135,36 @@ internal sealed interface SingularStep {
 }
 
 /** A function expression, with its arguments already checked against the declared parameter types. */
-internal class FunctionCall(val function: JsonPathFunction, val arguments: List<FunctionArgument>)
+internal class FunctionCall(
+    val function: JsonPathFunction,
+    val arguments: List<FunctionArgument>,
+    /** Where `match` and `search` get their I-Regexp from; `null` for the other three. */
+    val pattern: PatternSource?,
+)
+
+/**
+ * The second argument of `match` and `search`, resolved as far as compile time can take it.
+ *
+ * RFC 9535 lets the pattern be any `ValueType`, so it may be a value of the *document* and known only
+ * per node. It usually is not: it is usually a literal, and this is the same move
+ * [ComparableExpression.Literal] already makes — pay the cost once at compile time, so that applying
+ * the query to a document touches no grammar at all, neither JSONPath's nor RFC 9485's.
+ */
+internal sealed interface PatternSource {
+
+    /**
+     * A string literal in the query, compiled once.
+     *
+     * [regexp] is `null` when the literal is not a string, or is a string that is not an I-Regexp.
+     * That is **not** a compile failure: §2.4.6 says a non-conforming second argument makes the
+     * result `LogicalFalse`, so `$[?match(@.a, '[')]` is a valid query that selects nothing — and
+     * rejecting it would be this module refusing a query the specification admits.
+     */
+    class Fixed(val regexp: IRegexp?) : PatternSource
+
+    /** Anything else: the pattern is read from the document and compiled per candidate node. */
+    object PerNode : PatternSource
+}
 
 /** An argument, in the form the declared parameter type asked for. */
 internal sealed interface FunctionArgument {

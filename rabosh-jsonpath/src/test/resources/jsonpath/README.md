@@ -68,7 +68,7 @@ them invalid selectors, 667 Normalized Paths across 57 distinct spellings, 56 ca
 regular expression. A suite that quietly lost a fixture would otherwise pass over a smaller corpus,
 and every other count in that file is derived from these four rather than remembered separately.
 
-Then, over the **647** cases that run:
+Then, over **all 703** cases — nothing is excluded:
 
 1. **Every valid selector selects exactly the nodes the suite pairs with it** — the values against
    `result`, and the locations against `result_paths`, as `toNormalizedPath()` compared character for
@@ -78,17 +78,20 @@ Then, over the **647** cases that run:
 2. **Every invalid selector is rejected, with a position in the message.**
 3. **Every `result_paths` entry round-trips character for character** through
    `VariantPath.parseNormalized` and `toNormalizedPath`, and selects the value it is paired with.
-   This one runs over all 703 cases rather than 647: the exclusion below is about *selectors*, and
-   §2.7 is not a selector.
 
-## The 56 that do not run, and why the number is asserted
+## The 56 that used to be excluded, and why the number is still asserted
 
-`match` and `search` are defined over RFC 9485 I-Regexp. This build has no regular-expression matcher
-— a filter runs once per document over a corpus and `java.util.regex` backtracks, so the matcher has
-to be a linear-time one, which is its own piece of work. The 56 cases tagged `match` or `search` are
-therefore excluded **by tag**, the count is asserted, and each of them is additionally asserted to be
-**refused** by `JsonPathQuery.compile` rather than quietly answered.
+`match` and `search` are defined over RFC 9485 I-Regexp. Until the matcher landed this build had none
+— a filter runs once per document over a corpus and `java.util.regex` backtracks, so it had to be a
+linear-time one, which was its own piece of work — and the 56 cases tagged `match` or `search` were
+excluded **by tag**, counted, and each asserted to be *refused* rather than quietly answered.
+
+They now run, and 50 of them (the other 6 are invalid selectors) are asserted to **compile** in a test
+of their own, on top of being checked value-for-value by the general one. That test is the mirror of
+the exclusion it replaced and is kept separate for the same reason the exclusion was counted: 56 is
+the number that says which feature is being claimed, and folding it into the general assertions would
+let a regression re-open the hole with every remaining count still passing.
 
 A conformance suite that silently skips is a defect this repository names in two other places; an
-exclusion that is not counted is the same defect with a comment on it. Until the number is 703, the
-README's claim says "RFC 9535 less `match` and `search`" and not "RFC 9535".
+exclusion that is not counted is the same defect with a comment on it. The number is 703, so the
+README's claim says "RFC 9535" with nothing after it.

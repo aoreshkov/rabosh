@@ -365,6 +365,17 @@ beside this one (`index-and-query.md`, `storage-durability.md`, `format-permanen
 - **A statistic is asserted against a plan, never against a clock.** `Explain` reports *measured*
   cardinalities — it reads the sources it would use — so "the selective conjunct is intersected first"
   is a fact about the plan. A timing assertion in its place would be a test of the machine.
+
+  **A complexity guarantee is asserted the same way, in the unit the algorithm counts in.**
+  `rabosh-jsonpath`'s I-Regexp matcher promises to be linear in the subject — which is the whole reason
+  it exists rather than a `java.util.regex` translation, since a `match` pattern may come from the
+  document — and `IRegexpTest` holds it to `transitions ≤ 2 × instructions × (code points + 1)` with a
+  `TransitionCounter` the matcher increments. A wall-clock assertion would have been a test of the
+  runner, and "it returned quickly" is what a *backtracking* engine also does until the input that
+  makes it not. Two clauses stop the bound being vacuous, and both are the standing rule that an
+  assertion about work never stands alone: the cost must **grow** with the subject, and doubling the
+  subject must at most double it. Reach for this shape whenever the claim is a bound rather than a
+  number — count the thing the proof counts, and assert against the formula.
 - **An index is verified against a full scan in three states, not one.** *Before* it is built, *during*
   — with only some segments covered — and *after*. The middle state is the one worth arranging
   deliberately, because "usable while it is still building, with no cutover" is a claim rather than an

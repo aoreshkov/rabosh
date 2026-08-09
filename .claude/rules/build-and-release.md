@@ -32,6 +32,16 @@ it: the codec reads `MemorySegment` directly, the log needs `FileChannel.force` 
 cannot express `fsync`), and segments are mapped through the FFM API. Anything proposed for the
 runtime scope from here needs an argument against the JDK, not only the user's approval.
 
+**And the JDK is not automatically the answer either, which the I-Regexp matcher is the first case of.**
+`java.util.regex` costs no dependency and was still declined: it backtracks, RFC 9535 lets a `match`
+pattern come from the *document*, and a filter runs once per document over a corpus — so
+`rabosh-jsonpath` carries a hand-written Thompson construction whose cost is linear in the subject and
+asserted in transitions. Every earlier "library or by hand" here turned on **owning the bytes**; this
+one turns on **owning the worst case**, and it is worth keeping apart from the others because the
+usual argument — the JDK is free, take it — points the wrong way. The rejected translation survives as
+the test oracle, which is the shape to reach for whenever an alternative is declined on a property
+rather than on its answers.
+
 ## ABI validation
 
 ABI validation uses Kotlin's built-in `abiValidation()` (2.4+) rather than the standalone

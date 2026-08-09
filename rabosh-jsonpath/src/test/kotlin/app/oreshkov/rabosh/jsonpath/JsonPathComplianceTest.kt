@@ -18,11 +18,11 @@ import kotlin.test.fail
  * tagged for a regular expression. Every count below is derived from those, never remembered
  * separately.
  *
- * **The exclusion is counted, and it is the only one.** `match` and `search` are defined over
- * RFC 9485 I-Regexp, which this build does not carry; the 56 cases needing one are excluded *by tag*,
- * the number is asserted, and each of them is additionally asserted to be **refused** rather than
- * quietly answered. 647 cases run. That number is the claim, and it is what stops the README saying
- * "RFC 9535" without qualification.
+ * **Nothing is excluded, and the number that used to be is still asserted.** The 56 cases tagged for
+ * a regular expression ran with an exclusion and a counted refusal until the I-Regexp matcher landed;
+ * the tag is still a fact about the corpus and is still pinned, but it no longer selects anything out.
+ * 703 cases run. That number is the claim, and it is what lets the README say "RFC 9535" with nothing
+ * after it.
  */
 class JsonPathComplianceTest {
 
@@ -55,7 +55,7 @@ class JsonPathComplianceTest {
     @Test
     fun `every invalid selector is rejected, and says where`() {
         var checked = 0
-        for (case in running()) {
+        for (case in ComplianceSuite.cases) {
             if (!case.isInvalid) continue
             val failure = runCatching { JsonPathQuery.compile(case.selector) }.exceptionOrNull()
                 ?: fail("$case: '${case.selector}' compiled, and the suite says it is invalid")
@@ -69,13 +69,13 @@ class JsonPathComplianceTest {
             )
             checked++
         }
-        assertEquals(TOTAL_CASES - REGEX_CASES - VALID_RUNNING_CASES, checked, "invalid cases checked")
+        assertEquals(INVALID_CASES, checked, "invalid cases checked")
     }
 
     @Test
     fun `every valid selector selects the nodes the suite pairs with it`() {
         var checked = 0
-        for (case in running()) {
+        for (case in ComplianceSuite.cases) {
             if (case.isInvalid) continue
             val document = Variant.fromJson(
                 case.document ?: fail("$case: a valid case must carry a document"),
@@ -100,7 +100,7 @@ class JsonPathComplianceTest {
             }
             checked++
         }
-        assertEquals(VALID_RUNNING_CASES, checked, "valid cases checked")
+        assertEquals(VALID_CASES, checked, "valid cases checked")
     }
 
     /**
@@ -146,37 +146,34 @@ class JsonPathComplianceTest {
     }
 
     /**
-     * The excluded cases are refused, never answered.
+     * The cases that used to be excluded are answered, and are still counted.
      *
-     * An exclusion that is not counted is a suite that silently skips, and an exclusion that leaves
-     * the feature *half* working is worse than either: a query naming `match` must not compile into
-     * something that returns a plausible nodelist. So all 56 are asserted to fail at compile time —
-     * the 50 valid ones because this build has no I-Regexp matcher, the 6 invalid ones because they
-     * are invalid.
+     * The mirror of the assertion this replaced, and it is kept as its own test rather than folded
+     * into the two above for the reason the exclusion was counted in the first place: 56 is the
+     * number that says which feature is being claimed, and a suite that stopped naming it would let a
+     * regression re-open the hole with every remaining count still passing. The 50 valid ones must
+     * compile *and* be checked by the evaluation test; the 6 invalid ones must still be rejected.
      */
     @Test
-    fun `every excluded case is refused rather than answered`() {
-        var excluded = 0
+    fun `the cases that needed a regular expression are answered rather than refused`() {
+        var valid = 0
         for (case in ComplianceSuite.cases) {
             if (!case.needsRegex) continue
             val failure = runCatching { JsonPathQuery.compile(case.selector) }.exceptionOrNull()
-                ?: fail("$case: '${case.selector}' compiled, but this build cannot evaluate it")
-            assertTrue(
-                failure is IllegalArgumentException,
-                "$case: expected an IllegalArgumentException, got ${failure::class.simpleName}",
-            )
-            excluded++
+            if (case.isInvalid) {
+                assertTrue(failure is IllegalArgumentException, "$case: '${case.selector}' must still be rejected")
+                continue
+            }
+            assertTrue(failure == null, "$case: '${case.selector}' was refused — ${failure?.message}")
+            valid++
         }
-        assertEquals(REGEX_CASES, excluded, "excluded cases")
+        assertEquals(REGEX_CASES - REGEX_INVALID_CASES, valid, "regular-expression cases compiled")
         assertEquals(
-            TOTAL_CASES - REGEX_CASES,
-            running().size,
+            TOTAL_CASES,
+            ComplianceSuite.cases.size,
             "cases that ran; this is the number the conformance claim is made at",
         )
     }
-
-    /** The cases the gate runs: everything except the ones needing a regular-expression matcher. */
-    private fun running(): List<ComplianceSuite.Case> = ComplianceSuite.cases.filterNot { it.needsRegex }
 
     /**
      * A case whose answer depends on object member ordering, compared as a set.
@@ -215,6 +212,9 @@ class JsonPathComplianceTest {
         const val REGEX_CASES = 56
         const val RESULT_PATH_STRINGS = 667
 
+        /** How many of the 56 are invalid *selectors* — an arity error rather than a pattern. */
+        const val REGEX_INVALID_CASES = 6
+
         /**
          * Distinct by **ordinal** string comparison, which is the only comparison a Normalized Path
          * admits: one location has exactly one spelling, so two paths differing in any code unit are
@@ -223,7 +223,7 @@ class JsonPathComplianceTest {
          */
         const val DISTINCT_RESULT_PATHS = 57
 
-        /** 703 total, less the 56 excluded, less the 241 invalid ones among those that run. */
-        const val VALID_RUNNING_CASES = 406
+        /** 703 total, less the 247 invalid ones. */
+        const val VALID_CASES = TOTAL_CASES - INVALID_CASES
     }
 }

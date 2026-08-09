@@ -2,6 +2,7 @@ package app.oreshkov.rabosh.jsonpath
 
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantBuilder
+import app.oreshkov.rabosh.variant.VariantKind
 
 // RFC 9535's ABNF, transcribed into recursive descent with explicit lookahead.
 //
@@ -441,18 +442,23 @@ internal class JsonPathParser(private val text: String) {
         val arguments = raw.mapIndexed { index, (argument, start) ->
             checkArgument(function, index, argument, start)
         }
+        FunctionCall(function, arguments, patternSourceOf(function, arguments))
+    }
 
-        // Checked last, so that a query which is *wrong* is reported as wrong rather than as
-        // unimplemented: `match(@.a)` is an arity error whatever this build can evaluate.
-        if (!function.evaluable) {
-            position = nameStart
-            fail(
-                "'$name' is declared by RFC 9535 §2.4 and is not implemented here: it is defined over " +
-                    "RFC 9485 I-Regexp, and this build carries no regular-expression matcher. Every " +
-                    "other selector of the grammar is available",
-            )
-        }
-        FunctionCall(function, arguments)
+    /**
+     * Compiles `match`'s and `search`'s I-Regexp, if the query wrote one down.
+     *
+     * Reached only after the arity check above, so `arguments[1]` exists whenever [function] takes a
+     * pattern. A literal that is not a string, or is a string RFC 9485 does not admit, becomes
+     * [PatternSource.Fixed] with no regexp rather than a parse failure — see its own documentation
+     * for why refusing here would be wrong.
+     */
+    private fun patternSourceOf(function: JsonPathFunction, arguments: List<FunctionArgument>): PatternSource? {
+        if (!function.takesPattern) return null
+        val comparable = (arguments[1] as? FunctionArgument.Value)?.comparable
+        val literal = (comparable as? ComparableExpression.Literal)?.value ?: return PatternSource.PerNode
+        if (literal.kind != VariantKind.STRING) return PatternSource.Fixed(null)
+        return PatternSource.Fixed(IRegexp.compileOrNull(literal.stringValue()))
     }
 
     /**

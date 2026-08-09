@@ -305,16 +305,45 @@ internal fun testFilter(expression: FilterExpression, current: Variant, root: Va
         )
     }
 
-/** A `NodesType` function in a logical position converts to "the nodelist is not empty". */
-private fun testCall(call: FunctionCall, current: Variant, root: Variant): Boolean =
-    when (call.function.result) {
-        JsonPathType.NODES -> error("no registered function returns NodesType")
-        JsonPathType.VALUE -> error("a ValueType function is rejected in a logical position at compile time")
-        // `match` and `search` are the only LogicalType functions and both are refused by
-        // `JsonPathQuery.compile`, so nothing can reach here. Stated rather than assumed: the day an
-        // I-Regexp matcher lands, this is one of the two places that has to change.
-        JsonPathType.LOGICAL -> error("'${call.function.spelling}' is not implemented; compile refuses it")
-    }
+/** The two functions whose declared result is `LogicalType`. Nothing else reaches a logical position. */
+private fun testCall(call: FunctionCall, current: Variant, root: Variant): Boolean = when (call.function) {
+    JsonPathFunction.MATCH -> testPattern(call, current, root, anchored = true)
+    JsonPathFunction.SEARCH -> testPattern(call, current, root, anchored = false)
+
+    // A ValueType function in a logical position is rejected while parsing — `$[?length(@.a)]` is one
+    // of the 247 invalid selectors — and no registered function returns NodesType. Stated rather than
+    // assumed, so that a sixth function has to be classified here too.
+    JsonPathFunction.LENGTH, JsonPathFunction.COUNT, JsonPathFunction.VALUE ->
+        error("'${call.function.spelling}' returns ${call.function.result} and cannot be tested")
+}
+
+/**
+ * RFC 9535 §2.4.6 and §2.4.7, which differ by one word and therefore by one flag.
+ *
+ * **Every failure is `LogicalFalse` and none is an error.** A subject that is not a string, a pattern
+ * that is not a string, a pattern that is a string and not an I-Regexp — the specification gives all
+ * three the same answer, and giving any of them an exception would make a filter over a corpus fail
+ * on the one document whose field holds a number.
+ */
+private fun testPattern(call: FunctionCall, current: Variant, root: Variant, anchored: Boolean): Boolean {
+    val subject = stringOf(valueArgument(call, 0, current, root)) ?: return false
+    val regexp = when (val pattern = call.pattern) {
+        // Compiled once, when the query was compiled.
+        is PatternSource.Fixed -> pattern.regexp
+
+        // The pattern is a value of the document, so it is read and compiled for this node. No memo:
+        // a cache would be the first mutable state in a class that promises immutability, and
+        // nothing has measured the compile against the walk it sits inside.
+        PatternSource.PerNode, null -> stringOf(valueArgument(call, 1, current, root))?.let(IRegexp::compileOrNull)
+    } ?: return false
+    return if (anchored) regexp.matches(subject) else regexp.search(subject)
+}
+
+/** A `ValueType` as its string, or `null` for `Nothing` and for every value that is not a string. */
+private fun stringOf(value: FilterValue): String? {
+    if (value !is FilterValue.Node) return null
+    return if (value.value.kind == VariantKind.STRING) value.value.stringValue() else null
+}
 
 /** Whether [query] selects at least one node. Stops at the first, which is what the sink is for. */
 private fun hasNode(query: QueryExpression, current: Variant, root: Variant): Boolean {
@@ -374,8 +403,11 @@ private fun evaluateCall(call: FunctionCall, current: Variant, root: Variant): F
         JsonPathFunction.LENGTH -> lengthOf(valueArgument(call, 0, current, root))
         JsonPathFunction.COUNT -> FilterValue.Integral(countNodes(nodesArgument(call, 0), current, root))
         JsonPathFunction.VALUE -> singleNode(nodesArgument(call, 0), current, root)
+
+        // Both are LogicalType, and a LogicalType function is never a comparison operand: the parser
+        // reports `match(…) == true` as one of the invalid selectors rather than compiling it.
         JsonPathFunction.MATCH, JsonPathFunction.SEARCH ->
-            error("'${call.function.spelling}' is not implemented; compile refuses it")
+            error("'${call.function.spelling}' returns LogicalType and is not a comparison operand")
     }
 
 private fun valueArgument(call: FunctionCall, index: Int, current: Variant, root: Variant): FilterValue =
