@@ -300,11 +300,22 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
-          Published to Maven Central as \`app.oreshkov:rabosh-api:$VERSION\` and its five sibling modules.
+          Published to Maven Central under \`app.oreshkov\`. \`rabosh-api\` brings the five modules of
+          the storage chain with it:
 
           \`\`\`kotlin
           dependencies {
               implementation("app.oreshkov:rabosh-api:$VERSION")
+          }
+          \`\`\`
+
+          \`rabosh-jsonpath\` is published too and is deliberately **not** transitive — it sits beside
+          the chain so that RFC 9535's comparison rules can never reach the query planner. Ask for it
+          by name:
+
+          \`\`\`kotlin
+          dependencies {
+              implementation("app.oreshkov:rabosh-jsonpath:$VERSION")
           }
           \`\`\`
 

@@ -13,6 +13,14 @@ promise does not wait for `1.0`. Anything affecting it is stated in
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-08-09
+
+**A document's interior became addressable.** 0.1.0 could tell you *which documents* matched and
+structurally could not tell you which `$.items[3]` inside one of them did. This release closes that
+from three directions — a JSONPath query over a document you already hold, a correlated `elemMatch`
+with an index behind it, and the ordinary indexes put in front of the element walk — and adds a
+seventh published module to carry the first.
+
 ### Added
 
 - **`rabosh-jsonpath`** — a seventh published module: [RFC 9535](https://www.rfc-editor.org/info/rfc9535/)
@@ -100,6 +108,19 @@ store was added. A store written by an earlier release opens unchanged; an earli
 store that defines a composite index reports it as written by a newer build, which is what an unknown
 id has always meant here. No existing `.api` dump lost an entry; one was added, for the new module.
 
+### Upgrading
+
+`rabosh-api` brings the storage chain with it and **does not bring `rabosh-jsonpath`**, which sits
+beside the chain rather than in it — nothing depends on it, which is what keeps RFC 9535's comparison
+rules away from the query planner. Add it explicitly if you want it:
+
+```kotlin
+dependencies {
+    implementation("app.oreshkov:rabosh-api:0.2.0")
+    implementation("app.oreshkov:rabosh-jsonpath:0.2.0")   // optional, and deliberately not transitive
+}
+```
+
 ## [0.1.0] — 2026-08-02
 
 First published release. Six modules under the Maven group `app.oreshkov`, with **no runtime
@@ -149,5 +170,6 @@ Every jar carries a [build provenance attestation](https://docs.github.com/actio
 gh attestation verify rabosh-api-0.1.0.jar --repo aoreshkov/rabosh
 ```
 
-[Unreleased]: https://github.com/aoreshkov/rabosh/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/aoreshkov/rabosh/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.2.0
 [0.1.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.1.0
