@@ -440,9 +440,16 @@ db.createIndex(IndexDefinition.composite("$.items[*]", "$.sku", "$.qty"))
 ```
 
 The index keys the *tuple* of an element's declared fields, so a match is exact and the plan opens no
-document at all. It answers a fully known conjunction and nothing else — every declared field compared
-for equality — which is Postgres `jsonb_path_ops`'s limit, and the reason it supplements your leaf
-indexes rather than replacing them.
+document at all. What it needs is every declared field compared for equality — Postgres
+`jsonb_path_ops`'s limit, and the reason it supplements your leaf indexes rather than replacing them.
+
+**Asking for more than you declared is fine; asking for less is not.** A query that fixes the declared
+fields and then adds a range, a negation, or a field the index never heard of is still narrowed by the
+tuple — the extra conjunct is dropped, which only widens, and the element walk decides what survives.
+A query that fixes *fewer* fields than the index declares gets nothing from it, and that is a
+correctness limit rather than a missing feature: a term exists only for an element carrying every
+declared field, so an element with a `sku` and no `qty` is keyed nowhere, and scanning the tuples would
+quietly lose it. Index the field on its own if you query it on its own.
 
 **What it cannot spell, your ordinary indexes narrow anyway.** An `elemMatch` over a range, over some
 of the fields, or over a disjunction is rewritten into leaves over the concatenated paths — so an

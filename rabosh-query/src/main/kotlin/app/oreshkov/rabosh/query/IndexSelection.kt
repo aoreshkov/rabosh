@@ -224,34 +224,62 @@ internal fun chooseIndex(leaf: Normal.Leaf, indexes: List<IndexHandle>): IndexHa
 }
 
 /**
- * The terms a composite index can answer [node] with, or `null` when it cannot answer it at all.
+ * A composite index that can answer [Normal.Element], and whether it **decides** it.
+ *
+ * [exact] is the difference between "this node is settled" and "this node is narrowed": when it is
+ * true the tuple accounts for every conjunct and the plan may skip the recheck, and when it is false
+ * some conjunct was dropped and the element walk still has to run.
+ */
+internal class CompositeChoice(
+    val handle: IndexHandle,
+    val terms: Set<IndexTerm>,
+    val exact: Boolean,
+)
+
+/**
+ * The terms a composite index can answer [node] with, or `null` when no term applies.
  *
  * **The limit this inherits from `jsonb_path_ops`, made mechanical.** A composite term is the whole
  * declared tuple, so it can be *spelled* only when the query fixes every declared field by equality.
- * A conjunction naming three of four declared fields, one naming a range, one negated, one over a
- * different path — each of those is answered by no term at all, and each therefore falls back to the
- * walk. That is the sense in which this **supplements** the leaf indexes rather than replacing them,
- * and it is why a composite index is never the only index anybody wants.
+ * A conjunction naming three of four declared fields, one naming a range on a declared field, one
+ * negating one — each of those leaves the tuple unspellable, and each falls back to the decomposition
+ * and the walk. That is the sense in which this **supplements** the leaf indexes rather than replacing
+ * them.
  *
- * Five conditions, and every one of them is a soundness condition rather than a preference:
+ * **What it does *not* require is that the query stop there**, and that asymmetry is the whole of the
+ * difference between the two halves of the tuple's limit. Extra conjuncts — a range, a negation, a
+ * field the index never heard of, a nested `elemMatch` — are simply **dropped**, because dropping a
+ * conjunct inside the existential only widens it: `∃e(A ∧ B ∧ C) ⊆ ∃e(A ∧ B)`. So a query that fixes
+ * the declared fields and asks for more is answered by the tuple as a *superset*, with [exact] false
+ * and the element walk deciding what survives. That is the same monotonicity `OrdinalExpression.All`'s
+ * `complete = false` already runs on, and it is why this needed no new mechanism.
+ *
+ * **The other direction is unsound and is refused here rather than anywhere downstream.** A query
+ * fixing *fewer* fields than the index declares cannot use the tuple at all — not even as candidates
+ * — because a composite term exists only for an element carrying **every** declared field. An element
+ * with `sku = "A"` and no `qty` satisfies `elemMatch(p, sku eq "A")` and contributes no term, so any
+ * scan of the tuples would return a **subset** of the answer. The property that makes a full lookup
+ * exact is the same property that makes a partial one lossy; `CompositeTermPrefixTest` pins both
+ * halves of that sentence in the bytes.
+ *
+ * Four conditions, and every one is a soundness condition rather than a preference:
  *
  * 1. the index is over the element path this node walks;
- * 2. the operand is a conjunction of equality leaves — nothing negated, no range, no nesting;
- * 3. its paths are **exactly** the declared field set: a missing field would leave the term
- *    unspellable, and an extra one is a conjunct the term does not decide;
- * 4. every leaf's literals can be spelled as terms, which excludes a JSON null and a value the writer
- *    dropped for length — the same bound applied to the same bytes on both sides;
- * 5. the cross product of the per-field literals stays small, because `IN` over two fields is a
+ * 2. the operand is a conjunction (or a lone leaf) in which **every declared field** is fixed by a
+ *    non-negated equality leaf — a missing one leaves the term unspellable;
+ * 3. every such leaf's literals can be spelled as terms, which excludes a JSON null and a value the
+ *    writer dropped for length — the same bound applied to the same bytes on both sides;
+ * 4. the cross product of the per-field literals stays small, because `IN` over two fields is a
  *    product and a plan that built ten thousand terms would be slower than the scan it replaced.
  *
- * A `null` is not a failure: the node becomes a residual, answered by the recheck and by the scan,
+ * A `null` is not a failure: the node falls through to the decomposition and then to the recheck,
  * which is what every predicate did before there were any indexes.
  */
 internal fun chooseComposite(
     node: Normal.Element,
     indexes: List<IndexHandle>,
     options: IndexOptions,
-): Pair<IndexHandle, Set<IndexTerm>>? {
+): CompositeChoice? {
     // A negated element node is not answerable: the complement of "some element has this tuple" is
     // sound but very nearly the whole segment, exactly as a negated equality leaf is.
     if (node.negated) return null
@@ -261,23 +289,29 @@ internal fun chooseComposite(
         is Normal.Leaf -> listOf(inner)
         else -> return null
     }
-    val leaves = conjuncts.map { it as? Normal.Leaf ?: return null }
-    if (leaves.any { it.negated || it.kind != LeafKind.EQUALITY || it.terms == null }) return null
 
-    val byPath = LinkedHashMap<CatalogPath, Set<IndexTerm>>()
-    for (leaf in leaves) {
-        // A path named twice is two conjunctions over one field, which is an intersection of literal
-        // sets rather than a union — expressible, and not worth the branch. Declined.
-        if (byPath.put(leaf.path, leaf.terms!!) != null) return null
+    // The equality leaves, first spelling of a path winning. Anything else in the conjunction — a
+    // range, a negation, a nested node, a second leaf over a path already fixed — is left here and
+    // costs the node its certainty below rather than costing it the index.
+    val fixed = LinkedHashMap<CatalogPath, Set<IndexTerm>>()
+    for (conjunct in conjuncts) {
+        val leaf = conjunct as? Normal.Leaf ?: continue
+        if (leaf.negated || leaf.kind != LeafKind.EQUALITY || leaf.terms == null) continue
+        fixed.putIfAbsent(leaf.path, leaf.terms)
     }
+    if (fixed.isEmpty()) return null
 
     for (handle in indexes) {
         if (handle.kind != IndexKind.COMPOSITE_TERM || handle.path != node.path) continue
         val fields = handle.definition.fields
-        if (fields.size != byPath.size || !byPath.keys.containsAll(fields)) continue
+        if (!fixed.keys.containsAll(fields)) continue
 
-        val terms = compositeTerms(fields.map { byPath.getValue(it) }, options) ?: continue
-        return handle to terms
+        val terms = compositeTerms(fields.map { fixed.getValue(it) }, options) ?: continue
+        // Exact only when nothing was left over: as many conjuncts as declared fields, and every one
+        // of them consumed as a distinct declared field's equality. Either count alone would let a
+        // dropped conjunct through as a decided one, which is a document deleted from a result.
+        val exact = conjuncts.size == fields.size && fixed.size == fields.size
+        return CompositeChoice(handle, terms, exact)
     }
     return null
 }

@@ -80,12 +80,41 @@ differential suites that hold every claim here in `.claude/rules/testing.md`.
   taken instead is visible and bounded: a tuple above `maxTermBytes` is not keyed, and the planner
   applies the same bound to the same bytes so that what the writer dropped is what the query declines.
 
-- **A composite index answers a fully known conjunction and nothing else.** Every declared field
-  compared for equality, no more and no fewer, nothing negated, no range, no disjunction. Anything
-  else gets **no** source *from the tuple* — the `jsonb_path_ops` limit, inherited deliberately, and
-  the reason this kind *supplements* the leaf indexes rather than replacing them. A planner that
-  answered a subset of the declared fields from the tuple would return a subset of the answer with
-  nothing anywhere reporting a problem.
+- **A composite index needs every declared field fixed by equality, and does not care what else the
+  query asks.** The two halves of that sentence are not symmetrical and the asymmetry is the whole
+  rule.
+
+  **Fewer is unsound.** A query fixing a *subset* of the declared fields gets **no** source from the
+  tuple — not even candidates — because a term exists only for an element carrying every declared
+  field. An element with `sku = "A"` and no `qty` satisfies `elemMatch(p, sku eq "A")` and contributes
+  no term, so any scan of the tuples is a **subset** of the answer and a subset cannot be rescued by a
+  recheck. This is the `jsonb_path_ops` limit, inherited deliberately, and it is the reason this kind
+  *supplements* the leaf indexes rather than replacing them.
+
+  **More is fine, and is taken.** Extra conjuncts — a range, a negation, a field the index never heard
+  of, a second leaf over a path already fixed — are **dropped**, because dropping a conjunct inside
+  the existential only widens it: `∃e(A ∧ B ∧ C) ⊆ ∃e(A ∧ B)`. So the tuple narrows *correlatedly*,
+  `CompositeChoice.exact` is false, and the element walk decides what survives. Nothing new was needed
+  for it — the mark is `OrdinalExpression.All(complete = false)`, the same one a dropped conjunct
+  already uses — and the decomposition is intersected on top rather than skipped, so a caller who also
+  has ordinary indexes is never worse off than before the tuple could be used at all.
+
+  Getting `exact` wrong is the way this returns wrong answers, and it is checkable: forcing it true
+  makes `ElemMatchTest` report a document whose element matched the tuple and failed the extra
+  conjunct. Do not derive it from the field count alone — a conjunction can name as many conjuncts as
+  the index has fields and still leave one unconsumed.
+
+- **A composite term cannot be scanned by prefix, and the reason is the exactness argument from
+  behind.** A tuple's fields are written in declaration order, so a query fixing a prefix of them
+  looks answerable by a range scan over the sorted dictionary — no new kind, no id, no version. Both
+  premises that were named for it hold: a sub-tuple *is* a byte prefix of the tuple extending it, and
+  the run sharing that prefix is contiguous and reachable by a bisect rather than a walk.
+  `CompositeTermPrefixTest` pins both, and then pins the third nobody named: **the tuples are not a
+  complete record of the sub-tuple.** The property that makes a full lookup exact is the same property
+  that makes a partial one lossy, and the presence bitmap cannot repair it because it too means *a
+  complete tuple*. Refused on that, not on a measurement — the feature is unsound before it is slow.
+  A second, independent refusal is on record for the range half: a numeric signature is decimal text,
+  so `10` sorts before `9` and the "range on the next field" was never available for numbers.
 
 - **What the tuple cannot spell, the ordinary indexes still narrow — and whether that is exact turns
   on one quantifier identity.** An element node decomposes into leaves over concatenated paths,

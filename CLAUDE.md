@@ -97,6 +97,9 @@ it fails **silently** — a document missing from a result, a file that stops me
 - Type bracketing is part of the query contract, because skipping depends on it.
 - A negated leaf is never a flipped operator.
 - A plan's candidates are a superset and its certainties a subset, and the gap is what gets read.
+- A composite index needs every declared field fixed by equality and does not care what else the query
+  asks: **more** conjuncts are dropped and cost it only its certainty, **fewer** are unsound.
+- A composite term cannot be scanned by prefix, and the reason is the exactness argument from behind.
 - Stopping an index build is safe because coverage is honest, and that is why cancellation has no
   rollback.
 - A worker thread is shut down, never interrupted.

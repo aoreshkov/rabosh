@@ -108,22 +108,21 @@ class ElemMatchTest {
     /**
      * Everything the composite index cannot spell falls back, and still answers correctly.
      *
-     * Four shapes that must **not** be answered from the tuple — a range inside the element, a
-     * conjunct over a field the index does not declare, a subset of the declared fields, and a
-     * disjunction — each checked against the answer the same store gives with no index at all. A
-     * planner that reached for the term dictionary for any of them would return a subset of the
-     * answer with nothing anywhere reporting a problem, which is the failure this whole layer's
-     * kind-matching rules exist to prevent.
+     * Four shapes that must **not** be answered from the tuple — a range on a declared field, a
+     * subset of the declared fields, a disjunction, and a negated element node — each checked against
+     * the answer the same store gives with no index at all. A planner that reached for the term
+     * dictionary for any of them would return a subset of the answer with nothing anywhere reporting
+     * a problem, which is the failure this whole layer's kind-matching rules exist to prevent.
+     *
+     * **The subset case is the one with a conjecture behind it**, and it is refused rather than
+     * unimplemented: see `a partial element is why a composite term cannot be scanned by prefix`
+     * below, and `CompositeTermPrefixTest` for the same fact in the bytes.
      */
     @Test
     fun `a query the tuple cannot spell falls back to the walk`(@TempDir root: Path) {
         val directory = scratch(root)
         val unspellable = mapOf(
             "a range inside the element" to elemMatch("$.items[*]", path("$.qty") gt 3L),
-            "a field the index does not declare" to elemMatch(
-                "$.items[*]",
-                and(path("$.sku") eq "A", path("$.note") eq "x"),
-            ),
             "only some of the declared fields" to elemMatch("$.items[*]", path("$.sku") eq "A"),
             "a disjunction inside the element" to elemMatch(
                 "$.items[*]",
@@ -227,6 +226,120 @@ class ElemMatchTest {
         }
     }
 
+    /**
+     * **A conjunction asking for more than the tuple declares is answered by the tuple all the same.**
+     *
+     * Dropping a conjunct inside the existential only widens it — `∃e(A ∧ B ∧ C) ⊆ ∃e(A ∧ B)` — so an
+     * index over `(sku, qty)` narrows a query that also names `note`, or a range, or anything else.
+     * What it costs is the right to *decide*, so the node is marked incomplete and the element walk
+     * settles what survives. The same monotonicity a dropped conjunct already runs on; no new
+     * mechanism, no format change, and the exact case below is untouched by it.
+     *
+     * Three assertions, and none of them stands alone. The answer is compared against the same store
+     * with no index. `segmentsScanned == 0` says the tuple was actually used. And `documentsRead` is
+     * bounded **above** by the tuple's hits and **below** by one — a plan that decided the node
+     * outright would read zero and be wrong, and one that gave up would read all five.
+     */
+    @Test
+    fun `a conjunction naming more than the declared fields is narrowed by the tuple`(@TempDir root: Path) {
+        val directory = scratch(root)
+        val extraEquality = Query.where(
+            elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5L, path("$.note") eq "x")),
+        )
+        val extraRange = Query.where(
+            elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5L, path("$.rank") gt 2L)),
+        )
+
+        IndexCatalog(directory).use { catalog ->
+            DocumentStore.open(directory, queryStoreOptions(catalog)).use { store ->
+                catalog.attach(store)
+                val engine = QueryEngine(store, catalog)
+                loadWide(store)
+
+                val expected = store.snapshot().use { snapshot ->
+                    listOf(engine.keys(extraEquality, snapshot), engine.keys(extraRange, snapshot))
+                }
+                assertEquals(listOf(WIDE_HIT_KEY), expected[0], "the fixture must separate the tuple from the extra")
+                assertEquals(listOf(WIDE_HIT_KEY), expected[1])
+
+                catalog.createIndex(store, IndexDefinition.composite("$.items[*]", "$.sku", "$.qty"))
+
+                store.snapshot().use { snapshot ->
+                    for ((query, want) in listOf(extraEquality, extraRange).zip(expected)) {
+                        engine.execute(query, snapshot).use { cursor ->
+                            val keys = ArrayList<Key>()
+                            while (cursor.next()) keys.add(cursor.key)
+                            assertEquals(want, keys, "an index may change the speed and never the answer")
+                            assertEquals(0, cursor.stats.segmentsScanned, "the tuple must have narrowed it")
+                            assertTrue(
+                                cursor.stats.documentsRead in 1..2,
+                                "the tuple fixes sku and qty and decides nothing else, so the walk opens " +
+                                    "the two documents carrying that tuple and none of the other three — " +
+                                    "was ${cursor.stats.documentsRead}",
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * **A partial element is why a composite term cannot be scanned by prefix.**
+     *
+     * A tuple's fields are written in declaration order, so a query fixing a *prefix* of them looks
+     * answerable by a range scan over the sorted term dictionary — no new kind, no id, no version.
+     * The bytes support it and the dictionary supports it; `CompositeTermPrefixTest` pins both. This
+     * is the fact that refuses it, and it is the exactness argument arriving from behind: a term
+     * exists **only** for an element carrying every declared field, so the document below — whose one
+     * element has `sku` and no `qty` — contributes no term at all and yet plainly satisfies
+     * `elemMatch(p, sku eq "A")`.
+     *
+     * A prefix run would therefore be a **subset** of the answer. An index may be wider than the truth
+     * and never narrower, and a subset cannot be rescued by a recheck. So the planner declines a query
+     * fixing fewer fields than the index declares, and this asserts what declining is worth: the
+     * answer with the index is the answer without it, and it includes the partial document.
+     */
+    @Test
+    fun `a partial element is why a composite term cannot be scanned by prefix`(@TempDir root: Path) {
+        val directory = scratch(root)
+        val leadingFieldOnly = Query.where(elemMatch("$.items[*]", path("$.sku") eq "A"))
+
+        IndexCatalog(directory).use { catalog ->
+            DocumentStore.open(directory, queryStoreOptions(catalog)).use { store ->
+                catalog.attach(store)
+                val engine = QueryEngine(store, catalog)
+                loadWide(store)
+
+                val expected = store.snapshot().use { engine.keys(leadingFieldOnly, it) }
+                assertTrue(
+                    WIDE_PARTIAL_KEY in expected,
+                    "the document whose element has no qty matches the leading field, and this is the " +
+                        "whole reason a prefix scan over the tuples would be wrong",
+                )
+
+                catalog.createIndex(store, IndexDefinition.composite("$.items[*]", "$.sku", "$.qty"))
+
+                store.snapshot().use { snapshot ->
+                    assertEquals(
+                        expected,
+                        engine.keys(leadingFieldOnly, snapshot),
+                        "and the index must not remove it",
+                    )
+                    // The index is usable — so the assertion above is not passing because nothing
+                    // could have gone wrong.
+                    assertEquals(
+                        0,
+                        engine.explain(
+                            Query.where(elemMatch("$.items[*]", and(path("$.sku") eq "A", path("$.qty") eq 5L))),
+                            snapshot,
+                        ).segmentsScanned,
+                    )
+                }
+            }
+        }
+    }
+
     /** The declared fields survive a reopen, because a definition that lost them is a different index. */
     @Test
     fun `a composite definition round-trips through the registry`(@TempDir root: Path) {
@@ -274,11 +387,34 @@ class ElemMatchTest {
         store.flush()
     }
 
+    /**
+     * The corpus for the two tests about what a tuple decides and what it only narrows.
+     *
+     * Arranged rather than hoped for, one document per case: one satisfying everything, one matching
+     * the tuple and failing the extra conjunct — which is what makes `documentsRead` non-zero mean
+     * something — one failing the tuple, one where the conjuncts are satisfied by *different*
+     * elements, and one whose element has no `qty` at all.
+     */
+    private fun loadWide(store: DocumentStore) {
+        store.put(WIDE_HIT_KEY, jsonDocument("""{"items":[{"sku":"A","qty":5,"note":"x","rank":9}]}"""))
+        store.put(WIDE_TUPLE_KEY, jsonDocument("""{"items":[{"sku":"A","qty":5,"note":"y","rank":1}]}"""))
+        store.put(WIDE_OTHER_KEY, jsonDocument("""{"items":[{"sku":"B","qty":5,"note":"x","rank":9}]}"""))
+        store.put(WIDE_SPLIT_KEY, jsonDocument("""{"items":[{"sku":"A","qty":1},{"sku":"B","qty":5,"note":"x"}]}"""))
+        store.put(WIDE_PARTIAL_KEY, jsonDocument("""{"items":[{"sku":"A","note":"x"}]}"""))
+        store.flush()
+    }
+
     private companion object {
         val SPLIT_KEY = Key.of("doc:split")
         val TOGETHER_KEY = Key.of("doc:together")
         val SCALAR_KEY = Key.of("doc:scalar")
         val ABSENT_KEY = Key.of("doc:absent")
+
+        val WIDE_HIT_KEY = Key.of("wide:hit")
+        val WIDE_OTHER_KEY = Key.of("wide:other")
+        val WIDE_PARTIAL_KEY = Key.of("wide:partial")
+        val WIDE_SPLIT_KEY = Key.of("wide:split")
+        val WIDE_TUPLE_KEY = Key.of("wide:tuple")
 
         /** The two leaves are satisfied by *different* elements. */
         const val SPLIT = """{"items":[{"sku":"A","qty":1},{"sku":"B","qty":5}]}"""

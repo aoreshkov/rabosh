@@ -156,15 +156,27 @@ internal object QueryPlanner {
 
             // An `elemMatch` has two chances, in this order and for this reason.
             //
-            // A composite index spells the whole tuple and therefore *decides* the node — the fast
-            // path, and the only one that reaches zero documents read. Failing that, the node is
-            // decomposed into ordinary leaves over concatenated paths, so the indexes a caller
-            // already has narrow it before the element walk runs. The second is what makes a range
-            // inside an element, a subset of a tuple's fields and a disjunction cost an index lookup
-            // instead of ~400 ns per element; it is worth strictly less than the first and is
-            // strictly better than nothing.
-            is Normal.Element -> chooseComposite(node, available, options)?.let { (handle, terms) ->
-                OrdinalExpression.Source(LeafSource.composite(node, terms, open(handle)))
+            // A composite index spells the declared tuple, and where the tuple accounts for the whole
+            // operand it *decides* the node — the fast path, and the only one that reaches zero
+            // documents read. Failing that, the node is decomposed into ordinary leaves over
+            // concatenated paths, so the indexes a caller already has narrow it before the element
+            // walk runs. The second is what makes a range inside an element, a subset of a tuple's
+            // fields and a disjunction cost an index lookup instead of ~400 ns per element; it is
+            // worth strictly less than the first and is strictly better than nothing.
+            is Normal.Element -> chooseComposite(node, available, options)?.let { choice ->
+                val tuple = OrdinalExpression.Source(LeafSource.composite(node, choice.terms, open(choice.handle)))
+                if (choice.exact) {
+                    tuple
+                } else {
+                    // The tuple fixed every declared field and the conjunction asked for more, so
+                    // this narrows *correlatedly* without deciding. The decomposition is intersected
+                    // on top rather than passed over: a caller who also has ordinary indexes was
+                    // getting those before the tuple could be used here at all, and taking the tuple
+                    // instead of them would trade one narrowing for another with nothing to say which
+                    // is better. Both is strictly better than either.
+                    val narrowed = decomposeElement(node)?.let { (rewritten, _) -> visit(rewritten) }
+                    OrdinalExpression.All(listOfNotNull(tuple, narrowed), complete = false)
+                }
             } ?: decomposeElement(node)?.let { (rewritten, exact) ->
                 visit(rewritten)?.let { narrowed ->
                     // An inexact decomposition narrows without deciding, and saying so is the whole
