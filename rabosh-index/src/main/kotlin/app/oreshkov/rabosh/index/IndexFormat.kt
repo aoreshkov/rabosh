@@ -417,8 +417,18 @@ internal object IndexFormat {
      *   be tuples; the dictionary, the directory, the presence bitmap, the two posting encodings and
      *   both checksums are the same bytes doing the same job, and `PostingFile` learned one extra
      *   value for a header field it was already validating.
-     * - no version was bumped, no section kind was spent, and no golden store was added, because no
-     *   file any earlier build can write means anything different.
+     * - no version was bumped and no section kind was spent, because no file any earlier build can
+     *   write means anything different.
+     *
+     * **A golden store was added later, and the delay is the instructive part.** This list originally
+     * ended "and no golden store was added", which was sound as a statement about *backward*
+     * compatibility — the committed directories go on meaning what they meant, and they already cover
+     * the case an older reader takes, stopping at a kind byte it does not know. It was the wrong test
+     * to apply. A golden store is never evidence for the build that wrote it; it is evidence for every
+     * build after. The moment 0.2.0 shipped, a registry carrying this continuation became a file
+     * *earlier than the next build* with nothing committed behind it, and the only cover was a round
+     * trip through this same writer — which `.claude/rules/testing.md` is explicit is worth nothing
+     * against a self-consistent change. `golden/store-v5` is those bytes; see `GoldenStoreV5`.
      */
     const val INDEX_KIND_COMPOSITE_TERM: Int = 3
 

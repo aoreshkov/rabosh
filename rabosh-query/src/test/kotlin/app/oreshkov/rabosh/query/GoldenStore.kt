@@ -47,6 +47,9 @@ internal object GoldenStore : GoldenCorpus {
     /** Phase 9 predates `SECTION_FIDELITY`, so these columns claim nothing and are believed. */
     override val columnsClaimFidelity: Boolean get() = false
 
+    /** Thirteen phases before index kind 3 existed. This is the absence side of that assertion. */
+    override val compositeIndex: IndexDefinition? get() = null
+
     override val modelledPaths: List<String> =
         listOf("$.team", "$.score", "$.price", "$.tags[*]", "$.live", "$.note")
 

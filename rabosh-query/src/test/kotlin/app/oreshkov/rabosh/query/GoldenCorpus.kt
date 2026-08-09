@@ -2,6 +2,7 @@ package app.oreshkov.rabosh.query
 
 import app.oreshkov.rabosh.core.StoreOptions
 import app.oreshkov.rabosh.index.CompositeSegmentObserver
+import app.oreshkov.rabosh.index.IndexDefinition
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.copyTo
@@ -71,6 +72,23 @@ interface GoldenCorpus {
 
     /** Offset within a term entry of `postingOffset`; version 1 spends its first eight on the term. */
     val postingFieldOffset: Int get() = if (postingVersion >= 2) 0 else 8
+
+    /**
+     * The composite index this corpus carries, or `null` where it was written before the kind existed.
+     *
+     * The **third** version-shaped fact, and the first that is not a version field — which is the
+     * reason it is stated here per corpus rather than asserted from a literal in a test. Index kind 3
+     * did not replace a layout, it *continued* a record: the registry's per-index entry carries the
+     * declared fields after `createdAtSequence`, for this kind alone. So there is no number in any file
+     * to read the way [postingVersion] and [baseVersion] are read, and the only way an assertion can
+     * run in both directions is for each corpus to say whether it has one.
+     *
+     * Held as an [IndexDefinition] rather than as its parts, because the definition is precisely what
+     * the registry has to give back: a path, a kind, and the fields in declaration order. Comparing
+     * against a constructed one is therefore comparing against the engine's own notion of when two
+     * indexes are the same index, rather than against three strings a test remembered.
+     */
+    val compositeIndex: IndexDefinition?
 
     /** The options the store was written with, and the ones it must reopen under. */
     val options: StoreOptions

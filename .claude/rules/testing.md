@@ -174,6 +174,29 @@ beside this one (`index-and-query.md`, `storage-durability.md`, `format-permanen
   nothing when an *optional section* does, because a reader that skips a section is already covered by
   the files that lack it.
 
+  **The fourth outing is `store-v5`, and it is the case that shape got wrong.** Index kind 3 changed no
+  layout and spent no section, so phase 22 read it as the second column and added nothing — recording
+  the decision in `format-permanence.md` in as many words. The reasoning was about backward
+  compatibility and holds: a kind byte an older build does not know stops it before the record
+  continuation, so no committed file means anything different. But **a golden store is evidence for the
+  builds that come after, not for the ones that came before**, and by that test a registry carrying
+  `fieldCount` and the declared field paths was a shape with no committed bytes at all, covered only by
+  a round trip through its own writer. So the third column is now stated: add a directory for a
+  **layout** change, add nothing for an *optional section*, and add one for an **extension older
+  readers cannot see** — a record continuation, a new discriminator value — precisely because their
+  invisibility is what stops every existing directory from pinning them. Absence in the four older
+  stores is a real assertion and it needs the presence case, which is the `SECTION_FIDELITY` lesson one
+  level up from a flag.
+
+  `store-v5` is also the first written by a **tagged release** rather than by a phase commit, which is
+  the sentence `COMPATIBILITY.md` actually promises — a store written by an earlier *release* opens on
+  every later one — evidenced rather than approximated. Regenerate from the tag, never from `main`: the
+  point of the directory is the build that wrote it. And it grows the corpus, which the three before it
+  deliberately did not: a composite term keys a tuple inside an array *element*, and the shared corpus
+  has no array of objects, so holding it fixed would have pinned the feature not existing. That is
+  `store-v2`'s case, not a break with `store-v3`'s — **hold the corpus fixed for a layout change, grow
+  it for a shape the format could not previously express.**
+
   Without a rule the "add a directory" rule accumulates binary blobs one format change at a time.
   Under it `store-v1` stays for a concrete reason and not out of sentiment: regenerating it with the
   phase 11 build differs in exactly two `.pst` files, by 110 and 44 bytes — 5 × 22 and 2 × 22 — so it

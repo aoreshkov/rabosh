@@ -15,7 +15,7 @@ ids live inside are in `.claude/rules/index-sidecar-format.md`.
 - **The magics are spelled `JKDB-`, and that is not a typo to correct.** The project was called
   `jsonkdb` when the format was written, and the prefix is a *retained historical* one: a magic is a
   discriminator that says which kind of file this is, never branding. Renaming it would invalidate all
-  four golden stores — including the three carrying layouts this build can no longer write — and buy
+  five golden stores — including the three carrying layouts this build can no longer write — and buy
   nothing a hex dump cares about. `PK` outlived PKZIP and a Java class file still opens `CAFEBABE`. A
   ninth magic uses `JKDB-` too, because one consistent stale prefix is a footnote and two prefixes are
   a defect.
@@ -52,11 +52,23 @@ ids live inside are in `.claude/rules/index-sidecar-format.md`.
   registry, and the registry's per-index record had nowhere to put them. The kind byte was the answer:
   the record **continues** for kind 3 alone, and an older build never reaches those bytes because
   `indexKindOfId` answers `null` at the kind and reports the file as written by a newer build. So a
-  new *field* arrived with no version bump, no section kind spent, and no golden store added — and it
+  new *field* arrived with no version bump and no section kind spent — and it
   is worth noticing why that was safe here and would not have been in the `.pst`: the registry
   validates the discriminator before it reads anything positioned after it, which is exactly what an
   extension point has to do to be one. A record whose unknown discriminator is read *after* the fields
   it governs cannot be extended this way at all.
+
+  **It also said "and no golden store added", and that clause was retracted after 0.2.0 shipped.** The
+  reasoning behind it was about *backward* compatibility and was correct as far as it went: no file an
+  earlier build can write means anything different, and the four committed directories already cover
+  the case an older reader takes. What it missed is that a golden store is not evidence for the build
+  that wrote it. A record continuation nothing has committed is unpinned in the *forward* direction
+  the moment it ships — the only cover was a round trip through its own writer — so `golden/store-v5`
+  was written from the `v0.2.0` tree and holds the kind-3 record, the composite kind byte and a tuple
+  dictionary. **The general rule this sharpens:** an extension that is invisible to older readers is
+  exactly the kind that no existing golden store can pin, so "additive" is an argument for adding a
+  directory rather than against it. Ask which build the fixture is evidence *for*, never which builds
+  it leaves undisturbed.
 
 - **A version bump is not a renumbering, and this engine has taken exactly two.** The rule above is
   about *ids*, because an id is read by a build that never heard of the value that replaced it and has

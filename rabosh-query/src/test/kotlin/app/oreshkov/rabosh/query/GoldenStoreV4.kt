@@ -1,6 +1,7 @@
 package app.oreshkov.rabosh.query
 
 import app.oreshkov.rabosh.core.StoreOptions
+import app.oreshkov.rabosh.index.IndexDefinition
 import java.nio.file.Path
 
 /**
@@ -49,6 +50,15 @@ internal object GoldenStoreV4 : GoldenCorpus {
     override val baseVersion: Int = 2
 
     override val columnsClaimFidelity: Boolean = true
+
+    /**
+     * Four phases before index kind 3, and the **newest** store that predates it.
+     *
+     * Which is what makes the four absent cases worth stating rather than assuming: this directory is
+     * the one a reader would expect to carry everything current, so a corpus list in which nothing
+     * says *no* is a list in which the assertion could be satisfied by the feature not existing.
+     */
+    override val compositeIndex: IndexDefinition? = null
 
     override val modelledPaths: List<String> = GoldenStoreV2.modelledPaths
 

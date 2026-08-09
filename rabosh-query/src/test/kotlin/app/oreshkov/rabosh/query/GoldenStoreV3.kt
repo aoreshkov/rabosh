@@ -80,6 +80,9 @@ internal object GoldenStoreV3 : GoldenCorpus {
      */
     override val columnsClaimFidelity: Boolean = true
 
+    /** Five phases before index kind 3. */
+    override val compositeIndex: IndexDefinition? = null
+
     override val modelledPaths: List<String> = GoldenStoreV2.modelledPaths
 
     override val queries: List<Query> = GoldenStoreV2.queries

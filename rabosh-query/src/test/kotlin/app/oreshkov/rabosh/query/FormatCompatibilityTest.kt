@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.query
 
+import app.oreshkov.rabosh.catalog.IndexKind
 import app.oreshkov.rabosh.catalog.SchemaCatalog
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.index.IndexCatalog
@@ -294,6 +295,160 @@ class FormatCompatibilityTest {
     }
 
     /**
+     * The composite index's **record continuation**, read back out of a registry it did not write.
+     *
+     * Index kind 3 is the one extension in this format that lengthened a record rather than replacing
+     * a layout: `INDEXES` carries `fieldCount` and the declared field paths after `createdAtSequence`,
+     * for this kind and no other, and an older build never reaches those bytes because `indexKindOfId`
+     * answers `null` at the kind and reports the file as written by a newer build. There is therefore
+     * no version number anywhere that says a registry has one — which is exactly why the fact is
+     * stated per corpus and asserted **both ways**: four directories written before the kind existed
+     * must give back no composite index, and one written after must give back the definition it was
+     * created with, fields and order intact.
+     *
+     * Absence alone would be satisfied by an engine that had stopped reading the continuation, and
+     * presence alone by one that had never been able to skip it. This is the `SECTION_FIDELITY` lesson
+     * applied to a record extension: an assertion about absence needs the presence case somewhere, or
+     * it is satisfied by the feature not existing.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("corpora")
+    fun `a composite index definition survives a registry this build did not write`(
+        golden: GoldenCorpus,
+        @TempDir target: Path,
+    ) {
+        val directory = golden.extractTo(target.resolve("store"))
+        IndexCatalog(directory).use { indexes ->
+            DocumentStore.open(directory, golden.options).use { store ->
+                indexes.attach(store, backfill = false)
+                val composite = indexes.indexes().filter { it.kind == IndexKind.COMPOSITE_TERM }
+
+                val expected = golden.compositeIndex
+                if (expected == null) {
+                    assertTrue(
+                        composite.isEmpty(),
+                        "${golden.resource} predates index kind 3 and must name no composite index",
+                    )
+                } else {
+                    assertEquals(1, composite.size, "${golden.resource} must name exactly one")
+                    // `IndexDefinition.equals` compares path, kind *and* the fields in order, which is
+                    // the whole of what the continuation carries.
+                    assertEquals(expected, composite.single().definition, "the definition changed")
+                }
+            }
+        }
+    }
+
+    /**
+     * The composite kind byte, at the one offset in a `.pst` header that distinguishes the kind.
+     *
+     * `format-permanence.md` records that kind 3 left the posting file "unchanged" — a composite
+     * index's sidecar is a posting file whose terms happen to be tuples, sharing the dictionary, the
+     * directory, the presence bitmap, both posting encodings and both checksums. That claim has one
+     * observable consequence and this is it: the files differ in a single byte, at offset 12, and it
+     * carries 3 for the composite index and 1 for every inverted one.
+     *
+     * Run over every corpus so it discriminates twice. Within `store-v5` five posting groups must
+     * carry 1 and one must carry 3 — a per-file assertion, so a build that had started stamping 3
+     * everywhere fails here — and across the older four no file may carry 3 at all.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("corpora")
+    fun `only a composite index's posting files carry the composite kind byte`(
+        golden: GoldenCorpus,
+        @TempDir target: Path,
+    ) {
+        val directory = golden.extractTo(target.resolve("store"))
+        val compositeId = IndexCatalog(directory).use { indexes ->
+            DocumentStore.open(directory, golden.options).use { store ->
+                indexes.attach(store, backfill = false)
+                indexes.indexes().singleOrNull { it.kind == IndexKind.COMPOSITE_TERM }?.id
+            }
+        }
+
+        val postings = Files.newDirectoryStream(directory, "*.pst").use { it.toList() }
+        assertTrue(postings.isNotEmpty(), "${golden.resource} must carry posting files")
+        var composites = 0
+        for (file in postings) {
+            // `%010d.%04d.pst`: the segment, then the index id whose postings these are.
+            val id = file.fileName.toString().substringAfter('.').substringBefore('.').toInt()
+            val kind = Files.readAllBytes(file)[POSTING_KIND_OFFSET].toInt() and 0xFF
+            if (id == compositeId) {
+                assertEquals(3, kind, "$file holds the composite index and must say so")
+                composites++
+            } else {
+                assertEquals(1, kind, "$file is an inverted index and must not claim kind 3")
+            }
+        }
+        if (compositeId == null) {
+            assertEquals(0, composites, "${golden.resource} carries no composite index")
+        } else {
+            assertTrue(composites > 0, "the composite index must have posting files at all")
+        }
+    }
+
+    /**
+     * The correlated answer, decided from committed bytes, and shown to be the correlated one.
+     *
+     * Three assertions, and none of them is redundant. The plan agrees with a full scan, which is the
+     * invariant every index in this engine is held to. It opens **no document**, which is the property
+     * that distinguishes a stored tuple from the hashed one `jsonb_path_ops` uses — a hash would have
+     * made every composite answer candidates-only. And it returns **strictly fewer** rows than the
+     * uncorrelated conjunction over the same two values, which is the only one of the three that can
+     * fail for a build that has quietly stopped correlating: the first two are true of an `elemMatch`
+     * silently rewritten into `and`, and so is "the query matched something".
+     *
+     * The gap is arranged rather than hoped for. `store-v5`'s elements take `sku` and `qty` from
+     * different residues, so documents whose sku is in one element and whose qty is in another exist
+     * by construction — see [GoldenStoreV5].
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("compositeCorpora")
+    fun `the committed composite index answers the correlated question`(
+        golden: GoldenCorpus,
+        @TempDir target: Path,
+    ) {
+        val directory = golden.extractTo(target.resolve("store"))
+        IndexCatalog(directory).use { indexes ->
+            DocumentStore.open(directory, golden.options).use { store ->
+                indexes.attach(store, backfill = false)
+                val engine = QueryEngine(store, indexes)
+
+                store.snapshot().use { snapshot ->
+                    val correlated = assertMatchesScan(
+                        engine,
+                        store,
+                        snapshot,
+                        Query.where(GoldenStoreV5.correlated),
+                        "golden composite",
+                    )
+                    assertTrue(correlated.rowsReturned > 0, "the corpus must hold correlated matches")
+                    assertEquals(
+                        0,
+                        correlated.documentsRead,
+                        "a stored tuple is exact: the plan decides the node and opens nothing",
+                    )
+                    assertEquals(0, correlated.segmentsScanned, "and the committed sidecars cover every segment")
+
+                    val uncorrelated = assertMatchesScan(
+                        engine,
+                        store,
+                        snapshot,
+                        Query.where(GoldenStoreV5.uncorrelated),
+                        "golden uncorrelated",
+                    )
+                    assertTrue(
+                        uncorrelated.rowsReturned > correlated.rowsReturned,
+                        "the uncorrelated conjunction must be a strict superset, or these committed " +
+                            "bytes cannot tell a correlated plan from an uncorrelated one: " +
+                            "${uncorrelated.rowsReturned} against ${correlated.rowsReturned}",
+                    )
+                }
+            }
+        }
+    }
+
+    /**
      * Writes fresh golden stores for a human to look at. Never run in an ordinary build: it exists
      * so that adding a *new* golden directory is a documented, repeatable act.
      */
@@ -310,11 +465,20 @@ class FormatCompatibilityTest {
 
     private companion object {
         @JvmStatic
-        fun corpora(): List<GoldenCorpus> = listOf(GoldenStore, GoldenStoreV2, GoldenStoreV3, GoldenStoreV4)
+        fun corpora(): List<GoldenCorpus> =
+            listOf(GoldenStore, GoldenStoreV2, GoldenStoreV3, GoldenStoreV4, GoldenStoreV5)
 
         /** The corpora carrying an index whose every term matches exactly one document. */
         @JvmStatic
-        fun uniqueValuedCorpora(): List<GoldenCorpus> = listOf(GoldenStoreV2, GoldenStoreV3, GoldenStoreV4)
+        fun uniqueValuedCorpora(): List<GoldenCorpus> =
+            listOf(GoldenStoreV2, GoldenStoreV3, GoldenStoreV4, GoldenStoreV5)
+
+        /** The corpora carrying an index of kind 3. One today; the list is what makes adding a second cheap. */
+        @JvmStatic
+        fun compositeCorpora(): List<GoldenCorpus> = corpora().filter { it.compositeIndex != null }
+
+        /** `header := magic[8] version:u32 kind:u8 …` — the one byte that names a posting file's kind. */
+        const val POSTING_KIND_OFFSET: Int = 12
 
         /** The format is little-endian throughout; this reads a `u32` without opening the file twice. */
         fun readLittleEndianU32(bytes: ByteArray, offset: Int): Int {
