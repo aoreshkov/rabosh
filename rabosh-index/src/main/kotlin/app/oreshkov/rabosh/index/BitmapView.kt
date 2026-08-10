@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import java.lang.foreign.MemorySegment
 
 /**
@@ -32,6 +33,7 @@ import java.lang.foreign.MemorySegment
  * phase 7's sidecar does for a bitmap what `SegmentBytes.verifyBlock` does for a segment's data block.
  * [verify] is the deep pass, for tests and for anything that wants to audit a file it did not write.
  */
+@RaboshExperimental
 public class BitmapView private constructor(
     private val bytes: IndexBytes,
     private val blockCount: Int,

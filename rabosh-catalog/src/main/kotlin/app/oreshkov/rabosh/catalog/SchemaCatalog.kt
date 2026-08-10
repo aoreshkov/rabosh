@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
 import app.oreshkov.rabosh.core.SegmentObservation
@@ -46,7 +47,7 @@ import kotlin.concurrent.withLock
  * [beginSegment], [SegmentObservation.complete] and [retain] while a reader may be inside
  * [inferSchema]; the accumulation of one segment happens on one thread and is not shared.
  */
-public class SchemaCatalog(
+public class SchemaCatalog @RaboshExperimental constructor(
     /** The store directory sidecars live in. The same directory the store was opened on. */
     public val directory: Path,
     /** Tuning. See [CatalogOptions]. */
@@ -175,7 +176,13 @@ public class SchemaCatalog(
         options: IndexCandidateOptions = IndexCandidateOptions.DEFAULT,
     ): List<IndexCandidate> = rankIndexCandidates(inferSchema(), options)
 
-    /** The sketch of one segment, or `null` if it is not covered. For tests and for diagnostics. */
+    /**
+     * The sketch of one segment, or `null` if it is not covered. For tests and for diagnostics.
+     *
+     * Outside the stable core: a `SegmentSketch` is the `.cat` sidecar's contents, so its shape is
+     * the format's. [inferSchema] is the stable reading of the same data.
+     */
+    @RaboshExperimental
     public fun sketchOf(segmentNumber: Long): SegmentSketch? = lock.withLock { sketches[segmentNumber] }
 
     override fun toString(): String =

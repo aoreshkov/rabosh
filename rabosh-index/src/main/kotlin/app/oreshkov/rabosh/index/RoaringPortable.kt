@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import java.lang.foreign.MemorySegment
 
 /**
@@ -31,6 +32,7 @@ import java.lang.foreign.MemorySegment
  * [decode] reads that perfectly well while [encode] will never write it. Re-exporting such a stream
  * therefore shrinks it, and does not return the bytes that came in.
  */
+@RaboshExperimental
 public object RoaringPortable {
 
     /**

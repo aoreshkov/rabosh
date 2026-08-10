@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
+
 /**
  * A walk over a bitmap's ordinals, ascending.
  *
@@ -15,6 +17,7 @@ package app.oreshkov.rabosh.index
  * start costs the sum of their cardinalities; walking the sparser one and jumping the denser costs the
  * sparser, which is the difference between reading a sidecar and reading past it.
  */
+@RaboshExperimental
 public class BitmapCursor internal constructor(private val source: ContainerSource) {
 
     private var blockIndex = -1

@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
 
@@ -11,6 +12,7 @@ import app.oreshkov.rabosh.core.Key
  * suite asserts it is zero **in the same test** as the differential equality against a full scan. On
  * its own it would pass trivially for a query that returned nothing.
  */
+@RaboshExperimental
 public class ColumnScan internal constructor(
     /** The matching keys, deduplicated and sorted. */
     public val keys: List<Key>,
@@ -59,6 +61,7 @@ public class ColumnScan internal constructor(
  * on a compacted, write-once, fully covered store, which is the same shape `SchemaInferenceTest`
  * requires before it asserts the catalog's counts are exact.
  */
+@RaboshExperimental
 public object ColumnQuery {
     /**
      * Keys whose visible document satisfies [predicate] at the reader's path.

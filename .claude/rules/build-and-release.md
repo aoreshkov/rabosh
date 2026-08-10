@@ -84,12 +84,63 @@ claim: `release.yml` derives the release version from the git tag and nowhere el
 development one by construction. Do not "fix" it to a release number — that would put the version in
 two places and make the tag advisory.
 
-## The format claim
+## The format claim, the API claim and the runtime contract
 
-**The format claim lives in `COMPATIBILITY.md` and nowhere else.** It used to live in the README's
-status blockquote, coupled to the version in `gradle.properties`, and the coupling was what kept it:
-each artefact cited another and none cited the format. The two guarantees are now separate and stated
-at the strength of their own evidence — the **on-disk format is declared and stable**, held by the
-golden stores; the **Kotlin API is major-version zero** and free to move, held by nothing, which is
-exactly why it is not claimed. A change to either belongs in `COMPATIBILITY.md` first; the README
-links it rather than restating it, so the two cannot drift.
+**Each lives in exactly one file, and the README links all three rather than restating any.**
+`COMPATIBILITY.md` holds the on-disk format, `STABILITY.md` the Kotlin API, `INTEGRATION.md` the
+runtime contract. The format claim used to live in the README's status blockquote, coupled to the
+version in `gradle.properties`, and the coupling was what kept it: each artefact cited another and
+none cited the format.
+
+The two guarantees are stated at the strength of their own evidence. The **on-disk format is declared
+and stable**, held by the golden stores. The **Kotlin API is tiered** — a stable core that moves only
+under a deprecation cycle, and an explicit `@RaboshExperimental` for the rest. It used to be
+"major-version zero, held by nothing", which was honest and unactionable: a consumer could not tell
+whether `Key.of` was as volatile as `IndexCatalog.readColumn`, so the rational response was to wrap
+all of the API or none of it. Phase 23 replaced it with the smaller, truer claim, and **that is a
+substitute for 1.0 rather than a step towards one** — say so wherever it is described.
+
+Three things about the marker that a change must not quietly undo.
+
+**It lives in `rabosh-variant`, package `app.oreshkov.rabosh`, and it has to.** Everything marked is
+below `rabosh-api` in the chain, so a marker declared there could not be applied in `rabosh-index`
+without the upward edge this project does not have. The package is the project's rather than the
+codec's for the same reason.
+
+**What is marked is the way *in*, not every member.** `Rabosh.store`/`catalog`/`indexCatalog`,
+`DocumentStore.open`, the `SchemaCatalog`/`IndexCatalog`/`QueryEngine` constructors,
+`IndexCatalog.read`/`readColumn`, `SchemaCatalog.sketchOf`, `InferredField.sketch`, and the bitmap,
+column and sketch *types*. Marking every member instead forces every stable signature naming an
+experimental type to be marked too, and that cascade ends with the stable core inside the experimental
+tier. `SegmentObserver` is that cascade caught at one step: `RaboshOptions`' constructor names it, so
+marking the interface would have put `RaboshOptions(...)` behind an opt-in. It is stable, deliberately.
+
+**The gate is `rabosh-samples` not opting in, and the ABI dumps are not the gate.** The JVM dump
+format writes signature lines and never annotations — verified in the dumper, and confirmed by the
+markers changing the committed dumps by exactly one entry, the annotation class itself — so a
+declaration changing tier is invisible to `checkKotlinAbi`. What catches it is the samples module:
+`:rabosh-api` and nothing else, `allWarningsAsErrors`, part of `build`, and the one module the
+opt-in is deliberately withheld from. Do not "tidy" that asymmetry by giving every module the same
+compiler options; `rabosh.kotlin-library`, `rabosh-testkit` and `rabosh-bench` opt in, samples do not.
+
+## Native access: the flag nobody needs
+
+**No module requires `--enable-native-access`, and the reason is not that the engine avoids the FFM
+API.** It maps every segment through `FileChannel.map(mode, offset, size, Arena)` — which is simply
+**not a restricted method**: it carries no `@Restricted` and declares no `IllegalCallerException` in
+JDK 25, and neither do `Arena.ofShared`, `Arena.allocate` or `MemorySegment.ofArray`. The restricted
+set is `MemorySegment::reinterpret`, the `Linker` and `SymbolLookup` entry points and the
+`load`/`loadLibrary` family, and nothing here calls one.
+
+This was believed otherwise for several phases and written into a build comment as fact, so it is
+worth stating how it was settled: not by reading the JEP, but by running the engine under
+`--illegal-native-access=deny` with no grant and watching it pass, and then confirming that the same
+flag *does* fail a two-line program that calls `MemorySegment.reinterpret`. A check that has not been
+seen fail proves nothing, and that applies to a check on the JVM's behaviour as much as to one in the
+suite.
+
+`:rabosh-samples:runThreeStepsOnModulePath` is where the claim now lives, and the module path is the
+only place it can: `ALL-UNNAMED`, which the other two samples pass, would cover a restricted call from
+the classpath and hide the answer. The `--enable-native-access=ALL-UNNAMED` on `Test` tasks and on the
+two classpath samples is retained as harmless future-proofing; the *reasoning* attached to it is not
+load-bearing and should not be repeated as though it were.

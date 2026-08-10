@@ -13,6 +13,18 @@ plugins {
 
 description = "JMH benchmark suites: ingest throughput, point-get latency, scan throughput, amplification."
 
+/*
+ * A benchmark measures the engine, not the facade: `BitmapBenchmark` times container transitions and
+ * `AmplificationMain` opens a `DocumentStore` directly, both of which are outside the stable core on
+ * purpose. Same line as `rabosh.kotlin-library` gives the published modules, and deliberately not
+ * given to `rabosh-samples`, which is the one module that has to compile as a consumer does.
+ */
+kotlin {
+    compilerOptions {
+        optIn.add("app.oreshkov.rabosh.RaboshExperimental")
+    }
+}
+
 dependencies {
     implementation(project(":rabosh-api"))
     implementation(libs.kotlinx.benchmark.runtime)

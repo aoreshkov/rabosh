@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.core
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantMetadata
 import java.io.IOException
@@ -715,7 +716,13 @@ public class DocumentStore private constructor(
          * @throws UnsupportedFormatException if the files are from a newer format version.
          * @throws NoSuchFileException if the directory is absent and
          *   [StoreOptions.createIfMissing] is `false`.
+         *
+         * **Outside the stable core**, and this is the only entrance to it, which is why the marker
+         * is here rather than on every member of the class. `Rabosh.open` is the stable way to open
+         * a database; assembling the store, the schema catalog and the index catalog by hand is
+         * supported and is not a signature anything is promised about. See `STABILITY.md`.
          */
+        @RaboshExperimental
         public fun open(directory: Path, options: StoreOptions = StoreOptions.DEFAULT): DocumentStore {
             prepareDirectory(directory, options)
             val lock = DirectoryLock.acquire(directory)

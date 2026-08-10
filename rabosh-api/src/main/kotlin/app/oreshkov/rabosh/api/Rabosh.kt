@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.api
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.IndexCandidate
 import app.oreshkov.rabosh.catalog.IndexCandidateOptions
 import app.oreshkov.rabosh.catalog.InferredSchema
@@ -78,7 +79,12 @@ public class Rabosh private constructor(
      * The escape hatch, and it is a supported one rather than an admission: everything the facade
      * does not cover — `scanSegments`, `liveSegmentNumbers`, `backfill` with an observer of your own
      * — is here, at full width, unchanged. Do not close it; [close] does, in order.
+     *
+     * Outside the stable core, and this property is the entrance that says so: the store's surface
+     * is the engine's internals at full width, and pinning it would pin the engine. See
+     * `STABILITY.md`.
      */
+    @RaboshExperimental
     public val store: DocumentStore,
     /**
      * The schema catalog, or `null` when [RaboshOptions.schema] is `false`.
@@ -86,7 +92,11 @@ public class Rabosh private constructor(
      * Attached and maintained by this object. `null` rather than an empty catalog, because a model
      * that was never collected and a model of nothing are different answers and the type should say
      * which one this is.
+     *
+     * Outside the stable core. [schema] and [indexCandidates] are the stable way to the model; this
+     * is the way to the sketches behind it, which are a format rather than an answer.
      */
+    @RaboshExperimental
     public val catalog: SchemaCatalog?,
     /**
      * The index catalog, or `null` when [RaboshOptions.indexes] is `false`.
@@ -94,7 +104,11 @@ public class Rabosh private constructor(
      * Attached and maintained by this object, and **closed by [close]** — which is the wiring mistake
      * this class exists to make impossible. Reach through it for `read`, `readColumn` and the rest of
      * the index surface; do not close it yourself.
+     *
+     * Outside the stable core. [createIndex], [dropIndex], [indexes] and [query] are the stable
+     * index surface; everything below them is sidecar bytes and reader lifetimes.
      */
+    @RaboshExperimental
     public val indexCatalog: IndexCatalog?,
     private val observer: SegmentObserver?,
 ) : AutoCloseable {

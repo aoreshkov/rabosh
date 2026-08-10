@@ -5,13 +5,54 @@ All notable changes to this project are recorded here. The format follows
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — with one qualification that matters
 more here than the version number does.
 
-**Two guarantees, at different strengths.** The Kotlin API is major-version zero: any signature may
-change in any release, and `0.x` gives you no compatibility promise at all. The **on-disk format** is
-declared and stable — a store written by an earlier release opens on every later one — and that
-promise does not wait for `1.0`. Anything affecting it is stated in
-[COMPATIBILITY.md](COMPATIBILITY.md) first and only summarised here.
+**Two guarantees, at different strengths, and neither waits for `1.0`.** The **on-disk format** is
+declared and stable — a store written by an earlier release opens on every later one — and anything
+affecting it is stated in [COMPATIBILITY.md](COMPATIBILITY.md) first and only summarised here. The
+**Kotlin API** is tiered: a small stable core moves only under a deprecation cycle, and everything
+else may change in any release. That claim lives in [STABILITY.md](STABILITY.md), on the same terms.
 
 ## [Unreleased]
+
+### Added
+
+- **[`INTEGRATION.md`](INTEGRATION.md) — the runtime contract, in public.** The rules an embedding
+  application has to obey were discoverable only by reading KDoc on classes a caller may never open,
+  and three of them fail *silently*: a row is valid only until the next `next()`, a leaked `Snapshot`
+  pins disk indefinitely, and a second writing thread gets contention rather than an error. One page,
+  every claim naming the type, option or test that enforces it.
+
+- **[`STABILITY.md`](STABILITY.md) and `@RaboshExperimental` — which parts of the Kotlin API are
+  allowed to move.** "Major version zero, any signature may change" was honest and unactionable: a
+  consumer could not tell whether `Key.of` was as volatile as `IndexCatalog.readColumn`, so the only
+  rational responses were to wrap all of the API or none of it. There are now two tiers — a small
+  stable core that moves only under a deprecation cycle, and everything else, marked with an opt-in
+  requirement. It is deliberately **not** a promise of 1.0.
+
+  What is marked is the way *in* rather than every member: `Rabosh.store`/`catalog`/`indexCatalog`,
+  `DocumentStore.open`, the `SchemaCatalog`/`IndexCatalog`/`QueryEngine` constructors,
+  `IndexCatalog.read`/`readColumn`, and the bitmap, column and sketch types themselves. Holding one
+  of those objects means you already opted in, so its own methods carry nothing.
+
+  `rabosh-samples` is what holds the claim, and it holds it by *not* opting in: it depends on
+  `:rabosh-api` alone, compiles with `allWarningsAsErrors`, and is part of `build`, so it is a real
+  consumer compiling against the stable core. The ABI dumps cannot do this job — the JVM dump format
+  writes signatures and never annotations, so a tier change is invisible to `checkKotlinAbi`.
+
+- **`Automatic-Module-Name` in every published jar**, derived from the module name:
+  `app.oreshkov.rabosh.{variant,core,catalog,index,query,api,jsonpath}`. On the module path the jars
+  previously resolved under names derived from their filenames, which is unstable by construction and
+  is where a `jlink`/`jpackage` build stopped. Held by a new
+  `:rabosh-samples:runThreeStepsOnModulePath`, which asks the JVM for `app.oreshkov.rabosh.api` **by
+  name** — so a missing attribute fails at startup rather than silently resolving something else.
+
+### Changed
+
+- **No `--enable-native-access` flag is required, by any module**, and `INTEGRATION.md` now says so.
+  The engine maps segments through `FileChannel.map(mode, offset, size, Arena)`, which is *not* a
+  restricted method — it carries no `@Restricted` and declares no `IllegalCallerException` — and
+  nothing here calls one that is. The new module-path task runs the full cycle under
+  `--illegal-native-access=deny` with no grant of any kind, so the claim is checked rather than
+  asserted, and a future release that acquires a restricted call fails it.
 
 ### Compatibility
 

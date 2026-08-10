@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.query
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.InferredSchema
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
@@ -27,7 +28,7 @@ import app.oreshkov.rabosh.index.IndexCatalog
  * The engine holds nothing and owns nothing. It is safe to make one per query or one per store, and
  * to use one from several threads at once — the state of a query lives in its [QueryCursor].
  */
-public class QueryEngine(
+public class QueryEngine @RaboshExperimental constructor(
     private val store: DocumentStore,
     private val indexes: IndexCatalog,
     /**

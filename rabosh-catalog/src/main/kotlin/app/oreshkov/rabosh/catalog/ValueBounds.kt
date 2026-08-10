@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantKind
 import java.math.BigDecimal
@@ -217,6 +218,7 @@ public class ValueBounds internal constructor(
  * @param textBoundBytes how many bytes of a string the bound may keep before truncating. Truncation
  *   widens, so a smaller limit costs precision and never correctness.
  */
+@RaboshExperimental
 public class ValueBoundsBuilder(private val textBoundBytes: Int) {
     private var numeric: NumericRange? = null
     private var text: TextRange? = null

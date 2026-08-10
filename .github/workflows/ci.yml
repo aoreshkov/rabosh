@@ -76,6 +76,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: ./gradlew publishToMavenLocal --stacktrace
 
+      # The published jars carry `Automatic-Module-Name`, and the only thing that checks it is a run
+      # with the library on the module path — asked for by module name, so a missing attribute fails
+      # at startup rather than silently resolving the jar under a filename-derived name. It is also
+      # the one place the *module-name* spelling of `--enable-native-access` is exercised, which is
+      # what INTEGRATION.md tells a jlink/jpackage consumer to use.
+      - name: Run a sample on the module path
+        run: ./gradlew :rabosh-samples:runThreeStepsOnModulePath --stacktrace
+
       # `publishToMavenLocal` builds each module's own Dokka HTML for the `javadoc` classifier, but
       # not the aggregated site — that is the root's `rabosh.api-docs`, and only `docs.yml` on `main`
       # would otherwise run it. A pull request that broke the aggregation would go green here and

@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
+
 /**
  * A set of document ordinals that can be read, whether it is being built on the heap or read straight
  * out of a mapped file.
@@ -16,6 +18,7 @@ package app.oreshkov.rabosh.index
  *
  * Sizes and ranks are `Int`. See [BitmapFormat.MAX_ORDINAL] for the one ordinal that costs.
  */
+@RaboshExperimental
 public sealed interface ReadableBitmap {
 
     /** How many ordinals are present. */

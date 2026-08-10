@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import java.util.Arrays
 
 /**
@@ -38,6 +39,7 @@ import java.util.Arrays
  * path, and a copy per value would dwarf the sketch. Merging into a *new* sketch is [mergedWith];
  * [merge] mutates. Not thread-safe — one observation belongs to one segment writer.
  */
+@RaboshExperimental
 public class HyperLogLog private constructor(
     private var hashes: LongArray?,
     private var hashCount: Int,

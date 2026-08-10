@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.CatalogStep
 import app.oreshkov.rabosh.variant.Variant
@@ -24,6 +25,7 @@ import app.oreshkov.rabosh.variant.VariantBasicType
  * calls this class, and there is exactly one definition of "which containers does `$.items[*]` stand
  * for in this document".
  */
+@RaboshExperimental
 public class ElementExtractor(
     /** The container paths, in the order elements are reported against. */
     private val paths: List<CatalogPath>,
