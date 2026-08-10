@@ -88,6 +88,47 @@ class SamplesTest {
     }
 
     /**
+     * The drain sample, which is where `deleteRange` and `checkpoint` are accepted as a *caller's
+     * program* rather than as two methods with tests.
+     *
+     * The sample `check`s the properties only it can see — every event shipped exactly once, in key
+     * order, none twice — inside the program a reader is looking at, which is the phase-8 rule and
+     * the reason those are not repeated here. What this adds is the part no `check` inside it covers:
+     * that the loop actually ran more than once, that retention actually retired what it shipped, and
+     * that the buffer ended empty rather than merely reporting that it had.
+     */
+    @Test
+    fun `the drain sample ships every event once and leaves the buffer empty`(@TempDir directory: Path) {
+        val output = capturingStdout { DrainMain.run(directory) }
+
+        // More than one round, or the watermark was never exercised: a single-round drain would pass
+        // every assertion the sample makes about ordering while never resuming from anything.
+        val rounds = Regex("""^\s+round (\d+): shipped (\d+), retired (\d+),""", RegexOption.MULTILINE)
+            .findAll(output)
+            .map { Triple(it.groupValues[1].toInt(), it.groupValues[2].toInt(), it.groupValues[3].toInt()) }
+            .toList()
+        assertTrue(rounds.size > 1, "the drain must resume from a watermark at least once: $rounds")
+        assertEquals(rounds.indices.map { it + 1 }, rounds.map { it.first }, "rounds must be consecutive")
+        for ((round, shipped, retired) in rounds) {
+            assertTrue(shipped > 0, "round $round shipped nothing")
+            assertEquals(shipped, retired, "round $round retired a different number than it shipped")
+        }
+
+        // The checkpoint was taken while the writer was running, and the copy opened.
+        assertTrue("checkpoint at sequence" in output, "the sample should report the checkpoint it took")
+        assertTrue(
+            "holds the prefix as of that sequence, and nothing after it" in output,
+            "the sample should have opened its own checkpoint and checked what is in it",
+        )
+
+        // And the buffer is empty at the end — asserted on the reported counts, because "deleted" and
+        // "reclaimed" are two different claims and only the second shows up as bytes.
+        val left = Regex("""retired all of them, (\d+) left in the buffer""").find(output)
+        assertEquals("0", left?.groupValues?.get(1), "the buffer should be empty:\n$output")
+        assertTrue("0 segment(s), 0 bytes" in output, "compaction should have reclaimed the space:\n$output")
+    }
+
+    /**
      * The entry point itself, not just the body.
      *
      * `main` is what the Gradle task invokes, and it owns the argument handling and the cleanup that

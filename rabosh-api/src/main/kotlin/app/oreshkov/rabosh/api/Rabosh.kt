@@ -5,6 +5,7 @@ import app.oreshkov.rabosh.catalog.IndexCandidate
 import app.oreshkov.rabosh.catalog.IndexCandidateOptions
 import app.oreshkov.rabosh.catalog.InferredSchema
 import app.oreshkov.rabosh.catalog.SchemaCatalog
+import app.oreshkov.rabosh.core.CheckpointInfo
 import app.oreshkov.rabosh.core.DocumentCursor
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
@@ -146,6 +147,28 @@ public class Rabosh private constructor(
 
     /** Commits a deletion of [key]. Deleting an absent key is legal and writes a tombstone. */
     public fun delete(key: Key): Unit = store.delete(key)
+
+    /**
+     * Deletes every key in `[from, to]`, both bounds inclusive and both optional, and returns how
+     * many.
+     *
+     * ```kotlin
+     * val retired = db.deleteRange(to = Key.of("event:2026-07-31"))
+     * db.compact()   // tombstones are reclaimed by compaction, not by this call
+     * ```
+     *
+     * Retention by key range, for a store that keys by time — which is what a staging buffer and a
+     * payload archive both do, and the whole of their retention policy. It is the loop a caller would
+     * otherwise write, and writing it correctly means knowing four invariants of the layer below;
+     * see [DocumentStore.deleteRange], which this delegates to unchanged.
+     *
+     * **Deliberately point deletes rather than a range tombstone**, so it costs one tombstone per key
+     * and nothing at all in the format. Follow it with [compact] when the space matters: the
+     * tombstones are what make the keys disappear, and compaction is what makes the tombstones
+     * disappear.
+     */
+    @JvmOverloads
+    public fun deleteRange(from: Key? = null, to: Key? = null): Long = store.deleteRange(from, to)
 
     /**
      * Commits [batch] as one record, atomically and as one view.
@@ -379,6 +402,47 @@ public class Rabosh private constructor(
     public fun flush() {
         store.flush()
         invalidateStatistics()
+    }
+
+    /**
+     * Writes a consistent copy of this database into [target], which must be empty or absent.
+     *
+     * ```kotlin
+     * val info = db.checkpoint(Path.of("backup", "2026-08-10"))
+     * Rabosh.open(info.directory).use { copy -> /* every commit up to info.sequence, indexes and all */ }
+     * ```
+     *
+     * **Safe to call while the application is writing**, which is the whole reason it exists: the
+     * recipe it replaces is *stop writing and copy the directory*, and a desktop application cannot
+     * stop writing because it is the writer. The database is flushed, a snapshot is pinned, and the
+     * copy is of what that snapshot sees — so the result holds exactly the acknowledged prefix as of
+     * [CheckpointInfo.sequence]. Anything committed during the call is above that sequence and is
+     * simply not in the copy.
+     *
+     * **Everything travels, and the sidecars are read rather than rebuilt.** Segments carry their
+     * `.cat`, `.idx`, `.pst` and `.col` files with them, and this method adds the one file
+     * [DocumentStore.checkpoint] cannot know about — `INDEXES`, the index registry, which is a
+     * *definition* an operator gave rather than derived data. Losing it would leave the copy silently
+     * without an index somebody created, so it is copied here and the layer that owns it does the
+     * writing.
+     *
+     * **A checkpoint, not a backup tool.** No scheduling, no retention, no incremental mode, no
+     * compression. And the files are hard-linked where the filesystem allows it — see
+     * [CheckpointInfo.hardLinked] — so the result shares its blocks with the source: taking it
+     * somewhere else is what turns a consistent view into a backup, and that step is yours.
+     *
+     * @throws java.nio.file.FileAlreadyExistsException if [target] exists and is not an empty
+     *   directory.
+     * @throws IllegalStateException if this database is closed.
+     */
+    public fun checkpoint(target: Path): CheckpointInfo {
+        checkOpen()
+        val info = store.checkpoint(target)
+        // After the store's own copy, because the registry names indexes whose posting files have to
+        // be there already — the ordering rule applied to the layer above it, for the same reason a
+        // manifest is forced after the segments it names.
+        indexCatalog?.copyRegistryTo(target)
+        return info
     }
 
     /** Flushes, then compacts until no level is over its budget. Returns when the tree is in shape. */

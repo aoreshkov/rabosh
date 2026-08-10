@@ -102,6 +102,7 @@ it fails **silently** — a document missing from a result, a file that stops me
 - A null slot holds the type's zero, and that zero must never reach a bound.
 - Type bracketing is part of the query contract, because skipping depends on it.
 - A negated leaf is never a flipped operator.
+- `explain` may report a type mismatch and may never repair one.
 - A plan's candidates are a superset and its certainties a subset, and the gap is what gets read.
 - A composite index needs every declared field fixed by equality and does not care what else the query
   asks: **more** conjuncts are dropped and cost it only its certainty, **fewer** are unsound.
@@ -114,6 +115,10 @@ it fails **silently** — a document missing from a result, a file that stops me
 - An index *definition* is not derived data, and its durability rule inverts the one above.
 
 ### The write path — `.claude/rules/storage-durability.md`
+
+- A checkpoint obeys the ordering rule in the target directory, not only in the source.
+- `deleteRange` is point deletes, and staying that way is the decision.
+- The `LOCK` file's byte zero is the lock and everything after it is a diagnostic.
 
 - The log is appended before the memtable is touched, always.
 - A torn tail may be dropped; anything that would lose an acknowledged commit is reported.

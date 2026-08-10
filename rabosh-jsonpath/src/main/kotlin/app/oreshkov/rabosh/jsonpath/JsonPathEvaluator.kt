@@ -8,7 +8,7 @@ import app.oreshkov.rabosh.variant.VariantPathStep
 
 // Applying a compiled query to one document.
 //
-// Three decisions shape this file, and each is here rather than in the KDoc because a reader who
+// Four decisions shape this file, and each is here rather than in the KDoc because a reader who
 // changes one of them will be looking at the code.
 //
 // **The composition is by sink, so a frame is per *segment* and never per document level.**
@@ -26,6 +26,14 @@ import app.oreshkov.rabosh.variant.VariantPathStep
 // **A sink answers `false` to stop.** Existence tests and `value()` need one node and two nodes
 // respectively, and a filter that walked an entire subtree to learn what its first node already said
 // would make `$[?@..x]` cost the document rather than the answer. Every loop below honours it.
+//
+// **The budget throws; it never returns early.** `Evaluation` counts the work and raises
+// `JsonPathLimitExceededException` when a bound is met — which is emphatically *not* the same
+// mechanism as the `false` above, and the two must not be conflated. A sink answering `false` has
+// learned the answer and is declining more of it; a budget being met means the answer is unknown.
+// Making the budget stop the walk instead would produce exactly the truncated nodelist the second
+// paragraph exists to rule out. That is why `stop()` throws rather than returning a `Boolean`, and
+// why nothing below catches it.
 
 /**
  * Where a node is, as a link to its parent rather than as a path.
@@ -67,9 +75,57 @@ internal fun interface NodeSink {
 }
 
 /**
+ * One application of one query to one document: the root `$` resolves against, and the budget.
+ *
+ * **Per call, never per query.** `JsonPathQuery` promises that one instance may be applied from any
+ * number of threads at once, and a counter living on the query would be the first thing to break
+ * that — silently, by having two documents share a budget. The limits are immutable and live on the
+ * query; the counters live here and are created by `forEachNodeIn`.
+ *
+ * It replaces the bare `root: Variant` that used to be threaded through this file rather than being
+ * added beside it, because the two travel together everywhere and one parameter reads better than
+ * two. `root` is still spelled `root`.
+ */
+internal class Evaluation(val root: Variant, private val limits: JsonPathLimits) {
+    private var visited = 0L
+    private var produced = 0L
+
+    /**
+     * One node touched.
+     *
+     * **Touches, not distinct nodes.** A node reached by two segments is counted twice, because this
+     * bounds the work an expression buys and `$..*..*` buys the same node once per stage. Counting
+     * distinct nodes would need a set of every node visited — which is itself the memory an attacker
+     * is trying to make you spend.
+     */
+    fun visit() {
+        if (limits.maxNodesVisited > 0 && ++visited > limits.maxNodesVisited) {
+            stop(JsonPathLimit.NODES_VISITED, limits.maxNodesVisited)
+        }
+    }
+
+    /** One node handed to the caller's sink. */
+    fun produce() {
+        if (limits.maxNodesProduced > 0 && ++produced > limits.maxNodesProduced) {
+            stop(JsonPathLimit.NODES_PRODUCED, limits.maxNodesProduced)
+        }
+    }
+
+    /** A descendant expansion has reached [depth] levels below where it started. */
+    fun descended(depth: Int) {
+        if (limits.maxDescendantDepth > 0 && depth > limits.maxDescendantDepth) {
+            stop(JsonPathLimit.DESCENDANT_DEPTH, limits.maxDescendantDepth.toLong())
+        }
+    }
+
+    private fun stop(limit: JsonPathLimit, allowed: Long): Nothing =
+        throw JsonPathLimitExceededException(limit, allowed)
+}
+
+/**
  * Applies [segments] from [index] onwards, streaming into [sink].
  *
- * @param root the document, which `$` inside a filter resolves against however deep the walk is.
+ * @param context the document `$` resolves against however deep the walk is, and the budget.
  * @return `false` if the sink asked to stop.
  */
 internal fun applySegments(
@@ -77,12 +133,12 @@ internal fun applySegments(
     index: Int,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     sink: NodeSink,
 ): Boolean {
     if (index == segments.size) return sink.emit(value, location)
-    return applySegment(segments[index], value, location, root) { next, at ->
-        applySegments(segments, index + 1, next, at, root, sink)
+    return applySegment(segments[index], value, location, context) { next, at ->
+        applySegments(segments, index + 1, next, at, context, sink)
     }
 }
 
@@ -90,22 +146,22 @@ private fun applySegment(
     segment: Segment,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     out: NodeSink,
 ): Boolean = when (segment) {
-    is Segment.Child -> applySelectors(segment.selectors, value, location, root, out)
-    is Segment.Descendant -> descend(segment.selectors, value, location, root, out)
+    is Segment.Child -> applySelectors(segment.selectors, value, location, context, out)
+    is Segment.Descendant -> descend(segment.selectors, value, location, context, out)
 }
 
 private fun applySelectors(
     selectors: List<Selector>,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     out: NodeSink,
 ): Boolean {
     for (selector in selectors) {
-        if (!applySelector(selector, value, location, root, out)) return false
+        if (!applySelector(selector, value, location, context, out)) return false
     }
     return true
 }
@@ -115,39 +171,54 @@ private fun applySelectors(
  *
  * Children are pushed in reverse so that popping yields document order, which is what makes
  * `$..a`'s nodelist the one RFC 9535 §2.5.2.2 describes rather than a permutation of it.
+ *
+ * This is where a `..` costs the subtree rather than the answer, so it is where the budget is spent:
+ * every node popped is one touch, and its distance below the node the expansion started at is what
+ * `maxDescendantDepth` bounds. The depth travels on the [Visit] rather than being derived from the
+ * location, because a location is shared with its parent and knows how deep it is in the *document*,
+ * which is a different number once a descendant segment is not the first.
  */
 private fun descend(
     selectors: List<Selector>,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     out: NodeSink,
 ): Boolean {
     val pending = ArrayDeque<Visit>()
-    pending.addLast(Visit(value, location))
+    pending.addLast(Visit(value, location, depth = 0))
     while (pending.isNotEmpty()) {
         val visit = pending.removeLast()
-        if (!applySelectors(selectors, visit.value, visit.location, root, out)) return false
+        context.visit()
+        context.descended(visit.depth)
+        if (!applySelectors(selectors, visit.value, visit.location, context, out)) return false
         pushChildren(visit, pending)
     }
     return true
 }
 
-private class Visit(val value: Variant, val location: NodeLocation)
+private class Visit(val value: Variant, val location: NodeLocation, val depth: Int)
 
 private fun pushChildren(visit: Visit, pending: ArrayDeque<Visit>) {
     val value = visit.value
+    val depth = visit.depth + 1
     when (value.basicType) {
         VariantBasicType.ARRAY -> {
             for (index in value.elementCount - 1 downTo 0) {
-                pending.addLast(Visit(value.element(index), visit.location.child(VariantPathStep.Index(index))))
+                pending.addLast(
+                    Visit(value.element(index), visit.location.child(VariantPathStep.Index(index)), depth),
+                )
             }
         }
 
         VariantBasicType.OBJECT -> {
             for (index in value.fieldCount - 1 downTo 0) {
                 pending.addLast(
-                    Visit(value.fieldValue(index), visit.location.child(VariantPathStep.Field(value.fieldName(index)))),
+                    Visit(
+                        value.fieldValue(index),
+                        visit.location.child(VariantPathStep.Field(value.fieldName(index))),
+                        depth,
+                    ),
                 )
             }
         }
@@ -160,28 +231,34 @@ private fun applySelector(
     selector: Selector,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     out: NodeSink,
 ): Boolean = when (selector) {
     is Selector.Name -> {
         val child = if (value.basicType == VariantBasicType.OBJECT) value.field(selector.name) else null
-        child == null || out.emit(child, location.child(VariantPathStep.Field(selector.name)))
+        if (child == null) {
+            true
+        } else {
+            context.visit()
+            out.emit(child, location.child(VariantPathStep.Field(selector.name)))
+        }
     }
 
-    Selector.Wildcard -> applyWildcard(value, location, out)
+    Selector.Wildcard -> applyWildcard(value, location, context, out)
 
-    is Selector.Index -> applyIndex(selector.index, value, location, out)
+    is Selector.Index -> applyIndex(selector.index, value, location, context, out)
 
-    is Selector.Slice -> applySlice(selector, value, location, out)
+    is Selector.Slice -> applySlice(selector, value, location, context, out)
 
-    is Selector.Filter -> applyFilter(selector.expression, value, location, root, out)
+    is Selector.Filter -> applyFilter(selector.expression, value, location, context, out)
 }
 
-private fun applyWildcard(value: Variant, location: NodeLocation, out: NodeSink): Boolean {
+private fun applyWildcard(value: Variant, location: NodeLocation, context: Evaluation, out: NodeSink): Boolean {
     when (value.basicType) {
         VariantBasicType.ARRAY -> {
             val count = value.elementCount
             for (index in 0 until count) {
+                context.visit()
                 if (!out.emit(value.element(index), location.child(VariantPathStep.Index(index)))) return false
             }
         }
@@ -189,6 +266,7 @@ private fun applyWildcard(value: Variant, location: NodeLocation, out: NodeSink)
         VariantBasicType.OBJECT -> {
             val count = value.fieldCount
             for (index in 0 until count) {
+                context.visit()
                 val at = location.child(VariantPathStep.Field(value.fieldName(index)))
                 if (!out.emit(value.fieldValue(index), at)) return false
             }
@@ -206,12 +284,19 @@ private fun applyWildcard(value: Variant, location: NodeLocation, out: NodeSink)
  * hold is indexed by an `Int`, so an index outside it simply selects nothing. That is an answer —
  * `$[9007199254740991]` is a perfectly good query over a two-element array — and not an overflow.
  */
-private fun applyIndex(index: Long, value: Variant, location: NodeLocation, out: NodeSink): Boolean {
+private fun applyIndex(
+    index: Long,
+    value: Variant,
+    location: NodeLocation,
+    context: Evaluation,
+    out: NodeSink,
+): Boolean {
     if (value.basicType != VariantBasicType.ARRAY) return true
     val count = value.elementCount
     val resolved = if (index >= 0) index else count + index
     if (resolved < 0 || resolved >= count) return true
     val at = resolved.toInt()
+    context.visit()
     return out.emit(value.element(at), location.child(VariantPathStep.Index(at)))
 }
 
@@ -223,7 +308,13 @@ private fun applyIndex(index: Long, value: Variant, location: NodeLocation, out:
  * that only fires on a query nobody writes twice. A zero step selects nothing, which the RFC states
  * and which is *not* the same as a step of one.
  */
-private fun applySlice(slice: Selector.Slice, value: Variant, location: NodeLocation, out: NodeSink): Boolean {
+private fun applySlice(
+    slice: Selector.Slice,
+    value: Variant,
+    location: NodeLocation,
+    context: Evaluation,
+    out: NodeSink,
+): Boolean {
     if (value.basicType != VariantBasicType.ARRAY) return true
     val length = value.elementCount.toLong()
     val step = slice.step ?: 1L
@@ -234,6 +325,7 @@ private fun applySlice(slice: Selector.Slice, value: Variant, location: NodeLoca
         val upper = normalise(slice.end ?: length, length).coerceIn(0L, length)
         var at = lower
         while (at < upper) {
+            context.visit()
             if (!out.emit(value.element(at.toInt()), location.child(VariantPathStep.Index(at.toInt())))) return false
             at += step
         }
@@ -242,6 +334,7 @@ private fun applySlice(slice: Selector.Slice, value: Variant, location: NodeLoca
         val lower = normalise(slice.end ?: (-length - 1), length).coerceIn(-1L, length - 1)
         var at = upper
         while (lower < at) {
+            context.visit()
             if (!out.emit(value.element(at.toInt()), location.child(VariantPathStep.Index(at.toInt())))) return false
             at += step
         }
@@ -261,7 +354,7 @@ private fun applyFilter(
     expression: FilterExpression,
     value: Variant,
     location: NodeLocation,
-    root: Variant,
+    context: Evaluation,
     out: NodeSink,
 ): Boolean {
     when (value.basicType) {
@@ -269,7 +362,11 @@ private fun applyFilter(
             val count = value.elementCount
             for (index in 0 until count) {
                 val element = value.element(index)
-                if (!testFilter(expression, element, root)) continue
+                // Counted before the test rather than after it: a candidate that fails is work the
+                // expression bought, and a filter over a large array whose every element is rejected
+                // is exactly the shape a budget exists to notice.
+                context.visit()
+                if (!testFilter(expression, element, context)) continue
                 if (!out.emit(element, location.child(VariantPathStep.Index(index)))) return false
             }
         }
@@ -278,7 +375,8 @@ private fun applyFilter(
             val count = value.fieldCount
             for (index in 0 until count) {
                 val member = value.fieldValue(index)
-                if (!testFilter(expression, member, root)) continue
+                context.visit()
+                if (!testFilter(expression, member, context)) continue
                 val at = location.child(VariantPathStep.Field(value.fieldName(index)))
                 if (!out.emit(member, at)) return false
             }
@@ -290,25 +388,25 @@ private fun applyFilter(
 }
 
 /** Evaluates a `logical-expr` against one candidate node. Never throws for a shape it did not expect. */
-internal fun testFilter(expression: FilterExpression, current: Variant, root: Variant): Boolean =
+internal fun testFilter(expression: FilterExpression, current: Variant, context: Evaluation): Boolean =
     when (expression) {
-        is FilterExpression.Or -> expression.operands.any { testFilter(it, current, root) }
-        is FilterExpression.And -> expression.operands.all { testFilter(it, current, root) }
-        is FilterExpression.Not -> !testFilter(expression.operand, current, root)
-        is FilterExpression.Existence -> hasNode(expression.query, current, root)
-        is FilterExpression.Call -> testCall(expression.call, current, root)
+        is FilterExpression.Or -> expression.operands.any { testFilter(it, current, context) }
+        is FilterExpression.And -> expression.operands.all { testFilter(it, current, context) }
+        is FilterExpression.Not -> !testFilter(expression.operand, current, context)
+        is FilterExpression.Existence -> hasNode(expression.query, current, context)
+        is FilterExpression.Call -> testCall(expression.call, current, context)
 
         is FilterExpression.Comparison -> compareValues(
-            valueOf(expression.left, current, root),
+            valueOf(expression.left, current, context),
             expression.operator,
-            valueOf(expression.right, current, root),
+            valueOf(expression.right, current, context),
         )
     }
 
 /** The two functions whose declared result is `LogicalType`. Nothing else reaches a logical position. */
-private fun testCall(call: FunctionCall, current: Variant, root: Variant): Boolean = when (call.function) {
-    JsonPathFunction.MATCH -> testPattern(call, current, root, anchored = true)
-    JsonPathFunction.SEARCH -> testPattern(call, current, root, anchored = false)
+private fun testCall(call: FunctionCall, current: Variant, context: Evaluation): Boolean = when (call.function) {
+    JsonPathFunction.MATCH -> testPattern(call, current, context, anchored = true)
+    JsonPathFunction.SEARCH -> testPattern(call, current, context, anchored = false)
 
     // A ValueType function in a logical position is rejected while parsing — `$[?length(@.a)]` is one
     // of the 247 invalid selectors — and no registered function returns NodesType. Stated rather than
@@ -325,8 +423,8 @@ private fun testCall(call: FunctionCall, current: Variant, root: Variant): Boole
  * three the same answer, and giving any of them an exception would make a filter over a corpus fail
  * on the one document whose field holds a number.
  */
-private fun testPattern(call: FunctionCall, current: Variant, root: Variant, anchored: Boolean): Boolean {
-    val subject = stringOf(valueArgument(call, 0, current, root)) ?: return false
+private fun testPattern(call: FunctionCall, current: Variant, context: Evaluation, anchored: Boolean): Boolean {
+    val subject = stringOf(valueArgument(call, 0, current, context)) ?: return false
     val regexp = when (val pattern = call.pattern) {
         // Compiled once, when the query was compiled.
         is PatternSource.Fixed -> pattern.regexp
@@ -334,7 +432,7 @@ private fun testPattern(call: FunctionCall, current: Variant, root: Variant, anc
         // The pattern is a value of the document, so it is read and compiled for this node. No memo:
         // a cache would be the first mutable state in a class that promises immutability, and
         // nothing has measured the compile against the walk it sits inside.
-        PatternSource.PerNode, null -> stringOf(valueArgument(call, 1, current, root))?.let(IRegexp::compileOrNull)
+        PatternSource.PerNode, null -> stringOf(valueArgument(call, 1, current, context))?.let(IRegexp::compileOrNull)
     } ?: return false
     return if (anchored) regexp.matches(subject) else regexp.search(subject)
 }
@@ -346,29 +444,29 @@ private fun stringOf(value: FilterValue): String? {
 }
 
 /** Whether [query] selects at least one node. Stops at the first, which is what the sink is for. */
-private fun hasNode(query: QueryExpression, current: Variant, root: Variant): Boolean {
+private fun hasNode(query: QueryExpression, current: Variant, context: Evaluation): Boolean {
     var found = false
-    applySegments(query.segments, 0, startOf(query.root, current, root), NodeLocation.ROOT, root) { _, _ ->
+    applySegments(query.segments, 0, startOf(query.root, current, context), NodeLocation.ROOT, context) { _, _ ->
         found = true
         false
     }
     return found
 }
 
-private fun startOf(queryRoot: QueryRoot, current: Variant, root: Variant): Variant = when (queryRoot) {
-    QueryRoot.ROOT -> root
+private fun startOf(queryRoot: QueryRoot, current: Variant, context: Evaluation): Variant = when (queryRoot) {
+    QueryRoot.ROOT -> context.root
     QueryRoot.CURRENT -> current
 }
 
 /** The `ValueType` a comparison operand carries for this candidate node. */
-private fun valueOf(comparable: ComparableExpression, current: Variant, root: Variant): FilterValue =
+private fun valueOf(comparable: ComparableExpression, current: Variant, context: Evaluation): FilterValue =
     when (comparable) {
         is ComparableExpression.Literal -> FilterValue.Node(comparable.value)
 
         is ComparableExpression.Singular ->
-            resolve(comparable.query, current, root)?.let { FilterValue.Node(it) } ?: FilterValue.Absent
+            resolve(comparable.query, current, context)?.let { FilterValue.Node(it) } ?: FilterValue.Absent
 
-        is ComparableExpression.Call -> evaluateCall(comparable.call, current, root)
+        is ComparableExpression.Call -> evaluateCall(comparable.call, current, context)
     }
 
 /**
@@ -378,9 +476,10 @@ private fun valueOf(comparable: ComparableExpression, current: Variant, root: Va
  * `Variant.select` with negative indices added — no nodelist, no sink, no location. A comparison
  * runs once per candidate node, so this is the hottest path in the module.
  */
-private fun resolve(query: SingularQuery, current: Variant, root: Variant): Variant? {
-    var value = startOf(query.root, current, root)
+private fun resolve(query: SingularQuery, current: Variant, context: Evaluation): Variant? {
+    var value = startOf(query.root, current, context)
     for (step in query.steps) {
+        context.visit()
         val next = when (step) {
             is SingularStep.Name ->
                 if (value.basicType == VariantBasicType.OBJECT) value.field(step.name) else null
@@ -398,11 +497,11 @@ private fun resolve(query: SingularQuery, current: Variant, root: Variant): Vari
     return value
 }
 
-private fun evaluateCall(call: FunctionCall, current: Variant, root: Variant): FilterValue =
+private fun evaluateCall(call: FunctionCall, current: Variant, context: Evaluation): FilterValue =
     when (call.function) {
-        JsonPathFunction.LENGTH -> lengthOf(valueArgument(call, 0, current, root))
-        JsonPathFunction.COUNT -> FilterValue.Integral(countNodes(nodesArgument(call, 0), current, root))
-        JsonPathFunction.VALUE -> singleNode(nodesArgument(call, 0), current, root)
+        JsonPathFunction.LENGTH -> lengthOf(valueArgument(call, 0, current, context))
+        JsonPathFunction.COUNT -> FilterValue.Integral(countNodes(nodesArgument(call, 0), current, context))
+        JsonPathFunction.VALUE -> singleNode(nodesArgument(call, 0), current, context)
 
         // Both are LogicalType, and a LogicalType function is never a comparison operand: the parser
         // reports `match(…) == true` as one of the invalid selectors rather than compiling it.
@@ -410,8 +509,8 @@ private fun evaluateCall(call: FunctionCall, current: Variant, root: Variant): F
             error("'${call.function.spelling}' returns LogicalType and is not a comparison operand")
     }
 
-private fun valueArgument(call: FunctionCall, index: Int, current: Variant, root: Variant): FilterValue =
-    valueOf((call.arguments[index] as FunctionArgument.Value).comparable, current, root)
+private fun valueArgument(call: FunctionCall, index: Int, current: Variant, context: Evaluation): FilterValue =
+    valueOf((call.arguments[index] as FunctionArgument.Value).comparable, current, context)
 
 private fun nodesArgument(call: FunctionCall, index: Int): QueryExpression =
     (call.arguments[index] as FunctionArgument.Nodes).query
@@ -437,9 +536,9 @@ private fun lengthOf(value: FilterValue): FilterValue {
 
 private fun codePointLength(text: String): Long = text.codePointCount(0, text.length).toLong()
 
-private fun countNodes(query: QueryExpression, current: Variant, root: Variant): Long {
+private fun countNodes(query: QueryExpression, current: Variant, context: Evaluation): Long {
     var count = 0L
-    applySegments(query.segments, 0, startOf(query.root, current, root), NodeLocation.ROOT, root) { _, _ ->
+    applySegments(query.segments, 0, startOf(query.root, current, context), NodeLocation.ROOT, context) { _, _ ->
         count++
         true
     }
@@ -452,10 +551,10 @@ private fun countNodes(query: QueryExpression, current: Variant, root: Variant):
  * Stops after the second node, because "more than one" is all the rule needs and a nodelist over a
  * large document is not worth counting to answer it.
  */
-private fun singleNode(query: QueryExpression, current: Variant, root: Variant): FilterValue {
+private fun singleNode(query: QueryExpression, current: Variant, context: Evaluation): FilterValue {
     var first: Variant? = null
     var several = false
-    applySegments(query.segments, 0, startOf(query.root, current, root), NodeLocation.ROOT, root) { value, _ ->
+    applySegments(query.segments, 0, startOf(query.root, current, context), NodeLocation.ROOT, context) { value, _ ->
         if (first == null) {
             first = value
             true

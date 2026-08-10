@@ -117,6 +117,37 @@ public class Variant public constructor(
     /** Copies this value's bytes out of the segment. Pair with [VariantMetadata.toByteArray]. */
     public fun toByteArray(): ByteArray = segment.bytes(offset, byteSize.toInt(), "value")
 
+    /**
+     * This document rebuilt with a dictionary of its own, holding only the names it actually uses.
+     *
+     * **The trap this exists to remove.** A document read out of a segment carries *that segment's*
+     * shared dictionary — one dictionary per segment is the single largest space saving in the
+     * engine — so [metadata] describes thousands of documents and not this one. Hand
+     * `(metadata, toByteArray())` to something expecting a self-contained Variant and it will be
+     * correct but enormous; hand it `toByteArray()` alone and every field name in it resolves to the
+     * wrong string, or to nothing. Neither failure is loud.
+     *
+     * ```kotlin
+     * // Writing one document into a Parquet Variant column, where the pair must stand alone:
+     * val standalone = row.document().detached()
+     * writer.write(standalone.metadata.toByteArray(), standalone.toByteArray())
+     * ```
+     *
+     * **This is not always what you want, and the alternative is cheaper.** A consumer that can take
+     * a *shared* dictionary — an Iceberg writer handling a whole segment's worth of rows, say —
+     * should be handed `variant.metadata` once and `variant.toByteArray()` per document, which
+     * copies no names at all and is what the engine's own layout is optimised for. Reach for this
+     * when the consumer wants one document, self-contained.
+     *
+     * The bytes are the Apache Parquet Variant encoding either way; what changes is only which
+     * dictionary the value's field ids index into.
+     *
+     * @throws VariantFormatException if this value's bytes do not decode. Copying is byte-for-byte
+     *   for scalars, so an unknown primitive id is reported here rather than re-encoded as
+     *   something else.
+     */
+    public fun detached(): Variant = VariantBuilder().also { it.append(this) }.buildVariant()
+
     // --- scalars ---------------------------------------------------------------------------
 
     /** @throws VariantTypeException unless this value is a boolean. */

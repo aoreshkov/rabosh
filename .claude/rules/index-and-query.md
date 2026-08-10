@@ -139,6 +139,19 @@ differential suites that hold every claim here in `.claude/rules/testing.md`.
   per element. An element ordinal space was refused against it; the numbers are in the open-work
   index's Tier 2 record.
 
+- **`explain` may report a type mismatch and may never repair one.** `ExplainTypeNote` says when a
+  leaf's family disagrees with the types the catalog observed at its path — a numeric comparison where
+  a fifth of the values are strings — because in a third-party archive that is the normal state of the
+  world and the symptom is a query returning fewer rows with nothing to say why. It changes no answer,
+  no plan and no bound, which is exactly why `explain` is the right place for it: nothing there can be
+  got wrong in a way that costs a document. **Anything that made a numeric predicate match a string
+  would be a second definition of `ColumnPredicate.matches` and would break skipping.** The family
+  travels on `Normal.Leaf` from the lowering, because `ColumnPredicate.kind` is `internal` to
+  `rabosh-index` and re-deriving it in the query layer would be that second definition arriving by the
+  back door. A leaf that brackets to nothing — `EXISTS`, `IS NULL`, a mixed `IN` — reports nothing,
+  since there is no family for the data to disagree with, and the note is over **every** leaf rather
+  than only indexed ones, because a path with no index is where a caller has no other signal at all.
+
 - **A negated leaf is never a flipped operator.** `not($.a >= 10)` holds for a document whose `a` is
   a string and for one with no `a`; `$.a < 10` holds for neither. The normaliser keeps the negation on
   the leaf and applies it to the *document's* answer. The rewrite is the most natural-looking

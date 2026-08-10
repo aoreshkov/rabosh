@@ -52,12 +52,41 @@ So `IRegexp.compileOrNull` answers `null` — for a syntax error, and equally fo
 run — and nothing surfaces the reason. A literal pattern is still compiled while the query is, so
 applying a compiled query touches no grammar at all.
 
-**The walk carries no budget and the query carries two.** A bound on the walk truncates a nodelist,
-which is a wrong answer with nothing to say so; a bound on what the caller wrote costs no answer at
-all. So the limits are 1024 selectors and 64 levels of nesting, both checked while parsing, and the
-descendant walk is iterative over an explicit stack — a `Variant` built through `VariantBuilder` is
-never re-checked against `DEFAULT_MAX_JSON_DEPTH`, so a recursive walk would be a stack overflow
-reachable from data. `JsonPathQueryTest` builds a 20 000-deep document to say so.
+**The walk carries no budget that *truncates*, and three that *refuse*.** The original rule said the
+walk carried no budget at all, and the reasoning behind it is unchanged and still governs: a bound
+that stopped the walk and returned what it had would be a wrong answer with nothing to say so, and a
+caller cannot tell a truncated nodelist from a small document. What phase 24 added is the opposite
+mechanism — `JsonPathLimits` counts the work and **throws** `JsonPathLimitExceededException`, so the
+caller gets no nodelist rather than a short one. Keep the two apart in any change here: a `NodeSink`
+answering `false` has *learned* the answer and is declining more of it; a budget being met means the
+answer is unknown. Making the budget return `false` would produce exactly the truncation the first
+sentence forbids, and it would look like a simplification.
+
+Three bounds, all counted in steps and never on a clock, for the reason the regex bound is — a
+wall-clock budget makes the failure depend on the machine. `maxNodesVisited` counts node *touches*
+rather than distinct nodes, because it bounds work and `$..*..*` buys the same node once per stage;
+counting distinct nodes needs a set of every node visited, which is the memory the attacker wanted
+you to spend. The counters live on `Evaluation`, created per call, never on the query — a counter on
+the query would break the "any number of threads at once" promise silently, by having two documents
+share a budget.
+
+**The defaults are a backstop, not a policy, and the fixtures that say so must keep passing.**
+`JsonPathQueryTest`'s 20 000-deep document and 5 000-wide array run under the shipped defaults
+untouched, and so do all 703 compliance cases — a limit that changed a compliant answer would have
+broken the module's only claim. A deployment actually serving hostile expressions sets its own, far
+lower. `JsonPathLimitsTest` pins the numbers so that lowering one is a visible decision.
+
+The attack fixture is worth understanding before it is changed: `$..*..nope` names a field the
+document does not have, so its answer is the **empty nodelist** and it is by its result
+indistinguishable from `$.absent` — nothing measured on the answer can see it coming, which is why
+the bound has to be on the work. `$..*..*` is quadratic too and is caught by `maxNodesProduced`
+first, which is correct and would have left `maxNodesVisited` untested by its own case.
+
+The two *query* bounds are unchanged and are a different kind of thing — 1024 selectors and 64 levels
+of nesting, checked while parsing, bounding what the caller wrote rather than what it costs. And the
+descendant walk is still iterative over an explicit stack: a `Variant` built through `VariantBuilder`
+is never re-checked against `DEFAULT_MAX_JSON_DEPTH`, so a recursive walk would be a stack overflow
+reachable from data.
 
 ## Three findings worth keeping
 

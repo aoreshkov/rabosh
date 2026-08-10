@@ -15,6 +15,59 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`Rabosh.checkpoint(target)` — a consistent copy, taken while you are writing.** The recipe it
+  replaces was *stop writing and copy the directory*, which a desktop application cannot do because it
+  is the writer. The database is flushed, a snapshot is pinned, and the copy is of what that snapshot
+  sees, so it holds exactly the acknowledged prefix as of `CheckpointInfo.sequence`. Segments are
+  hard-linked where the filesystem allows it, so it costs a directory entry per file rather than its
+  bytes — which also means it is a consistent *view* rather than an off-site backup.
+
+  Sidecars travel with their segments and are **read** by the copy rather than rebuilt, verified by
+  opening the checkpoint with backfilling off. The `INDEXES` registry travels too, because an index
+  definition is an instruction somebody gave rather than derived data. The fault-injecting filesystem
+  fails the copy at four steps and the **source is unharmed in every case**.
+
+- **`Rabosh.deleteRange(from, to)` — retention by key range**, both bounds inclusive and both
+  optional. The loop a caller would otherwise write, which to write correctly means knowing four
+  invariants of the storage layer. Deliberately point deletes rather than an LSM range tombstone: no
+  new operation id, no format change, no change to compaction. Follow it with `compact()`, which is
+  what turns tombstones into reclaimed space.
+
+- **`JsonPathLimits` — bounded evaluation for untrusted JSONPath.** `rabosh-jsonpath`'s chosen use
+  case is expressions you did not write, and until now nothing bounded what a *small, valid* query
+  cost against a *large* document: `$..*..nope` is fourteen characters, is quadratic in the document's
+  node count, and returns the empty nodelist — so nothing measured on the answer can see it coming.
+
+  **The bound refuses; it never truncates.** Exceeding it raises `JsonPathLimitExceededException` and
+  delivers nothing, because a short nodelist cannot be told from a small document. Counted in steps
+  and never on a clock, for the reason the I-Regexp bound is. All 703 compliance cases and the
+  module's 20 000-deep and 5 000-wide fixtures pass under the shipped defaults, which are a backstop
+  rather than a policy — a deployment serving hostile expressions should set its own, far lower.
+
+- **`explain()` says when a predicate cannot match the data's types.** A numeric comparison against a
+  path where a third of the values arrive as strings now carries a note on the plan. A *diagnostic,
+  never a coercion*: type bracketing is unchanged, `ColumnPredicate.matches` is still the only
+  definition, and nothing here makes a numeric predicate match a string. Reported for leaves with no
+  index too, which is where a caller has no other signal at all.
+
+- **`Variant.detached()` and `InferredSchema.shreddingAdvice()` — the lakehouse hand-off**, with no
+  Parquet dependency taken. A document read from a segment carries *that segment's* shared dictionary,
+  so handing `(metadata, value)` to something expecting a self-contained Variant is a trap that
+  sometimes works — `detached()` rebuilds it with a dictionary of its own. The advice renders what the
+  catalog already computes for a Parquet **shredding schema**, including the decision a hand-written
+  one gets wrong: whether `variant_value` can be dropped.
+
+- **`StoreLockedException` says who holds the directory.** It carries `directory` and a `LockHolder`
+  with the pid and start time the `LOCK` file records, so a desktop application's second launch can
+  focus the existing window instead of matching on a message. **The start time is not decoration** —
+  operating systems reuse pids, and `isRunning` checks both, so a user is never told to kill a
+  stranger's process. No lock stealing, no timeout, no force-open.
+
+- **`:rabosh-samples:runDrain`** — a staging buffer drained: snapshot, ship, record the watermark,
+  retire, compact, in that order. It composes the two items above, which makes it their acceptance
+  test in the only way that matters, a caller's program. Also **`Key.successor()`**, promoted to
+  public because writing that loop found it was the one thing the inclusive bounds cannot say.
+
 - **[`INTEGRATION.md`](INTEGRATION.md) — the runtime contract, in public.** The rules an embedding
   application has to obey were discoverable only by reading KDoc on classes a caller may never open,
   and three of them fail *silently*: a row is valid only until the next `next()`, a leaked `Snapshot`

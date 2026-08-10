@@ -20,19 +20,21 @@ wrap all of the API or none of it. Two tiers cost nothing and say what the evide
 Small on purpose. It is the surface the README's examples call, the surface the two samples call, and
 it has not moved in two releases.
 
-**`rabosh-api`** — `Rabosh` (`open`, `close`, `put`, `get`, `delete`, `write`, `scan`, `snapshot`,
-`query`, `keys`, `explain`, `createIndex`, `createIndexInBackground`, `buildIndexesInBackground`,
-`dropIndex`, `indexes`, `schema`, `indexCandidates`, `attach`, `flush`, `sync`, `rotate`, `compact`,
-`stats`, `directory`, `options`) and `RaboshOptions`.
+**`rabosh-api`** — `Rabosh` (`open`, `close`, `put`, `get`, `delete`, `deleteRange`, `write`, `scan`,
+`snapshot`, `query`, `keys`, `explain`, `createIndex`, `createIndexInBackground`,
+`buildIndexesInBackground`, `dropIndex`, `indexes`, `schema`, `indexCandidates`, `attach`,
+`checkpoint`, `flush`, `sync`, `rotate`, `compact`, `stats`, `directory`, `options`) and
+`RaboshOptions`.
 
-**`rabosh-core`** — `Key`, `WriteBatch`, `Durability`, `Snapshot`, `DocumentCursor`, `StoreOptions`,
-`StoreStats`, `LogRecoveryMode`, `SegmentObserver`, `SegmentObservation`, `SegmentSummary`, and the
-whole `StoreException` hierarchy.
+**`rabosh-core`** — `Key` (including `successor`), `WriteBatch`, `Durability`, `Snapshot`,
+`DocumentCursor`, `StoreOptions`, `StoreStats`, `LogRecoveryMode`, `SegmentObserver`,
+`SegmentObservation`, `SegmentSummary`, `CheckpointInfo`, `LockHolder`, and the whole
+`StoreException` hierarchy.
 
 **`rabosh-query`** — `Query`, `Predicate` and its cases, the predicate DSL (`path`, `and`, `or`,
 `not`, `eq`, `anyOf`, `exists`, `isNull`, `elemMatch`, the comparison operators), `PathRef`,
 `Comparison`, `QueryValue`, `Projection`, `Row`, `QueryCursor`, `QueryStats`, `Explain`,
-`ExplainSource`, `IndexUse`.
+`ExplainSource`, `ExplainTypeNote`, `IndexUse`.
 
 **`rabosh-index`** — `IndexDefinition`, `IndexHandle`, `IndexBuild`, `IndexBuildProgress`,
 `IndexBuildState`, `IndexCoverage`, `IndexOptions`, `DamagedIndexPolicy`, `CompositeSegmentObserver`,
@@ -40,15 +42,19 @@ and the whole `IndexException` hierarchy.
 
 **`rabosh-catalog`** — `CatalogPath`, `CatalogStep` and the node walk, `InferredSchema`,
 `InferredField` (except its `sketch`), `CatalogCoverage`, `IndexCandidate`, `IndexCandidateOptions`,
-`IndexKind`, `ValueBounds`, `NumericRange`, `TextRange`, `CatalogOptions`, `DamagedSketchPolicy`, and
-the whole `CatalogException` hierarchy.
+`IndexKind`, `ValueBounds`, `NumericRange`, `TextRange`, `CatalogOptions`, `DamagedSketchPolicy`,
+`ShreddingAdvice` and `InferredSchema.shreddingAdvice`, and the whole `CatalogException` hierarchy.
 
-**`rabosh-variant`** — `Variant` and its readers, `VariantNode`, `VariantPath`, `VariantPathStep`,
+**`rabosh-variant`** — `Variant` and its readers including `detached`, `VariantNode`, `VariantPath`,
+`VariantPathStep`,
 `VariantKind`, `VariantBasicType`, `VariantPrimitiveType`, `VariantBuilder`, `VariantMetadata`,
 `DuplicateFieldPolicy`, `toJsonString` / `toJsonSummaryString`, and the whole `VariantException`
 hierarchy.
 
-**`rabosh-jsonpath`** — `JsonPathQuery`.
+**`rabosh-jsonpath`** — `JsonPathQuery`, `JsonPathLimits`, `JsonPathLimit`,
+`JsonPathLimitExceededException`. The limits are stable core rather than experimental because the
+module's chosen use case is evaluating expressions you did not write, and a bound a caller cannot
+rely on is not a bound.
 
 ### Two entries that are in the list for a reason worth knowing
 

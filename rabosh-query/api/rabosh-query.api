@@ -16,6 +16,7 @@ public final class app/oreshkov/rabosh/query/Explain {
 	public final fun getSegmentsIndexed ()I
 	public final fun getSegmentsScanned ()I
 	public final fun getSources ()Ljava/util/List;
+	public final fun getTypeNotes ()Ljava/util/List;
 	public final fun getUsesIndexes ()Z
 	public final fun render ()Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
@@ -27,6 +28,15 @@ public final class app/oreshkov/rabosh/query/ExplainSource {
 	public final fun getDescribes ()Ljava/lang/String;
 	public final fun getEstimate ()Ljava/lang/String;
 	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexHandle;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/query/ExplainTypeNote {
+	public final fun getDescribes ()Ljava/lang/String;
+	public final fun getFamily ()Ljava/lang/String;
+	public final fun getMismatchedFraction ()D
+	public final fun getMismatchedTypes ()Ljava/util/List;
+	public final fun getPath ()Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
 }
 

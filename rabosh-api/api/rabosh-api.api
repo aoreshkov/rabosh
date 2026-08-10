@@ -2,11 +2,16 @@ public final class app/oreshkov/rabosh/api/Rabosh : java/lang/AutoCloseable {
 	public static final field Companion Lapp/oreshkov/rabosh/api/Rabosh$Companion;
 	public final fun attach ()V
 	public final fun buildIndexesInBackground ()Lapp/oreshkov/rabosh/index/IndexBuild;
+	public final fun checkpoint (Ljava/nio/file/Path;)Lapp/oreshkov/rabosh/core/CheckpointInfo;
 	public fun close ()V
 	public final fun compact ()V
 	public final fun createIndex (Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexHandle;
 	public final fun createIndexInBackground (Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexBuild;
 	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)V
+	public final fun deleteRange ()J
+	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;)J
+	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)J
+	public static synthetic fun deleteRange$default (Lapp/oreshkov/rabosh/api/Rabosh;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;ILjava/lang/Object;)J
 	public final fun dropIndex (Lapp/oreshkov/rabosh/index/IndexHandle;)V
 	public final fun explain (Lapp/oreshkov/rabosh/query/Query;)Lapp/oreshkov/rabosh/query/Explain;
 	public final fun explain (Lapp/oreshkov/rabosh/query/Query;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/query/Explain;

@@ -37,6 +37,36 @@ public class Key private constructor(private val bytes: ByteArray) : Comparable<
     internal val raw: ByteArray get() = bytes
 
     /**
+     * The next key in this ordering: the smallest key strictly greater than this one.
+     *
+     * A zero byte appended, and it is exact rather than approximate. Under unsigned lexicographic
+     * comparison a shorter key that is a prefix of a longer one sorts first, so nothing can lie
+     * between `k` and `k + 0x00`. It is also **total** — keys have no maximum length, so there is no
+     * "last key" for this to fail on, which is what lets a range walk use it without a special case
+     * at the end.
+     *
+     * **This is how an exclusive lower bound is spelled.** Every range in this API is inclusive at
+     * both ends, which is the right default for "delete July" and the wrong one for "carry on from
+     * where I stopped" — a resumable walk that restarted at the key it last handled would hand that
+     * key over twice. It is the one thing a drain loop needs that the inclusive bounds cannot say:
+     *
+     * ```kotlin
+     * var watermark: Key? = null
+     * while (true) {
+     *     val batch = db.scan(from = watermark, snapshot = view).use { … }
+     *     if (batch.isEmpty()) break
+     *     ship(batch)
+     *     watermark = batch.last().key.successor()   // resume *after* it, never at it
+     * }
+     * ```
+     *
+     * Cheap, and not free: the key is one byte longer than its predecessor, so a watermark carried
+     * through many rounds should be recomputed from the last key handled rather than by calling this
+     * on its own result.
+     */
+    public fun successor(): Key = Key(bytes + 0)
+
+    /**
      * Unsigned lexicographic comparison; the shorter key wins when one is a prefix of the other.
      *
      * [Arrays.compareUnsigned] is used rather than a hand-written loop because the JDK intrinsifies

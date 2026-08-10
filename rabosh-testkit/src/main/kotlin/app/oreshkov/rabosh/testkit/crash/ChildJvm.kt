@@ -65,6 +65,15 @@ public class ChildJvm private constructor(
     /** Everything the child has written to standard error. The first thing to look at on a failure. */
     public val standardError: String get() = synchronized(errors) { errors.toString() }
 
+    /**
+     * The child's operating-system process id.
+     *
+     * For the one assertion that cannot be made any other way: that a `LOCK` file names the process
+     * actually holding it. A test can compare `StoreLockedException.holder?.pid` against this and
+     * know the record is right rather than merely well-formed.
+     */
+    public val pid: Long get() = process.pid()
+
     override fun close() {
         if (process.isAlive) killForcibly()
     }
