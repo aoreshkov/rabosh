@@ -15,6 +15,23 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`checkApiTiers` — the stability tiers are now held by a gate rather than by a script.** The
+  module-wide opt-in that keeps the engine from needing several hundred `@OptIn`s also blinds the
+  compiler to a public signature that *names* an experimental type without carrying the marker, and
+  an ABI dump writes signatures and never annotations — so between them nothing was checking that
+  `STABILITY.md`'s claim was still true. Run by hand it had already found four such leaks.
+
+  `ApiTierAudit` reads the marker set from the **sources** and the surface from the **committed
+  dumps**, both derived and neither listed: a hand-maintained list of experimental types would
+  disagree with the annotations exactly once, silently, in the direction of not reporting a leak. It
+  is a root task, because a type marked in one module leaks through another module's dump, and it
+  hangs off `check`, so `./gradlew build` runs it.
+
+  Promoting it found a bug the hand-written version never had to have: attributing a marked member to
+  the *most recent* type declaration rather than the enclosing one put `IndexCatalog.read` inside a
+  `private class` two hundred lines above it. Nesting now follows indentation, and the sibling case is
+  a test.
+
 - **`Rabosh.checkpoint(target)` — a consistent copy, taken while you are writing.** The recipe it
   replaces was *stop writing and copy the directory*, which a desktop application cannot do because it
   is the writer. The database is flushed, a snapshot is pinned, and the copy is of what that snapshot

@@ -115,13 +115,33 @@ experimental type to be marked too, and that cascade ends with the stable core i
 tier. `SegmentObserver` is that cascade caught at one step: `RaboshOptions`' constructor names it, so
 marking the interface would have put `RaboshOptions(...)` behind an opt-in. It is stable, deliberately.
 
-**The gate is `rabosh-samples` not opting in, and the ABI dumps are not the gate.** The JVM dump
-format writes signature lines and never annotations — verified in the dumper, and confirmed by the
-markers changing the committed dumps by exactly one entry, the annotation class itself — so a
-declaration changing tier is invisible to `checkKotlinAbi`. What catches it is the samples module:
-`:rabosh-api` and nothing else, `allWarningsAsErrors`, part of `build`, and the one module the
-opt-in is deliberately withheld from. Do not "tidy" that asymmetry by giving every module the same
-compiler options; `rabosh.kotlin-library`, `rabosh-testkit` and `rabosh-bench` opt in, samples do not.
+**Two gates, and neither is `checkKotlinAbi`.** The JVM dump format writes signature lines and never
+annotations — verified in the dumper, and confirmed by the markers changing the committed dumps by
+exactly one entry, the annotation class itself — so a declaration changing tier is invisible to it.
+
+The first gate is **`rabosh-samples` not opting in**: `:rabosh-api` and nothing else,
+`allWarningsAsErrors`, part of `build`, and the one module the opt-in is deliberately withheld from.
+Do not "tidy" that asymmetry by giving every module the same compiler options;
+`rabosh.kotlin-library`, `rabosh-testkit` and `rabosh-bench` opt in, samples do not.
+
+The second is **`checkApiTiers`**, and it exists because the first one only sees what a sample
+happens to call. Module-wide opt-in blinds the compiler to a public signature that *names* an
+experimental type without carrying the marker — a consumer meeting it gets handed an experimental
+type with nothing having asked them to opt in. `ApiTierAudit` reads the marker set from the
+**sources** and the surface from the **committed dumps**, both derived and neither listed, for the
+`PublishedModules` reason: a hand-maintained list of experimental types would disagree with the
+annotations exactly once, silently, in the direction of not reporting a leak. It is a root task,
+because the leak is cross-module — a type marked in `rabosh-index` leaks through a signature in
+`rabosh-query`'s dump — and it hangs off the root `check`, so `./gradlew build` runs it.
+
+Three things about it that are decisions. **An annotation the scanner cannot attribute is a failure,
+not a shorter set**: under-reporting is the only failure mode that matters, because an audit that
+misses a leak passes and passing is what it is read for. **Nesting is followed by indentation rather
+than by counting braces**, because Kotlin string templates put braces inside string literals and a
+counter needs a lexer to be right; the comparison is *strictly* less than the declaration's column, so
+a sibling `private class` declared beside a marked function is not mistaken for its enclosing scope —
+which the first version did, reporting `IndexCatalog.read` as a leak. And **a missing dump is skipped
+rather than failed**, because `checkKotlinAbi` already owns that and owning it twice is worse.
 
 ## Native access: the flag nobody needs
 

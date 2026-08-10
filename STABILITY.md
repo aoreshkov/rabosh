@@ -122,16 +122,25 @@ they do **not** carry is the markers: the JVM dump format writes signature lines
 annotations, and the synthetic method Kotlin emits for an annotated property is filtered out as
 synthetic. A declaration changing tier is invisible to it.
 
-**`rabosh-samples` is what holds the tiers.** It depends on `:rabosh-api` and nothing else, it
+**`rabosh-samples` is what holds the stable core.** It depends on `:rabosh-api` and nothing else, it
 compiles with `allWarningsAsErrors`, it is part of `./gradlew build`, and — unlike every other module
 in the repository — it deliberately does **not** opt in to `@RaboshExperimental`. It is therefore a
 real consumer compiling against the stable core with no opt-in. A stable declaration that silently
 acquires the marker fails there, and so does a sample that reaches past the facade. That asymmetry is
 load-bearing and should not be tidied away by giving every module the same build configuration.
 
-Verified by breaking it, which is this repository's standing rule for a check nobody has watched
+**`checkApiTiers` holds the other direction**, which a sample cannot: that no unmarked public
+signature *exposes* an experimental type. Module-wide opt-in means the compiler permits exactly that
+inside the library, so a consumer could be handed a `ColumnReader` by a method carrying no marker at
+all — the tier statement above quietly ceasing to be true. The audit reads the marker set from the
+sources and the surface from the committed dumps, both derived rather than listed, and runs at the
+root because the leak is cross-module. It found four leaks the first time it was run by hand.
+
+Verified by breaking them, which is this repository's standing rule for a check nobody has watched
 fail: adding `db.store.flush()` to a sample fails `./gradlew build` with the opt-in error naming the
-marker, and commenting out the opt-in in `rabosh.kotlin-library` fails the published modules.
+marker; commenting out the opt-in in `rabosh.kotlin-library` fails the published modules; and removing
+the marker from `IndexCatalog.read` fails `checkApiTiers` naming the method, the type it exposes and
+the module.
 
 ## Reporting
 

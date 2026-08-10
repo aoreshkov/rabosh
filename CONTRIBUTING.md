@@ -53,6 +53,13 @@ and commit the result. The tasks are `checkKotlinAbi` and `updateKotlinAbi`; the
 that Kotlin still registers are deprecated shims and using them is a build that breaks on the next
 upgrade for no benefit today.
 
+**A dump says nothing about stability tiers**, so a second check runs beside it. `checkApiTiers` —
+also part of `build` — fails when a public signature exposes a `@RaboshExperimental` type without
+carrying the marker itself. If it names your declaration, either mark it or move the type into the
+stable core and say so in [STABILITY.md](STABILITY.md); the one thing not to do is leave a consumer
+holding an experimental type that nothing asked them to opt in to. It reads the marker set from the
+sources, so adding a marker is all that is needed to teach it.
+
 **2. A new dependency needs agreement first, and the runtime scope is closed.** "No runtime
 dependencies at all" is a claim the README makes, so it has to stay true — the JSON parser, the
 compressed bitmap, the HyperLogLog, the bloom filter and the property-test harness are all in-repo

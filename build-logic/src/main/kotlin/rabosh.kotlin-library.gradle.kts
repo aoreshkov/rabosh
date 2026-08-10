@@ -32,6 +32,11 @@ kotlin {
      * silently changes tier fails there, and so does a sample that reaches past the facade. The ABI
      * dumps cannot do this job: the JVM dump format writes signatures only and never annotations, so
      * a tier change is invisible to `checkKotlinAbi`.
+     *
+     * What a sample cannot catch is a public signature that *exposes* an experimental type without
+     * carrying the marker — this opt-in permits exactly that inside the library, and a sample only
+     * sees what it happens to call. `checkApiTiers` at the root is that half, and the two together
+     * are what hold `STABILITY.md`'s claim up.
      */
     compilerOptions {
         optIn.add("app.oreshkov.rabosh.RaboshExperimental")
