@@ -32,7 +32,10 @@ import java.util.IdentityHashMap
  */
 internal class DocumentMatcher(private val normal: Normal, private val options: IndexOptions) {
 
-    private val leaves: List<Normal.Leaf> = normal.leaves()
+    /** Every leaf of the tree, in order. Exposed for `Explain`, which reports on all of them and
+     * not only on the ones an index answered — a path with no index is where a caller has no other
+     * signal at all. */
+    internal val leaves: List<Normal.Leaf> = normal.leaves()
     private val paths = leaves.map { it.path }.distinct()
     private val extractor = TermExtractor(paths, options)
 

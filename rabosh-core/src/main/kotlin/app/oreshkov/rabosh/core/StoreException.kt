@@ -1,5 +1,8 @@
 package app.oreshkov.rabosh.core
 
+import java.nio.file.Path
+import java.time.Instant
+
 /**
  * Base class for every failure the storage core raises on its own account.
  *
@@ -105,11 +108,85 @@ public class UnsupportedFormatException(message: String) : StoreException(messag
  * The engine is single-writer by design, and the lock file is what makes that a guarantee rather
  * than a convention. Two writers over one LSM directory do not produce a merge conflict; they
  * produce two interleaved logs and an unrecoverable sequence space.
+ *
+ * **For a desktop, CLI or plugin application this is the normal second-launch case, not a fault**,
+ * and it is why this carries [directory] and [holder] rather than only a message. An application
+ * that has to distinguish "someone already has this open" from a genuine IO failure should be able
+ * to do it by type and read the details from properties — matching on a message string is not
+ * distinguishing them, and it breaks the first time the wording improves.
+ *
+ * ```kotlin
+ * val db = try {
+ *     Rabosh.open(directory)
+ * } catch (locked: StoreLockedException) {
+ *     val who = locked.holder
+ *     if (who != null && who.isRunning) focusExistingWindow(who.pid) else reportStaleLock(locked.directory)
+ *     return
+ * }
+ * ```
+ *
+ * **There is no way to take the lock, and there will not be one.** No stealing, no timeout, no
+ * "force open" — each of those converts a clear failure into a corrupt store, which is precisely the
+ * thing the lock exists to prevent. What is offered instead is enough information to say who has it.
+ *
+ * @property directory the directory that could not be locked, or `null` for an instance built
+ *   through the deprecated constructor below. The engine always supplies it.
+ * @property holder who the lock file says is holding it, or `null` when nothing could be read — an
+ *   older release wrote no record, and a record being written concurrently is not waited for. Absent
+ *   is the conservative answer and never a guess.
  */
 public class StoreLockedException(
     message: String,
+    public val directory: Path?,
+    public val holder: LockHolder?,
     cause: Throwable? = null,
-) : StoreException(message, cause)
+) : StoreException(message, cause) {
+
+    @Deprecated(
+        "A lock failure now reports the directory it failed on and, where the lock file says so, " +
+            "which process holds it. Nothing in the engine constructs this form.",
+        ReplaceWith("StoreLockedException(message, directory, holder = null, cause)"),
+        DeprecationLevel.WARNING,
+    )
+    public constructor(message: String, cause: Throwable? = null) : this(message, null, null, cause)
+}
+
+/**
+ * The process a `LOCK` file names as its holder.
+ *
+ * **The start time is not decoration, and it is the reason this is a class rather than a `Long`.**
+ * Operating systems reuse process ids, so a pid on its own can name a process that has nothing to do
+ * with the store — and reporting *that* pid to a user, who may then kill it, is worse than reporting
+ * nothing. [isRunning] is true only when a live process carries this id **and** started at this
+ * instant, which is what makes the claim safe to act on.
+ *
+ * A record can also be stale in the other direction: a `LOCK` left behind by a crash still names the
+ * dead process, while the operating system released its lock long ago. That case reads as
+ * `isRunning == false`, and it means the file is a leftover rather than that anything is wrong — the
+ * next open takes the lock normally.
+ *
+ * @property pid the operating-system process id the lock file recorded.
+ * @property startedAt when that process started, as the holder's own runtime reported it.
+ */
+public class LockHolder(
+    public val pid: Long,
+    public val startedAt: Instant,
+) {
+    /**
+     * Whether a process with this id is running *and* started at [startedAt].
+     *
+     * Both halves are required. Recomputed on each call rather than captured, because the answer can
+     * change between catching the exception and asking the question, and a stale `true` is the one
+     * that gets a stranger's process killed.
+     */
+    public val isRunning: Boolean
+        get() = ProcessHandle.of(pid)
+            .filter { it.isAlive }
+            .map { it.info().startInstant().map { started -> started == startedAt }.orElse(false) }
+            .orElse(false)
+
+    override fun toString(): String = "LockHolder(pid=$pid, startedAt=$startedAt, running=$isRunning)"
+}
 
 /** The store has been closed. A programming error, not a data error. */
 public class StoreClosedException(message: String) : StoreException(message)

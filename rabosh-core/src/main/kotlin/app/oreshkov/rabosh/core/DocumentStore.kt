@@ -358,6 +358,137 @@ public class DocumentStore private constructor(
     }
 
     /**
+     * Deletes every key in `[from, to]`, both bounds inclusive, and returns how many.
+     *
+     * ```kotlin
+     * val retired = store.deleteRange(Key.of("event:2026-07-01"), Key.of("event:2026-07-31"))
+     * store.compact()   // tombstones are reclaimed by compaction, not by this call
+     * ```
+     *
+     * **This is the loop a caller would otherwise write, written once by the party that knows the
+     * rules.** Retention by key range is the whole of what a staging buffer and an archive need, and
+     * getting it right by hand means knowing four things that are not on any signature: that the scan
+     * must be scoped by a [Snapshot] or a concurrent compaction can change what it sees, that the
+     * deletes belong in a [WriteBatch] rather than being issued one at a time, that a tombstone is
+     * reclaimed by compaction and not by the delete, and that a tombstone may only be dropped at the
+     * bottom-most level below the oldest live snapshot. Three of those four are invariants a caller
+     * should never have had to learn.
+     *
+     * **Deliberately the cheap shape, and it is worth knowing that it is a choice.** This emits point
+     * deletes in bounded batches — no new operation id, no format change, no change to compaction,
+     * no new invariant. A real LSM *range tombstone* is the other design and the format has room for
+     * it, but it would change what a merge emits, what `EntryCursor` collapses and, most seriously,
+     * the tombstone-drop rule, which is on the short list of invariants that fail by returning a
+     * deleted document to a reader. That is not a change to make without a measurement saying this
+     * version is not enough.
+     *
+     * So the cost is proportional to the number of keys deleted, not to the size of the range, and it
+     * writes one tombstone per key. A caller retiring a very large range should expect the write
+     * amplification of exactly that.
+     *
+     * **Atomic per batch, not overall.** A failure part-way leaves the batches that were committed
+     * committed — this is a retention loop, not a transaction, and the alternative would be one
+     * commit holding every tombstone, which for a large range is a record the log cannot hold. The
+     * count returned is what was actually deleted.
+     *
+     * The snapshot is taken here, so keys written *during* the call are not deleted: the range is
+     * emptied as of the moment it was asked for, which is what makes a repeated call converge rather
+     * than race a writer.
+     *
+     * @param from lower bound, inclusive. `null` means unbounded.
+     * @param to upper bound, inclusive. `null` means unbounded.
+     * @param batchSize keys per commit. The default is a compromise between the log record size and
+     *   the number of forces; there is rarely a reason to change it.
+     * @return the number of keys deleted.
+     */
+    @JvmOverloads
+    public fun deleteRange(from: Key? = null, to: Key? = null, batchSize: Int = DEFAULT_DELETE_BATCH): Long {
+        checkWritable()
+        require(batchSize > 0) { "batchSize must be positive, not $batchSize" }
+        if (from != null && to != null && from > to) return 0L
+
+        var deleted = 0L
+        // One snapshot for the whole loop. Scoping every batch's scan by its own snapshot would let a
+        // compaction land between them and change what the next scan sees — which for a retention
+        // loop means a key that was there when the range was asked for and is silently still there
+        // afterwards.
+        snapshot().use { view ->
+            // Keys are collected a batch at a time rather than all at once: a range covering a whole
+            // store would otherwise be a list of every key in it, on the heap, before a single
+            // tombstone is written.
+            var cursorFrom = from
+            var exhausted = false
+            while (!exhausted) {
+                val keys = ArrayList<Key>(batchSize)
+                scan(cursorFrom, to, view).use { cursor ->
+                    while (keys.size < batchSize && cursor.next()) keys += cursor.key
+                }
+                if (keys.isEmpty()) break
+
+                val batch = WriteBatch()
+                for (key in keys) batch.delete(key)
+                write(batch)
+                deleted += keys.size
+
+                // The next scan starts *after* the last key handled. `successor` rather than the key
+                // itself, because the scan's lower bound is inclusive: restarting at the key just
+                // deleted would re-scan a range whose first entry is now a tombstone, and a short
+                // batch would end the loop early on a range that still has keys in it.
+                if (keys.size < batchSize) exhausted = true else cursorFrom = keys.last().successor()
+            }
+        }
+        return deleted
+    }
+
+    /**
+     * Writes a consistent copy of this store into [target], which must be empty or absent.
+     *
+     * ```kotlin
+     * val info = store.checkpoint(Path.of("backup", "2026-08-10"))
+     * DocumentStore.open(info.directory).use { copy -> /* every commit up to info.sequence */ }
+     * ```
+     *
+     * **Safe to call while writing.** The store is flushed, a snapshot is pinned, and the copy is
+     * taken of what that snapshot sees — so the result holds exactly the acknowledged prefix as of
+     * [CheckpointInfo.sequence], which is the store's own guarantee asserted against a second
+     * directory rather than against a reopen. Writes that arrive during the call are simply above
+     * that sequence and are not in the copy.
+     *
+     * **The segments are hard-linked where the filesystem allows it**, so a checkpoint of a large
+     * store costs a directory entry per file rather than its bytes. That also means the copy shares
+     * blocks with the source: it is a consistent *view*, and moving it off the machine — which is
+     * what makes it a backup — is the caller's next step, not this one's.
+     * [CheckpointInfo.hardLinked] says which happened.
+     *
+     * **Sidecars travel with their segments**, including kinds this module knows nothing about: any
+     * file named after a live segment's number is copied, so a checkpoint's `.cat`, `.idx`, `.pst`
+     * and `.col` files are *read* by the copy rather than rebuilt. What it does **not** carry is the
+     * index registry, which is `IndexCatalog`'s file and is copied by `Rabosh.checkpoint`; a
+     * checkpoint taken through this method opens with its sidecars intact and no index defined.
+     *
+     * **No log is copied.** The flush is what makes that correct: every commit at or below the
+     * sequence is already in a segment, so the checkpoint opens the way a cleanly closed store does.
+     *
+     * A failure part-way leaves [target] holding whatever had been written — there is no attempt to
+     * unwind, because the checkpoint is not valid until `CURRENT` names its manifest and until then
+     * the directory does not open as a store at all. **The source is never modified**, which is the
+     * property the fault-injection suite asserts at every step.
+     *
+     * @throws java.nio.file.FileAlreadyExistsException if [target] exists and is not an empty
+     *   directory. A checkpoint is never merged into a store that is already there.
+     * @throws StoreClosedException if this store is closed.
+     */
+    public fun checkpoint(target: Path): CheckpointInfo {
+        checkWritable()
+        // Before the snapshot, not after: a snapshot taken first would pin a version whose memtable
+        // contents are not yet in any segment, and the copy carries no log to recover them from.
+        flush()
+        return snapshot().use { view ->
+            writeCheckpoint(directory, target, view.version, view.sequence)
+        }
+    }
+
+    /**
      * Flushes, then compacts until no level is over its budget. Returns when the tree is in shape.
      *
      * The [rotate] is what makes the first half of that sentence true. Maintenance only ever sees
@@ -911,5 +1042,15 @@ public class DocumentStore private constructor(
 
         /** Segments and manifests share a counter of their own; it starts at one for the same reason. */
         private const val FIRST_FILE_NUMBER = 1L
+
+        /**
+         * Keys per commit in [deleteRange].
+         *
+         * A compromise between two costs that move in opposite directions: a larger batch means
+         * fewer `force` calls, and a smaller one means a smaller log record and less to redo if a
+         * commit fails. A thousand tombstones is a few tens of kilobytes, which is comfortably inside
+         * what the log frames and well past the point where the per-commit force stops dominating.
+         */
+        internal const val DEFAULT_DELETE_BATCH: Int = 1000
     }
 }

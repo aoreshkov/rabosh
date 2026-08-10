@@ -254,6 +254,25 @@ public final class app/oreshkov/rabosh/catalog/SegmentSketch$Companion {
 	public final fun getEMPTY ()Lapp/oreshkov/rabosh/catalog/SegmentSketch;
 }
 
+public final class app/oreshkov/rabosh/catalog/ShreddingAdvice {
+	public final fun getByteShare ()D
+	public final fun getDistinctEstimate ()J
+	public final fun getNullFraction ()D
+	public final fun getParquetType ()Ljava/lang/String;
+	public final fun getPath ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getPresence ()D
+	public final fun getReason ()Ljava/lang/String;
+	public final fun getResidual ()Z
+	public final fun getTypeStability ()D
+	public final fun render ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/ShreddingAdviceKt {
+	public static final fun shreddingAdvice (Lapp/oreshkov/rabosh/catalog/InferredSchema;Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions;)Ljava/util/List;
+	public static synthetic fun shreddingAdvice$default (Lapp/oreshkov/rabosh/catalog/InferredSchema;Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions;ILjava/lang/Object;)Ljava/util/List;
+}
+
 public final class app/oreshkov/rabosh/catalog/TextRange {
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getMax ()Ljava/lang/String;

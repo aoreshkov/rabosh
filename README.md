@@ -577,12 +577,13 @@ front end to the planner by accident, because the build would have to acquire th
 
 ## Samples
 
-Two runnable programs, in `rabosh-samples`. Neither is published and neither depends on anything
+Three runnable programs, in `rabosh-samples`. None is published and none depends on anything
 but `rabosh-api`.
 
 ```sh
 ./gradlew :rabosh-samples:runThreeSteps   # write blind -> model later -> index later, narrated
 ./gradlew :rabosh-samples:runIndexLater   # a background build, queried while it is half finished
+./gradlew :rabosh-samples:runDrain        # a staging buffer drained, checkpointed and retired
 ```
 
 `runThreeSteps` is the README's opening snippet with the evidence attached: it runs one query before
@@ -598,6 +599,16 @@ timing, and queries from there: some segments answered from sidecars, the rest s
 4000 keys. Then it finishes the job by asking for the same index again — there is no resume verb,
 because a cancelled build and a running one leave the same thing behind — and the second pass builds
 exactly the segments the first did not.
+
+`runDrain` is the one that is pure integration, and it exists because every mistake in it is silent.
+A staging buffer holds events until something downstream has taken them, and the loop that hands them
+over is five calls in one order: pin a snapshot, scan from the watermark, ship, *then* record the
+watermark, then `deleteRange` what was shipped and `compact`. A watermark advanced before the ship
+succeeds loses data; a scan without a snapshot can see a compaction land underneath it; a drain that
+never compacts grows for ever while reporting that it deleted everything. It also takes a
+`checkpoint` **while still writing**, opens the copy, and shows that it holds the prefix as of its
+sequence and nothing after it. Deliberately not a `DrainCursor` — the value is the order, which a
+wrapper would hide.
 
 Both are executed by `SamplesTest` on every `./gradlew build`, and what it asserts is their *output*:
 a sample that ran to completion and printed `0 rows` has failed at the only job it has.
@@ -645,6 +656,7 @@ documentation that nothing executes rots:
 ```sh
 ./gradlew :rabosh-samples:runThreeSteps    # the three steps, narrated, with the counters
 ./gradlew :rabosh-samples:runIndexLater    # a background index build, stopped and resumed
+./gradlew :rabosh-samples:runDrain         # drain, checkpoint and retention, in the order they go
 ```
 
 A benchmark task **fails if it produced no results** — JMH can decline to start and still exit zero,

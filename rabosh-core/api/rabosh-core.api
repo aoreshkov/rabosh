@@ -1,3 +1,13 @@
+public final class app/oreshkov/rabosh/core/CheckpointInfo {
+	public final fun getBytes ()J
+	public final fun getDirectory ()Ljava/nio/file/Path;
+	public final fun getFileCount ()I
+	public final fun getHardLinked ()Z
+	public final fun getSegmentCount ()I
+	public final fun getSequence ()J
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class app/oreshkov/rabosh/core/CorruptLogException : app/oreshkov/rabosh/core/StoreException {
 	public fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;JLjava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
@@ -29,9 +39,15 @@ public final class app/oreshkov/rabosh/core/DocumentCursor : java/lang/AutoClose
 public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoCloseable {
 	public static final field Companion Lapp/oreshkov/rabosh/core/DocumentStore$Companion;
 	public final fun backfill (Lapp/oreshkov/rabosh/core/SegmentObserver;)V
+	public final fun checkpoint (Ljava/nio/file/Path;)Lapp/oreshkov/rabosh/core/CheckpointInfo;
 	public fun close ()V
 	public final fun compact ()V
 	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)V
+	public final fun deleteRange ()J
+	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;)J
+	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)J
+	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;I)J
+	public static synthetic fun deleteRange$default (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;IILjava/lang/Object;)J
 	public final fun flush ()V
 	public final fun get (Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun get (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/variant/Variant;
@@ -73,6 +89,7 @@ public final class app/oreshkov/rabosh/core/Key : java/lang/Comparable {
 	public final fun get (I)B
 	public final fun getSize ()I
 	public fun hashCode ()I
+	public final fun successor ()Lapp/oreshkov/rabosh/core/Key;
 	public final fun toByteArray ()[B
 	public fun toString ()Ljava/lang/String;
 }
@@ -80,6 +97,14 @@ public final class app/oreshkov/rabosh/core/Key : java/lang/Comparable {
 public final class app/oreshkov/rabosh/core/Key$Companion {
 	public final fun of (Ljava/lang/String;)Lapp/oreshkov/rabosh/core/Key;
 	public final fun of ([B)Lapp/oreshkov/rabosh/core/Key;
+}
+
+public final class app/oreshkov/rabosh/core/LockHolder {
+	public fun <init> (JLjava/time/Instant;)V
+	public final fun getPid ()J
+	public final fun getStartedAt ()Ljava/time/Instant;
+	public final fun isRunning ()Z
+	public fun toString ()Ljava/lang/String;
 }
 
 public final class app/oreshkov/rabosh/core/LogRecoveryMode : java/lang/Enum {
@@ -137,6 +162,10 @@ public final class app/oreshkov/rabosh/core/StoreFailedException : app/oreshkov/
 public final class app/oreshkov/rabosh/core/StoreLockedException : app/oreshkov/rabosh/core/StoreException {
 	public fun <init> (Ljava/lang/String;Ljava/lang/Throwable;)V
 	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Ljava/lang/String;Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/LockHolder;Ljava/lang/Throwable;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/LockHolder;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getDirectory ()Ljava/nio/file/Path;
+	public final fun getHolder ()Lapp/oreshkov/rabosh/core/LockHolder;
 }
 
 public final class app/oreshkov/rabosh/core/StoreOptions {

@@ -447,6 +447,32 @@ public class IndexCatalog @RaboshExperimental constructor(
      * without waiting. Its id is never handed out again — a stale posting file left by a crash must
      * not be readable as some later index's postings.
      */
+    /**
+     * Copies the index registry into [target], which must already be a store directory.
+     *
+     * The half of a checkpoint `rabosh-core` cannot do. `DocumentStore.checkpoint` carries every file
+     * *numbered after a live segment*, which is exactly the `.idx`, `.pst` and `.col` sidecars and
+     * deliberately requires no knowledge of what they are — but `INDEXES` is named rather than
+     * numbered, and it is this catalog's file.
+     *
+     * **Leaving it behind would lose an instruction rather than derived data**, which is the
+     * inversion this module's durability rule is built around: a missing `.pst` costs a rescan, a
+     * missing registry means the checkpoint silently has no index an operator created, with the
+     * posting files sitting beside it as orphans for the next sweep to delete. So the registry
+     * travels, and it travels *whole* — it is written under a temporary name, forced and moved, the
+     * same treatment it gets in a live store.
+     *
+     * A store that has never defined an index has no registry, and this then writes nothing at all —
+     * which is the right answer and not a failure.
+     */
+    @RaboshExperimental
+    public fun copyRegistryTo(target: Path) {
+        checkOpen()
+        val contents = lock.withLock { registry }
+        if (contents.indexes.isEmpty() && !Files.exists(directory.resolve(registryFileName()))) return
+        IndexRegistry.write(target, contents)
+    }
+
     public fun dropIndex(handle: IndexHandle) {
         checkOpen()
         val updated = lock.withLock {

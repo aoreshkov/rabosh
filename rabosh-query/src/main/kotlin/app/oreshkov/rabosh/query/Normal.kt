@@ -5,6 +5,7 @@ import app.oreshkov.rabosh.index.ColumnPredicate
 import app.oreshkov.rabosh.index.IndexOptions
 import app.oreshkov.rabosh.index.IndexTerm
 import app.oreshkov.rabosh.variant.Variant
+import app.oreshkov.rabosh.variant.VariantKind
 
 /**
  * Rewrites a predicate into negation-normal form and folds away what it can.
@@ -122,6 +123,8 @@ internal sealed interface Normal {
          */
         val terms: Set<IndexTerm>?,
         val negated: Boolean,
+        /** The type family these literals bracket to. See [LeafFamily]. */
+        val family: LeafFamily = LeafFamily.ANY,
     ) : Normal {
         /** Whether this one value satisfies the leaf, ignoring [negated]. */
         fun test(value: Variant): Boolean = predicates.any { it.matches(value) }
@@ -150,6 +153,39 @@ internal sealed interface Normal {
 
 /** What a leaf asks, which is what decides whether an index kind can answer it. */
 internal enum class LeafKind { EQUALITY, RANGE, EXISTS, IS_NULL }
+
+/**
+ * The type family a leaf's literals belong to, and therefore the only family it can ever match.
+ *
+ * **Type bracketing is part of the query contract**, so this is not an optimisation hint: a numeric
+ * predicate matches numeric values only, a text predicate matches strings only, and anything else is
+ * not a match and not an error. That is what lets a column whose numeric bound misses be skipped even
+ * when the path also holds strings.
+ *
+ * It is recorded here because it is the one thing `Explain` cannot recover afterwards.
+ * `ColumnPredicate.kind` says the same, and it is `internal` to `rabosh-index` — so the family has to
+ * travel from where the literal was, which is the lowering in this file. Nothing evaluates against
+ * this field; `ColumnPredicate.matches` remains the only definition of what a leaf accepts, and a
+ * second one here would be the drift the rule warns about.
+ */
+internal enum class LeafFamily(val kinds: Set<VariantKind>) {
+    NUMERIC(setOf(VariantKind.INTEGER, VariantKind.DECIMAL, VariantKind.FLOAT, VariantKind.DOUBLE)),
+    TEXT(setOf(VariantKind.STRING)),
+    BOOLEAN(setOf(VariantKind.BOOLEAN)),
+
+    /** `EXISTS`, `IS NULL`, and a mixed `IN` — none of which brackets by type, so none can mismatch. */
+    ANY(emptySet()),
+    ;
+
+    /** How this reads in a diagnostic. */
+    val description: String
+        get() = when (this) {
+            NUMERIC -> "numeric"
+            TEXT -> "text"
+            BOOLEAN -> "boolean"
+            ANY -> "any"
+        }
+}
 
 /**
  * Lowers a normalised predicate, giving every leaf its [ColumnPredicate].
@@ -189,13 +225,14 @@ private fun leaf(
     kind: LeafKind,
     predicates: List<ColumnPredicate>,
     terms: Set<IndexTerm>?,
-): Normal.Leaf = Normal.Leaf(path, kind, predicates, terms, negated = false)
+    family: LeafFamily = LeafFamily.ANY,
+): Normal.Leaf = Normal.Leaf(path, kind, predicates, terms, negated = false, family = family)
 
 /** De Morgan over a lowered tree. A leaf flips its own flag; a junction swaps and pushes down. */
 private fun Normal.negate(): Normal = when (this) {
     Normal.AlwaysTrue -> Normal.AlwaysFalse
     Normal.AlwaysFalse -> Normal.AlwaysTrue
-    is Normal.Leaf -> Normal.Leaf(path, kind, predicates, terms, negated = !negated)
+    is Normal.Leaf -> Normal.Leaf(path, kind, predicates, terms, negated = !negated, family = family)
     // The flag flips and `inner` is left alone: pushing the negation inside would turn "no element
     // satisfies P" into "some element satisfies not P", which is a different set of documents.
     is Normal.Element -> Normal.Element(path, inner, negated = !negated)
@@ -216,13 +253,32 @@ private fun equality(path: CatalogPath, values: List<QueryValue>, options: Index
     if (values.isEmpty()) return Normal.AlwaysFalse
     val predicates = values.map(::equalityPredicate)
     val kind = if (values.all { it == QueryValue.Null }) LeafKind.IS_NULL else LeafKind.EQUALITY
+    val family = familyOf(values)
     val terms = LinkedHashSet<IndexTerm>(values.size)
     for (value in values) {
-        val term = termOf(value) ?: return leaf(path, kind, predicates, terms = null)
-        if (term.size > options.maxTermBytes) return leaf(path, kind, predicates, terms = null)
+        val term = termOf(value) ?: return leaf(path, kind, predicates, terms = null, family = family)
+        if (term.size > options.maxTermBytes) return leaf(path, kind, predicates, terms = null, family = family)
         terms.add(term)
     }
-    return leaf(path, kind, predicates, terms)
+    return leaf(path, kind, predicates, terms, family)
+}
+
+/**
+ * The one family every literal of an `IN` shares, or [LeafFamily.ANY] when they do not share one.
+ *
+ * A mixed `IN` brackets to nothing — `anyOf(1, "a")` matches a number *and* a string — so there is
+ * no family it could be said to disagree with, and reporting one would be a diagnostic that lied.
+ */
+private fun familyOf(values: List<QueryValue>): LeafFamily {
+    val families = values.mapTo(HashSet()) { value ->
+        when (value) {
+            is QueryValue.Text -> LeafFamily.TEXT
+            is QueryValue.Numeric -> LeafFamily.NUMERIC
+            is QueryValue.Bool -> LeafFamily.BOOLEAN
+            QueryValue.Null -> LeafFamily.ANY
+        }
+    }
+    return families.singleOrNull() ?: LeafFamily.ANY
 }
 
 private fun equalityPredicate(value: QueryValue): ColumnPredicate = when (value) {
@@ -271,7 +327,8 @@ private fun range(path: CatalogPath, operator: Comparison, value: QueryValue): N
 
         is QueryValue.Bool, QueryValue.Null -> return Normal.AlwaysFalse
     }
-    return leaf(path, LeafKind.RANGE, listOf(predicate), terms = null)
+    val family = if (value is QueryValue.Numeric) LeafFamily.NUMERIC else LeafFamily.TEXT
+    return leaf(path, LeafKind.RANGE, listOf(predicate), terms = null, family = family)
 }
 
 /**

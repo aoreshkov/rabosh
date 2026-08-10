@@ -38,8 +38,13 @@ are embedded in a larger file and carry a version without one.
 | Bitmap block | *embedded* | — | 1 |
 | Variant metadata | *embedded* | — | 1 |
 
-`CURRENT` and `LOCK` carry no version. `CURRENT` holds one manifest name and nothing else; `LOCK` holds
-nothing at all.
+`CURRENT` and `LOCK` carry no version. `CURRENT` holds one manifest name and nothing else. `LOCK` held
+nothing at all until 0.3.0 and now carries one line of ASCII naming the process that holds it —
+`pid=… startedAt=…` — which is a **diagnostic and not a format**: nothing reads it except a process
+that has just failed to take the lock, an empty one reads as "holder unknown", and no guarantee in
+this document covers it. The lock itself is on byte zero and the record begins after it, so a holder
+can be read while it is being held; a build that locks the whole file and a build that locks byte
+zero still exclude each other, which is what keeps releases mixable on one directory.
 
 The magics are spelled `JKDB-` because the project was called `jsonkdb` when the format was written.
 A magic is a discriminator saying which kind of file this is, never branding, so the prefix is

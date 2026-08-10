@@ -234,6 +234,7 @@ public final class app/oreshkov/rabosh/index/IndexCatalog : app/oreshkov/rabosh/
 	public fun beginSegment (J)Lapp/oreshkov/rabosh/core/SegmentObservation;
 	public final fun buildIndexesInBackground (Lapp/oreshkov/rabosh/core/DocumentStore;)Lapp/oreshkov/rabosh/index/IndexBuild;
 	public fun close ()V
+	public final fun copyRegistryTo (Ljava/nio/file/Path;)V
 	public final fun createIndex (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexHandle;
 	public final fun createIndexInBackground (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexBuild;
 	public final fun dropIndex (Lapp/oreshkov/rabosh/index/IndexHandle;)V

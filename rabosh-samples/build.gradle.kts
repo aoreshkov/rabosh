@@ -118,3 +118,11 @@ tasks.register<JavaExec>("runThreeStepsOnModulePath") {
     val jars = modulePath
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("--module-path", jars.asPath) })
 }
+
+tasks.register<JavaExec>("runDrain") {
+    group = "sample"
+    description = "A staging buffer drained: snapshot, ship, watermark, retire, compact — in that order."
+    mainClass = "app.oreshkov.rabosh.samples.DrainMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}

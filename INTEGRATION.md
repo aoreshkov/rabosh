@@ -63,14 +63,37 @@ space.
 
 A second attempt raises `StoreLockedException`, distinguishably in each direction — `… is already
 open in this process` when it is your own code, `… is locked by another process` when it is not. Held
-by `DocumentStoreTest`'s *a second store cannot open the same directory*.
+by `DocumentStoreTest`'s *a second store cannot open the same directory* and by `StoreLockTest`,
+which takes the lock from a second **JVM** because that is the only way to reach the branch a real
+second launch takes.
 
 **For a desktop or CLI application this is the normal second-launch case, not a fault.** Catch
 `StoreLockedException` specifically — it is a distinct subtype of the sealed `StoreException` — and
-focus the existing window, or exit with a message. Do not catch `Exception` and treat it as
-corruption, and do not delete the lock file: it is a real advisory lock held by an open channel, and
-removing it produces the two-writer state it exists to prevent. There is no force-open and there will
-not be one.
+read the details off the exception rather than out of its message:
+
+```kotlin
+val db = try {
+    Rabosh.open(directory)
+} catch (locked: StoreLockedException) {
+    val who = locked.holder
+    when {
+        who != null && who.isRunning -> focusExistingWindow(who.pid)
+        else -> reportAlreadyOpen(locked.directory)   // holder unknown, or the record is stale
+    }
+    return
+}
+```
+
+`holder` is `null` when nothing could be read — a store last opened by a release before 0.3.0 wrote
+no record — and `LockHolder.isRunning` is false when the recorded process is gone, which means the
+record is stale rather than that the lock is free. **`isRunning` checks the start time as well as the
+pid**, deliberately: operating systems reuse process ids, and a user who is told to kill pid 4242 on
+the strength of a pid alone can kill a stranger's process.
+
+Do not catch `Exception` and treat it as corruption, and **do not delete the lock file**: it is a
+real advisory lock held by an open channel, and removing it produces the two-writer state it exists
+to prevent. There is no force-open, no timeout and no lock stealing, and there will not be — each of
+those converts a clear failure into a corrupt store.
 
 **Within the process, one writing thread.** Any number of threads may read concurrently — snapshots,
 scans and queries are all safe — and `Rabosh` guards the cached planner statistics behind `query`
@@ -141,19 +164,57 @@ asked for the load. Do not report success before the `sync()`.
 
 ## Taking a copy of a store
 
-**There is no `checkpoint` yet.** Until there is, the only defined way to copy a store is:
+```kotlin
+val info = db.checkpoint(Path.of("backup", "2026-08-10"))
+// info.sequence — every commit at or below it is in the copy, nothing above it is
+Rabosh.open(info.directory).use { copy -> /* a database, indexes and model included */ }
+```
 
-1. Stop writing. Not "pause the ingest thread" — no `put`, `delete` or `write` may be in flight.
-2. `db.flush()`, which returns when the memtable is on the platter and the manifest names it.
-3. Copy the whole directory, including `CURRENT`, `MANIFEST-*`, every `.wal`, `.seg`, `.cat`, `.idx`,
-   `.pst` and `.col`. Not a subset: the manifest names the files it expects.
-4. Resume writing.
+**Safe to call while you are writing**, which is the point: an application that is itself the writer
+cannot stop to be copied. The database is flushed, a snapshot is pinned, and the copy is of what that
+snapshot sees. Commits that land during the call are above `info.sequence` and are simply not in it.
 
-**A directory copied while a writer is running is not defined to be recoverable**, and a copy that
-skips the log or the manifest is not a store. Neither failure is loud — the copy usually opens and is
-usually missing something.
+Everything travels — segments, their `.cat`, `.idx`, `.pst` and `.col` sidecars, and the `INDEXES`
+registry — and the sidecars are **read** by the copy rather than rebuilt, so an index the original
+paid a scan for is not paid for twice.
 
-`LOCK` may be copied or not; it holds nothing.
+Three things to know before you rely on it:
+
+- **The target must be empty or absent.** A checkpoint is never merged into a directory that already
+  holds a store; that would open, and be wrong.
+- **It is a consistent view, not an off-site backup.** Files are hard-linked where the filesystem
+  allows it (`info.hardLinked` says), so the copy costs a directory entry per file rather than its
+  bytes — and shares blocks with the original. Moving it somewhere else is what makes it a backup,
+  and that step is yours.
+- **A failure leaves a partial target and never touches the source.** There is no unwind, because the
+  directory is not a store until `CURRENT` names its manifest; throw it away and take another.
+
+`DocumentStore.checkpoint` is the same thing one layer down, and carries everything except the index
+registry — which is `IndexCatalog`'s file, and is why `Rabosh.checkpoint` exists rather than the
+facade just delegating.
+
+## Retention
+
+```kotlin
+val retired = db.deleteRange(to = Key.of("event:2026-07-31"))
+db.compact()
+```
+
+Both bounds are inclusive and both are optional. This is the loop you would otherwise write, and
+writing it correctly means knowing four things that are not on any signature — that the scan must be
+scoped by a snapshot, that the deletes belong in a batch, that a tombstone is reclaimed by compaction
+rather than by the delete, and that a tombstone may only be dropped at the bottom-most level below the
+oldest live snapshot.
+
+**`deleteRange` writes one tombstone per key**, deliberately: it is point deletes rather than an LSM
+range tombstone, so it costs nothing in the format and its cost is proportional to the number of keys
+deleted. **Follow it with `compact()`** when the space matters — the tombstones make the keys
+disappear, and compaction makes the tombstones disappear.
+
+It is atomic per batch rather than overall, and the range is emptied as of the moment you called it,
+so keys written during the call survive and a repeated call converges instead of racing a writer.
+
+`:rabosh-samples:runDrain` is this and `checkpoint` in the order a staging buffer actually uses them.
 
 ## Version pinning
 

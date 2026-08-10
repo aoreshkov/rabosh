@@ -47,6 +47,7 @@ public final class app/oreshkov/rabosh/variant/Variant {
 	public final fun binaryValue ()[B
 	public final fun booleanValue ()Z
 	public final fun decimalValue ()Ljava/math/BigDecimal;
+	public final fun detached ()Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun doubleValue ()D
 	public final fun element (I)Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun elements ()Ljava/util/List;
