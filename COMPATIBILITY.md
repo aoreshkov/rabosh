@@ -9,10 +9,16 @@ rather than in code; this is that declaration, and it is deliberately separate f
 | | Guarantee |
 |---|---|
 | **On-disk format** | Stable. Governed by this document. |
-| **Kotlin API** | Not stable. Major version zero: any signature may change in any release. |
+| **Kotlin API** | Tiered. A small stable core moves only under a deprecation cycle; everything else may change in any release. Governed by [STABILITY.md](STABILITY.md). |
 
 A store is data somebody owns; an API is a call somebody can rewrite. Freezing the first and not the
 second says exactly what the evidence supports, and no more.
+
+The API row used to read *not stable, major version zero, any signature may change in any release*.
+That was honest and unactionable — it gave a consumer no way to tell whether `Key.of` was as volatile
+as `IndexCatalog.readColumn` — so it has been replaced by the smaller, truer claim in its own
+document. It is **not** a promise of 1.0 and is not a step towards one; the two files stay separate
+for the same reason they always were, and each links the other rather than restating it.
 
 ## What is covered
 

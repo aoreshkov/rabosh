@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import java.util.TreeMap
 
 /**
@@ -15,6 +16,7 @@ import java.util.TreeMap
  * [droppedObservations]. Machine-generated field names — an object keyed by user id, a log line
  * carrying a request id in the key — would otherwise make the path space a copy of the data.
  */
+@RaboshExperimental
 public class SegmentSketch internal constructor(
     /** Documents observed. Tombstones are not documents and are not counted. */
     public val documentCount: Long,

@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.CatalogStep
 import app.oreshkov.rabosh.variant.Variant
@@ -59,6 +60,7 @@ import app.oreshkov.rabosh.variant.Variant
  * key, and a variable-width prefix would give one tuple two spellings the moment a length crossed
  * 128 — which is the canonicality rule `IndexBytes.varint` enforces, arriving from the other side.
  */
+@RaboshExperimental
 public object CompositeTerm {
 
     /** Bounded so the two-byte field index in a term cannot overflow, with room to spare. */

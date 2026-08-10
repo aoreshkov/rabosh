@@ -16,6 +16,27 @@ plugins {
 kotlin {
     explicitApi()
 
+    /*
+     * The engine opts in to its own experimental tier, once, here.
+     *
+     * `@RaboshExperimental` is a statement to *consumers* about which declarations may move; inside
+     * the library every layer reaches through the marked entrances by construction — `Rabosh.open`
+     * calls `DocumentStore.open`, the planner takes an `IndexCatalog` — so annotating each of those
+     * call sites would be several hundred `@OptIn`s carrying no information. This is what
+     * kotlinx.coroutines and the standard library do with their own markers.
+     *
+     * **`rabosh-samples` deliberately does not apply this plugin and does not get this line**, and
+     * that is what makes the tier claim checkable rather than asserted. It depends on `:rabosh-api`
+     * and nothing else, it compiles with `allWarningsAsErrors`, and it is part of `build` — so it is
+     * a real consumer compiling against the stable core with no opt-in. A stable declaration that
+     * silently changes tier fails there, and so does a sample that reaches past the facade. The ABI
+     * dumps cannot do this job: the JVM dump format writes signatures only and never annotations, so
+     * a tier change is invisible to `checkKotlinAbi`.
+     */
+    compilerOptions {
+        optIn.add("app.oreshkov.rabosh.RaboshExperimental")
+    }
+
     // Kotlin's built-in ABI validation (2.4+), used in place of the standalone
     // binary-compatibility-validator plugin, whose ASM cannot read Java 25 bytecode.
     //
@@ -32,6 +53,35 @@ java {
     // Sources are part of what a library is: a stack trace through `Variant.select` is worth
     // stepping into, and the reasoning this codebase keeps in its KDoc is worth reading in place.
     withSourcesJar()
+}
+
+/*
+ * The module name this jar answers to on the module path.
+ *
+ * There is no `module-info.java` anywhere here and this is not a step towards one. Without the
+ * attribute an automatic module is named after the *file*, which is derived from an artefact id and
+ * is therefore unstable by construction — a jar renamed, shaded or republished under another
+ * coordinate silently becomes a different module, and every `requires` naming it stops resolving. A
+ * `jlink`/`jpackage` build is the normal shape for an embedded store, so this is the difference
+ * between "packageable" and "not", not a nicety.
+ *
+ * Derived from the project name rather than listed, for the reason `PublishedModules` gives: a
+ * hand-maintained list would disagree with `settings.gradle.kts`, and the symptom would be one jar
+ * with the wrong name. Each module's own root package is what comes out — `rabosh-core` ->
+ * `app.oreshkov.rabosh.core` — which is the JPMS convention and, usefully, already unique per jar,
+ * so no two of the seven can claim a package and make the set unresolvable.
+ *
+ * `runThreeStepsOnModulePath` in `rabosh-samples` is what stops this being a claim: it asks the JVM
+ * for `app.oreshkov.rabosh.api` by name, which fails outright if this attribute is missing.
+ *
+ * An attribute is reversible and a descriptor is not — that asymmetry is the whole decision.
+ */
+val automaticModuleName = "app.oreshkov.rabosh.${project.name.removePrefix("rabosh-")}"
+
+tasks.named<Jar>("jar") {
+    manifest {
+        attributes("Automatic-Module-Name" to automaticModuleName)
+    }
 }
 
 /**

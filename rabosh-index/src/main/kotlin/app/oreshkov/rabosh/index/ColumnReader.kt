@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.core.Key
 import app.oreshkov.rabosh.core.Snapshot
@@ -19,6 +20,7 @@ import app.oreshkov.rabosh.variant.Variant
  * Close it. On Windows a mapped file cannot be deleted, so a reader left open blocks reclamation of
  * everything it touched.
  */
+@RaboshExperimental
 public class ColumnReader internal constructor(
     private val handle: IndexHandle,
     /** The snapshot this reader answers at. */
@@ -310,6 +312,7 @@ public class ColumnReader internal constructor(
  * answers: [matches] is a claim about the version the column recorded, which a newer segment or a
  * memtable may have replaced.
  */
+@RaboshExperimental
 public class ColumnMatch internal constructor(
     /** Ordinals whose stored value satisfies the predicate. Exact, and decided without a document. */
     public val matches: ReadableBitmap,

@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.variant.VariantKind
 
 /**
@@ -36,7 +37,15 @@ public class CatalogCoverage internal constructor(
 public class InferredField internal constructor(
     /** The path, with array indices collapsed. See [CatalogPath]. */
     public val path: CatalogPath,
-    /** The raw statistics this reading is derived from. */
+    /**
+     * The raw statistics this reading is derived from.
+     *
+     * Outside the stable core, and the only member of this class that is: the named readings below
+     * are a contract, and a `PathSketch` is a serialised estimator whose registers, hash and sparse
+     * limit belong to `SketchFormat`. Everything a caller needs about a path is already a property
+     * here; reaching for the sketch means reaching for the format.
+     */
+    @RaboshExperimental
     public val sketch: PathSketch,
     private val documentCount: Long,
 ) {

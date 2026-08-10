@@ -59,9 +59,15 @@ them at the latest stable release; do not adopt pre-releases (e.g. Kotlin `-Beta
   `./gradlew -p build-logic check` as its own step.
 - **`gradle.properties` stays `0.1.0-SNAPSHOT`**: `release.yml` derives the release version from the
   git tag and nowhere else. Do not "fix" it to a release number.
-- **The format claim lives in `COMPATIBILITY.md` and nowhere else**, and the README links it rather
-  than restating it. The on-disk format is declared and stable; the Kotlin API is major-version zero
-  and is deliberately not claimed.
+- **The format claim lives in `COMPATIBILITY.md` and the API claim in `STABILITY.md`, each in one
+  place**, and the README links both rather than restating either. The on-disk format is declared and
+  stable; the Kotlin API is tiered, with a stable core and an explicit `@RaboshExperimental`.
+- **The runtime contract lives in `INTEGRATION.md`** — JDK floor, the native-access question, one
+  writer, the `AutoCloseable`s, copy-before-`next()`. A sentence about bytes on disk belongs in
+  `COMPATIBILITY.md` and is linked, never moved.
+- **No module needs `--enable-native-access`, and that is checked**:
+  `:rabosh-samples:runThreeStepsOnModulePath` runs under `--illegal-native-access=deny` with no grant.
+  `FileChannel::map` is not a restricted method; do not add the flag back on the assumption that it is.
 
 ## Module layout
 

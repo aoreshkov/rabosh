@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.IndexKind
 import app.oreshkov.rabosh.core.DocumentStore
@@ -61,7 +62,7 @@ import kotlin.concurrent.withLock
  * [createIndexInBackground] — which drives exactly the same three callbacks and is subject to exactly
  * the same rules.
  */
-public class IndexCatalog(
+public class IndexCatalog @RaboshExperimental constructor(
     /** The store directory sidecars live in. The same directory the store was opened on. */
     public val directory: Path,
     /** Tuning. See [IndexOptions]. */
@@ -485,7 +486,12 @@ public class IndexCatalog(
      *
      * Close it. On Windows a mapped file cannot be deleted, so a reader left open blocks reclamation
      * of every segment it touched — which `IndexLifecycleTest` asserts in both directions.
+     *
+     * Outside the stable core: this hands back an ordinal-space reader over sidecar bytes, and both
+     * the ordinals and the bytes are the format's rather than a contract's. `Rabosh.query` is the
+     * stable way to ask an index a question. See `STABILITY.md`.
      */
+    @RaboshExperimental
     public fun read(store: DocumentStore, handle: IndexHandle, snapshot: Snapshot): IndexReader {
         // A composite index's sidecar *is* a posting file — same dictionary, same postings, same
         // presence bitmap — so it is read by this reader and not by a third one. What differs is only
@@ -501,7 +507,10 @@ public class IndexCatalog(
      * Opens a reader over the shredded column [handle] at [snapshot], pinning every sidecar it needs.
      *
      * Close it, for the reason [read]'s result must be closed.
+     *
+     * Outside the stable core, for the reason [read] is.
      */
+    @RaboshExperimental
     public fun readColumn(store: DocumentStore, handle: IndexHandle, snapshot: Snapshot): ColumnReader {
         require(handle.kind == IndexKind.SHREDDED_COLUMN) {
             "index #${handle.id} is a ${handle.kind}; open it with read"

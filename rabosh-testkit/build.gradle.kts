@@ -8,6 +8,20 @@ description =
     "Test infrastructure: seeded property harness, generators, out-of-process kill harness, " +
         "fault-injecting filesystem, reference models."
 
+/*
+ * The reference models are *of* the experimental tier — a `BitSet` oracle for `Bitmap`, a `TreeMap`
+ * oracle for the LSM — so this module works below the stable core by definition. The published
+ * modules get the same line from `rabosh.kotlin-library`.
+ *
+ * `rabosh-samples` deliberately has neither, and that asymmetry is the whole gate: a sample is a
+ * consumer, a testkit is not.
+ */
+kotlin {
+    compilerOptions {
+        optIn.add("app.oreshkov.rabosh.RaboshExperimental")
+    }
+}
+
 // Consumed as testImplementation by the other modules, so its dependencies are
 // api-scoped: a test that uses the harness needs the harness's types on its own path.
 dependencies {

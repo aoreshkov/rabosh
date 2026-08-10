@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.CatalogStep
 import app.oreshkov.rabosh.variant.Variant
@@ -43,6 +44,7 @@ import app.oreshkov.rabosh.variant.VariantBasicType
  * caller of it. `rabosh-query` builds exactly one of these over every path a predicate mentions, so
  * a whole predicate costs one narrowing walk per document rather than one walk per leaf.
  */
+@RaboshExperimental
 public class TermExtractor(
     /** The indexed paths, in the order terms are reported against. */
     private val paths: List<CatalogPath>,

@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
+
 /**
  * A mutable set of document ordinals, held as one block per 65 536 ordinals.
  *
@@ -27,6 +29,7 @@ package app.oreshkov.rabosh.index
  * `hashCode` walks the ordinals, so it is `O(cardinality)`. Sound rather than fast, which is the right
  * way round for a structure nobody puts in a hash map by design.
  */
+@RaboshExperimental
 public class Bitmap private constructor(
     private var keys: IntArray,
     private var blocks: Array<Container?>,

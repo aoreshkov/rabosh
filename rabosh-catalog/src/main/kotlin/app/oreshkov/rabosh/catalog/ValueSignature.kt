@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantKind
 import java.math.BigDecimal
@@ -29,6 +30,7 @@ import java.math.BigDecimal
  * **The tags are permanent.** Every HyperLogLog register ever written is a function of them, and so
  * is every term in every posting file. Add, never renumber.
  */
+@RaboshExperimental
 public object ValueSignature {
     /** `true` or `false`. One payload byte, `1` or `0`. */
     public const val BOOLEAN: Int = 0

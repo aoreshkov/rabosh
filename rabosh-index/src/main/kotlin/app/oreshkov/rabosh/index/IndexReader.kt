@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.core.Key
 import app.oreshkov.rabosh.core.Snapshot
@@ -22,6 +23,7 @@ import app.oreshkov.rabosh.core.Snapshot
  * The pins are released by [close], which must be called — on Windows a mapped file cannot be deleted
  * at all, so a reader left open blocks reclamation of everything it touched.
  */
+@RaboshExperimental
 public class IndexReader internal constructor(
     private val handle: IndexHandle,
     /** The snapshot this reader answers at. */
@@ -244,6 +246,7 @@ internal class SegmentHits(val segment: SegmentIndex, val ordinals: ReadableBitm
  * Valid only while the [IndexReader] that produced it is open, because the ordinals are read straight
  * off that reader's mappings.
  */
+@RaboshExperimental
 public class KeyCursor internal constructor(private val hits: List<SegmentHits>) {
     private var segmentIndex = -1
     private var cursor: BitmapCursor? = null

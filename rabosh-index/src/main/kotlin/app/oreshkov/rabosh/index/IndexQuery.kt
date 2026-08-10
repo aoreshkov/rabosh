@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.core.DocumentStore
 import app.oreshkov.rabosh.core.Key
@@ -32,6 +33,7 @@ import app.oreshkov.rabosh.variant.Variant
  *    that decided what to index. A second, differently-shaped evaluation would be a second definition
  *    of what a path means, and the two would eventually disagree about an array or a nested null.
  */
+@RaboshExperimental
 public object IndexQuery {
     /** Keys whose visible document carries [term] at the reader's path. */
     public fun keysEqualTo(store: DocumentStore, reader: IndexReader, term: IndexTerm): List<Key> =

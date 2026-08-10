@@ -1,3 +1,6 @@
+public abstract interface annotation class app/oreshkov/rabosh/RaboshExperimental : java/lang/annotation/Annotation {
+}
+
 public final class app/oreshkov/rabosh/variant/DuplicateFieldPolicy : java/lang/Enum {
 	public static final field LAST_WINS Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;
 	public static final field REJECT Lapp/oreshkov/rabosh/variant/DuplicateFieldPolicy;

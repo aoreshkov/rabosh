@@ -1,5 +1,6 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.RaboshExperimental
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantKind
 import java.math.BigDecimal
@@ -18,6 +19,7 @@ import java.math.BigDecimal
  * `.claude/rules/index-and-query.md` requires the recheck to run the same logic that built the
  * index, so [matches] is what both the column scan and the fallback document scan evaluate.
  */
+@RaboshExperimental
 public class ColumnPredicate private constructor(
     internal val kind: Kind,
     internal val numericMin: BigDecimal?,
