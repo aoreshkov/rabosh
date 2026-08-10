@@ -636,6 +636,7 @@ Requires JDK 25.
 ./gradlew build      # compile, test, and check the public ABI against the committed dumps
 ./gradlew test       # tests only
 ./gradlew updateKotlinAbi   # after an intentional public API change
+./gradlew checkApiTiers     # no unmarked signature exposes an experimental type (part of build)
 ./gradlew dokkaGenerate     # the aggregated API site, into build/dokka/html
 ```
 

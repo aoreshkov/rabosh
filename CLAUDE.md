@@ -57,6 +57,10 @@ them at the latest stable release; do not adopt pre-releases (e.g. Kotlin `-Beta
   dumps live at `<module>/api/<module>.api`.
 - **`build-logic/` is an included build, and its tests are not part of the root `build`** — CI runs
   `./gradlew -p build-logic check` as its own step.
+- **`checkApiTiers` is the gate `checkKotlinAbi` cannot be**: a dump carries signatures and never
+  annotations, and module-wide opt-in blinds the compiler, so a public signature exposing a
+  `@RaboshExperimental` type without carrying the marker is invisible to both. It is a root task and
+  runs under `build`.
 - **`gradle.properties` stays `0.1.0-SNAPSHOT`**: `release.yml` derives the release version from the
   git tag and nowhere else. Do not "fix" it to a release number.
 - **The format claim lives in `COMPATIBILITY.md` and the API claim in `STABILITY.md`, each in one
