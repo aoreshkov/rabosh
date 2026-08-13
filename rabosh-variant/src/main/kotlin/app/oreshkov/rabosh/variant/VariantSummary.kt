@@ -6,6 +6,12 @@ package app.oreshkov.rabosh.variant
 // same on a four-megabyte document as on a boolean. That is the whole contract, and it is why these
 // live in their own file rather than beside a renderer whose KDoc promises the opposite.
 //
+// The nested outline keeps that contract and is worth stating carefully, because it looks like a
+// weakening and is not: its cost is a function of the caller's `limit` and `depth` and of nothing
+// else, so a four-megabyte document still costs what a boolean costs. What the second parameter buys
+// is a *bigger constant*, chosen by the caller and exponential in it — never a cost that the value
+// gets a say in.
+//
 // Nothing here produces JSON. See `toJsonSummaryString`.
 
 /** Top-level children a summary shows before eliding the rest. */
@@ -100,7 +106,8 @@ public fun Variant.toSummaryString(): String = runCatching {
  *   signalled, and would report "here are eight children" about bytes that have none. Reach for
  *   [toSummaryString] when you need something that cannot throw.
  * @throws JsonWriteException for a non-finite `double` among the children shown, as [toJsonString]
- *   does for the same value. It cannot throw for depth: it does not recurse.
+ *   does for the same value. It cannot throw for depth: at one level there is nothing to recurse
+ *   into. The overload taking a `depth` is the form that can be asked to go further.
  */
 public fun Variant.toJsonSummaryString(limit: Int = DEFAULT_SUMMARY_LIMIT): String =
     buildString { appendJsonSummaryTo(this, limit) }
@@ -108,14 +115,106 @@ public fun Variant.toJsonSummaryString(limit: Int = DEFAULT_SUMMARY_LIMIT): Stri
 /** Appends [toJsonSummaryString] to [out], avoiding an intermediate `String`. */
 public fun Variant.appendJsonSummaryTo(out: StringBuilder, limit: Int = DEFAULT_SUMMARY_LIMIT) {
     require(limit >= 0) { "a summary limit is not negative, was $limit" }
-    when (basicType) {
-        VariantBasicType.OBJECT -> appendContainerSummary(out, limit, '{', '}')
-        VariantBasicType.ARRAY -> appendContainerSummary(out, limit, '[', ']')
-        VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> appendScalarSummary(this, out)
+    appendSummary(this, out, limit, TOP_LEVEL)
+}
+
+/**
+ * The first [limit] children of every level down to [depth], with everything below them elided.
+ *
+ * ```
+ * limit = 3, depth = 3, on a twelve-field document:
+ * {"id":42,"order":{"lines":[{…4},{…4},{…4},…2 more],"total":9.5},"tags":["a","b","c",…1021 more],…9 more}
+ * ```
+ *
+ * Both elision spellings are in there and they say different things: `{…4}` is a container the walk
+ * stopped *at*, reporting its own child count, and `…2 more` is what a level had *left over* after
+ * showing [limit] of it. The first is where [depth] ran out and the second is where [limit] did.
+ *
+ * **This is [toJsonSummaryString] reaching further, and it is that function rather than a second
+ * one that resembles it.** `depth = 1` *is* the top-level outline — the same walk, the same scalar
+ * renderer, the same elision vocabulary — and the suite asserts the two agree for every document and
+ * every limit rather than leaving it to be read off the code. So everything the one-level form
+ * promises holds here unchanged: it is deliberately not JSON, an elision is always spelled `…`, a
+ * container that shows nothing shows its own count, and unreadable bytes are reported rather than
+ * elided. Only the reach differs.
+ *
+ * **The cost contract survives too, and it is worth being exact about what survives.** The bytes
+ * read and the characters written are still a function of [limit], [depth] and [SUMMARY_VALUE_LIMIT]
+ * alone, and still have no term in them for the value's size — which is the property this whole file
+ * exists for, and the reason this is not simply [toJsonString] with a stopping rule. What changes is
+ * that the function is **exponential in [depth]**: at most `limit + limit² + … + limit^depth` values
+ * are shown, so the default limit at four levels is already some four thousand of them and at eight
+ * is past anything a reader wanted.
+ *
+ * That is why [depth] has no default and is not going to be given one. A caller who wants to see
+ * further has to say how much further, and the number they write is the price they are agreeing to;
+ * a default here would be a cost decision taken on their behalf, in the one place where the cost is
+ * the entire subject. `depth = 1` needs no such decision, which is exactly why it is spelled as its
+ * own function rather than as this one's default.
+ *
+ * @param limit children to show at *each* level, not only at the top. `0` shows every level's count
+ *   and none of its children, which collapses the whole outline to the root's `{…N more}`.
+ * @param depth levels to expand before eliding a container by shape and count. `1` is
+ *   [toJsonSummaryString]. The ceiling is [DEFAULT_MAX_JSON_DEPTH] because this recurses and that is
+ *   the depth [toJsonString] already refuses to descend past — one number for how deep this module
+ *   will walk a document, not a second one that could disagree with it. The document's own nesting
+ *   never enters into it: the walk stops at [depth] whether the value bottoms out above it or runs
+ *   far below.
+ * @throws IllegalArgumentException if [limit] is negative, or if [depth] is not in
+ *   `1..`[DEFAULT_MAX_JSON_DEPTH].
+ * @throws VariantFormatException if the bytes do not decode, in any level it reached.
+ * @throws JsonWriteException for a non-finite `double` among the values shown.
+ */
+public fun Variant.toJsonSummaryString(limit: Int = DEFAULT_SUMMARY_LIMIT, depth: Int): String =
+    buildString { appendJsonSummaryTo(this, limit, depth) }
+
+/** Appends the nested [toJsonSummaryString] to [out], avoiding an intermediate `String`. */
+public fun Variant.appendJsonSummaryTo(
+    out: StringBuilder,
+    limit: Int = DEFAULT_SUMMARY_LIMIT,
+    depth: Int,
+) {
+    require(limit >= 0) { "a summary limit is not negative, was $limit" }
+    require(depth in TOP_LEVEL..DEFAULT_MAX_JSON_DEPTH) {
+        "a summary depth is $TOP_LEVEL..$DEFAULT_MAX_JSON_DEPTH, was $depth"
+    }
+    appendSummary(this, out, limit, depth)
+}
+
+/** Levels a summary expands when it expands only the value it was handed. */
+private const val TOP_LEVEL: Int = 1
+
+/**
+ * One level of the outline, with [depth] more of them left to expand.
+ *
+ * `depth == 0` is where the walk stops, and it is a decision rather than a case that fell through:
+ * a container reached there is reduced to its shape and its own child count without a single value
+ * byte being read, which is what keeps the cost independent of whatever is underneath. Every deeper
+ * form is that same stop taken later, which is the sense in which there is one outline here and not
+ * two — and it is why the recursion is bounded by the argument alone and cannot be led downwards by
+ * the document.
+ */
+private fun appendSummary(variant: Variant, out: StringBuilder, limit: Int, depth: Int) {
+    when (variant.basicType) {
+        VariantBasicType.OBJECT ->
+            if (depth == 0) out.appendElidedContainer('{', '}', variant.childCount)
+            else variant.appendContainerSummary(out, limit, depth, '{', '}')
+
+        VariantBasicType.ARRAY ->
+            if (depth == 0) out.appendElidedContainer('[', ']', variant.childCount)
+            else variant.appendContainerSummary(out, limit, depth, '[', ']')
+
+        VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> appendScalarSummary(variant, out)
     }
 }
 
-private fun Variant.appendContainerSummary(out: StringBuilder, limit: Int, open: Char, close: Char) {
+private fun Variant.appendContainerSummary(
+    out: StringBuilder,
+    limit: Int,
+    depth: Int,
+    open: Char,
+    close: Char,
+) {
     val isObject = basicType == VariantBasicType.OBJECT
     val count = childCount
     val shown = minOf(limit, count)
@@ -127,28 +226,13 @@ private fun Variant.appendContainerSummary(out: StringBuilder, limit: Int, open:
             out.appendJsonString(fieldName(index), SUMMARY_VALUE_LIMIT)
             out.append(':')
         }
-        appendChildSummary(if (isObject) fieldValue(index) else element(index), out)
+        appendSummary(if (isObject) fieldValue(index) else element(index), out, limit, depth - 1)
     }
     if (shown < count) {
         if (shown > 0) out.append(',')
         out.append(ELISION).append(count - shown).append(" more")
     }
     out.append(close)
-}
-
-/**
- * A child is shown one level deep and no further.
- *
- * A container child is reduced to its shape and count without a single value byte being read — that
- * is what makes the outline's cost independent of what is underneath it, and it is also why this
- * does not recurse and therefore has no depth guard to fail.
- */
-private fun appendChildSummary(child: Variant, out: StringBuilder) {
-    when (child.basicType) {
-        VariantBasicType.OBJECT -> out.appendElidedContainer('{', '}', child.childCount)
-        VariantBasicType.ARRAY -> out.appendElidedContainer('[', ']', child.childCount)
-        VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> appendScalarSummary(child, out)
-    }
 }
 
 private fun StringBuilder.appendElidedContainer(open: Char, close: Char, count: Int) {
