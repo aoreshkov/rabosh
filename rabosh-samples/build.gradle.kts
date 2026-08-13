@@ -29,7 +29,7 @@ dependencies {
  * and `distTar` to `assemble`, so `./gradlew build` would start producing distribution archives of a
  * demo nobody installs. Plain `JavaExec` costs two lines more per sample and neither.
  *
- * `--enable-native-access=ALL-UNNAMED` on the two tasks below is **future-proofing, not a
+ * `--enable-native-access=ALL-UNNAMED` on the classpath tasks here is **future-proofing, not a
  * requirement**, and the comment that used to stand here said otherwise. It claimed that
  * `FileChannel.map(mode, offset, size, Arena)` is a restricted method and that without the flag a
  * sample's first line of output is a JVM warning. Neither is true: that overload carries no
@@ -72,8 +72,8 @@ tasks.register<JavaExec>("runIndexLater") {
  *
  * `--illegal-native-access=deny` with **no** `--enable-native-access` beside it is the second
  * assertion, and it is the one this task is uniquely able to make: *the engine calls no restricted
- * method, so it needs no native-access grant.* That is checkable here and nowhere else. The other
- * two samples pass `--enable-native-access=ALL-UNNAMED`, which covers the classpath and would hide
+ * method, so it needs no native-access grant.* That is checkable here and nowhere else. The
+ * classpath samples pass `--enable-native-access=ALL-UNNAMED`, which covers the classpath and would hide
  * the answer; on the module path the engine's code is in a **named** module, which `ALL-UNNAMED`
  * does not reach — so if `rabosh-core` ever acquired a `MemorySegment.reinterpret`, a `Linker`
  * downcall or a `System.loadLibrary`, this task would fail with `IllegalCallerException` while every

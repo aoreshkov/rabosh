@@ -17,8 +17,11 @@ wrap all of the API or none of it. Two tiers cost nothing and say what the evide
 
 ## The stable core
 
-Small on purpose. It is the surface the README's examples call, the surface the two samples call, and
-it has not moved in two releases.
+Small on purpose. It is the surface the README's examples call, the surface the samples call, and
+nothing in it has moved in three releases. It has *gained* declarations — `checkpoint`,
+`deleteRange`, `Key.successor`, `CheckpointInfo`, `LockHolder`, `ExplainTypeNote`, `ShreddingAdvice`,
+`Variant.detached` and the JSONPath limits all arrived in 0.3.0 — which is the compatible direction
+and the only one this list has moved in.
 
 **`rabosh-api`** — `Rabosh` (`open`, `close`, `put`, `get`, `delete`, `deleteRange`, `write`, `scan`,
 `snapshot`, `query`, `keys`, `explain`, `createIndex`, `createIndexInBackground`,

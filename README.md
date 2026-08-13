@@ -677,7 +677,7 @@ Published to Maven Central under the group `app.oreshkov`; all code lives under 
 
 ```kotlin
 dependencies {
-    implementation("app.oreshkov:rabosh-api:0.2.0")
+    implementation("app.oreshkov:rabosh-api:0.3.0")
 }
 ```
 
@@ -687,7 +687,7 @@ comparison rules from ever reaching the query planner. Ask for it by name if you
 
 ```kotlin
 dependencies {
-    implementation("app.oreshkov:rabosh-jsonpath:0.2.0")   // optional; brings rabosh-variant only
+    implementation("app.oreshkov:rabosh-jsonpath:0.3.0")   // optional; brings rabosh-variant only
 }
 ```
 
@@ -695,7 +695,7 @@ Every jar carries a build provenance attestation, so what you resolved can be ch
 workflow run that built it:
 
 ```sh
-gh attestation verify rabosh-api-0.2.0.jar --repo aoreshkov/rabosh
+gh attestation verify rabosh-api-0.3.0.jar --repo aoreshkov/rabosh
 ```
 
 Releases are cut by pushing a `v*` tag, which runs [`release.yml`](.github/workflows/release.yml):

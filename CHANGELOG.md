@@ -13,6 +13,15 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-08-13
+
+**The release about everything around the answers.** 0.2.0 finished what the engine can *answer*;
+this one is about what an application embedding it has to do — copy a store while it is being
+written, retire what it has already drained, bound an expression it did not write, tell a second
+launch who holds the directory, resolve by name on the module path — and about saying in writing
+which parts of the Kotlin API are allowed to move. No format version moved, and the only new bytes on
+disk are a diagnostic line in `LOCK` that nothing is required to read.
+
 ### Added
 
 - **`checkApiTiers` — the stability tiers are now held by a gate rather than by a script.** The
@@ -74,6 +83,21 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   catalog already computes for a Parquet **shredding schema**, including the decision a hand-written
   one gets wrong: whether `variant_value` can be dropped.
 
+- **`toJsonSummaryString(limit, depth)` — a summary that reaches past its own top level.** The
+  one-level form elides every child below the root however small it is, so a document whose
+  interesting field is one level down summarised to `{"id":42,"order":{…3},…9 more}`. The new overload
+  is the same walk carried further: `depth = 1` *is* the old function, pinned equal to it by property
+  over every document and every limit rather than left to be read off the code, and each level applies
+  `limit` independently. Both elisions stay distinguishable — `{…4}` is a container the walk stopped
+  *at*, `…2 more` is what a level had left over.
+
+  **`depth` has no default and will not be given one.** At most `limit + limit² + … + limit^depth`
+  values are shown, so the parameter is exponential in the cost and the number a caller writes is the
+  price they are agreeing to. What does not change is the property the summary exists for: what is
+  read and written is a function of `limit` and `depth` alone, with no term in it for the document's
+  size, and the recursion is bounded by `depth` rather than by the value's own nesting — checked
+  against a 20 000-deep built document.
+
 - **`StoreLockedException` says who holds the directory.** It carries `directory` and a `LockHolder`
   with the pid and start time the `LOCK` file records, so a desktop application's second launch can
   focus the existing window instead of matching on a message. **The start time is not decoration** —
@@ -81,9 +105,26 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   stranger's process. No lock stealing, no timeout, no force-open.
 
 - **`:rabosh-samples:runDrain`** — a staging buffer drained: snapshot, ship, record the watermark,
-  retire, compact, in that order. It composes the two items above, which makes it their acceptance
-  test in the only way that matters, a caller's program. Also **`Key.successor()`**, promoted to
-  public because writing that loop found it was the one thing the inclusive bounds cannot say.
+  retire, compact, in that order. It composes `checkpoint` and `deleteRange`, which makes it their
+  acceptance test in the only way that matters, a caller's program. Also **`Key.successor()`**,
+  promoted to public because writing that loop found it was the one thing the inclusive bounds cannot
+  say.
+
+- **`:rabosh-bench:runTextBoundCost` — what a wider text bound buys, and what it costs.** 160 000
+  documents over values carrying a 40-byte shared prefix, run over a clustered corpus *and its own
+  permutation*, because block pruning is a locality property and the unfavourable case is arranged
+  rather than hoped for.
+
+  **The pruning curve is a step and the step is a proof.** At or below the shared prefix every bound
+  collapses to that prefix, the maximum is the prefix incremented, and the half-open range covers
+  every value the prefix can start — so the skip rate is exactly zero. One byte past it, 0.444. Four
+  bytes past it, 0.950, which is 19 of 20 blocks and the maximum available, since the block holding
+  the value cannot be skipped. **The cost curve is flat**, and it was arithmetic before it was a
+  measurement: a bound is paid for twice per block plus once per segment, so widening 8 bytes to 46
+  predicts 1 596 bytes and measured 1 596, or 0.02% of an 8 MB column. That also refuses an adaptive
+  bound — one curve is a step and the other is flat, so there is no trade-off to adapt to. The default
+  stays 64, which is above this corpus's prefix; the shape that defeats it needs a 64-byte prefix, and
+  raising it is a one-line change that now has a measurement behind it.
 
 - **[`INTEGRATION.md`](INTEGRATION.md) — the runtime contract, in public.** The rules an embedding
   application has to obey were discoverable only by reading KDoc on classes a caller may never open,
@@ -124,6 +165,47 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   `--illegal-native-access=deny` with no grant of any kind, so the claim is checked rather than
   asserted, and a future release that acquires a restricted call fails it.
 
+### Fixed
+
+- **`CatalogOptions.textBoundBytes` documented itself as the dial that decides pruning, and it is not
+  that dial.** Its KDoc said a truncated sketch bound was what lets the planner skip on it; nothing in
+  `rabosh-query` reads a sketch bound at all. There are two dials, both defaulting to 64, which is how
+  they came to be argued about as one. `CatalogOptions.textBoundBytes` truncates the bounds in a `.cat`
+  sketch, and those are **descriptive** — rendered by `InferredSchema.render`, readable through
+  `InferredField.bounds`, written to the sidecar. `IndexOptions.columnTextBoundBytes` truncates a
+  shredded column's segment bounds and its per-block statistics, and *that* is what `ColumnReader`
+  skips on. Widening the catalog dial buys legibility; widening the index dial buys pruning. A
+  correction to a published module's public API documentation rather than a change of behaviour: no
+  default moved and no dump was rewritten.
+
+### Considered and refused
+
+Two proposed features were specified, checked, and found not to be well-formed — a different outcome
+from "not yet", and each is now pinned by a test so a later attempt meets the argument rather than
+rediscovering it.
+
+- **A JSONPath filter as a query predicate.** The only bridge from a filter selector to a `Predicate`
+  is "the document matches when the nodelist is non-empty", and it does not work: on
+  `{"tags":["a","b"]}` the filter `$.tags[?@ == 'b']` selects the `b` and `$.tags[?!(@ == 'b')]`
+  selects the `a`, both non-empty, so `where(f)` and `where(not(f))` would return the same document. A
+  filter's `!` negates a test about one node while the selector stays existential over the rest; a
+  `Predicate`'s `not` negates the answer for the document, after the existential is folded. Both
+  quantify correctly, over different things, which is why neither can adopt the other — and `elemMatch`
+  is already that feature under a name that says which way it quantifies. Pinned by
+  `FilterIsNotAPredicateTest`, in `rabosh-jsonpath` alone: the differential that would compare the two
+  semantics directly cannot be written anywhere here without acquiring the module edge the layout
+  forbids.
+
+- **A `QueryCursor` that hands back the locations that matched a row.** "The locations that matched" is
+  a partial question. A positive leaf has witnesses; a negated leaf has none; `not(exists())` is
+  satisfied by the absence itself — so an empty witness set would mean both *nothing matched* and *the
+  match was an absence*, with one spelling. The positive half is no easier: a leaf is existential and
+  settled on the first satisfying value, so by the time a row exists the engine holds one bit per leaf
+  and no locations, and reporting all of them means abandoning that short-circuit for every query
+  including the ones that never ask. What already answers it is a `CatalogPath` walked per row, which
+  asks where a *path* matched rather than where a *predicate* did — and every match of a path has a
+  location by construction. `MatchWitnessTest` drives every case through the engine's own evaluator.
+
 ### Compatibility
 
 - **The composite index's on-disk shape is now pinned by committed bytes**, in a fifth golden store
@@ -133,6 +215,51 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   only thing standing behind it was a round trip through the same writer. `golden/store-v5` holds the
   kind-3 registry continuation, the composite kind byte and a tuple dictionary, and is read by the
   compatibility suite alongside the four older stores. Nothing in the engine changed.
+
+- **No format version moved**, and the ten encodings stand at the versions
+  [COMPATIBILITY.md](COMPATIBILITY.md) tabulates. A store written by 0.1.0 or 0.2.0 opens on this
+  release unchanged, its sidecars read rather than rebuilt.
+
+- **`LOCK` now carries one line of ASCII** — `pid=… startedAt=…` — where it held nothing at all. It is
+  a **diagnostic and not a format**: no magic, no version, nothing reads it but a process that has just
+  failed to take the lock, and an empty one reads as *holder unknown*, which is exactly what an older
+  release's `LOCK` reads as and what `StoreLockedException.holder` reports for it. The lock is still on
+  byte zero and the line begins after it, so a build that locks the whole file and a build that locks
+  byte zero go on excluding each other. Releases stay mixable on one directory.
+
+### Upgrading
+
+```kotlin
+dependencies {
+    implementation("app.oreshkov:rabosh-api:0.3.0")
+    implementation("app.oreshkov:rabosh-jsonpath:0.3.0")   // optional, and deliberately not transitive
+}
+```
+
+**One source-level break, and it is the point rather than a side effect.** `@RaboshExperimental` is an
+opt-in **error**, so code reaching past the stable core — `Rabosh.store`, `Rabosh.catalog`,
+`Rabosh.indexCatalog`, `DocumentStore.open`, the `SchemaCatalog` / `IndexCatalog` / `QueryEngine`
+constructors, `IndexCatalog.read` / `readColumn`, `SchemaCatalog.sketchOf`, `InferredField.sketch`, and
+the bitmap, column and sketch types — compiled on 0.2.0 and now has to say so:
+
+```kotlin
+@OptIn(RaboshExperimental::class)
+fun dumpPostings(db: Rabosh) { … }
+
+// or, for a module that lives down there:
+kotlin { compilerOptions { optIn.add("app.oreshkov.rabosh.RaboshExperimental") } }
+```
+
+Nothing moved and nothing was removed — the marker states what "major version zero" already said, in
+the one place a compiler can carry it. **Binary compatibility is unaffected**: the annotation has
+`BINARY` retention and nothing reads it at run time, so an already-compiled 0.2.0 consumer keeps
+linking. Code using only the stable core listed in [STABILITY.md](STABILITY.md) needs no change at
+all, which is the claim `rabosh-samples` holds by depending on `:rabosh-api` and opting in to nothing.
+
+**You can drop `--enable-native-access` if you added it for rabosh.** No module requires it, and
+`:rabosh-samples:runThreeStepsOnModulePath` now runs the full cycle under
+`--illegal-native-access=deny` with no grant, so the claim fails a build rather than being asserted in
+a comment. The flag stays harmless if you keep it.
 
 ## [0.2.0] — 2026-08-09
 
@@ -291,6 +418,7 @@ Every jar carries a [build provenance attestation](https://docs.github.com/actio
 gh attestation verify rabosh-api-0.1.0.jar --repo aoreshkov/rabosh
 ```
 
-[Unreleased]: https://github.com/aoreshkov/rabosh/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/aoreshkov/rabosh/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.3.0
 [0.2.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.2.0
 [0.1.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.1.0

@@ -160,7 +160,7 @@ seen fail proves nothing, and that applies to a check on the JVM's behaviour as 
 suite.
 
 `:rabosh-samples:runThreeStepsOnModulePath` is where the claim now lives, and the module path is the
-only place it can: `ALL-UNNAMED`, which the other two samples pass, would cover a restricted call from
+only place it can: `ALL-UNNAMED`, which the classpath samples pass, would cover a restricted call from
 the classpath and hide the answer. The `--enable-native-access=ALL-UNNAMED` on `Test` tasks and on the
 two classpath samples is retained as harmless future-proofing; the *reasoning* attached to it is not
 load-bearing and should not be repeated as though it were.
