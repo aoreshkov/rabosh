@@ -195,6 +195,8 @@ public final class app/oreshkov/rabosh/variant/VariantNode {
 	public final fun getLocation ()Lapp/oreshkov/rabosh/variant/VariantPath;
 	public final fun getValue ()Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun toJsonSummaryString (I)Ljava/lang/String;
+	public final fun toJsonSummaryString (II)Ljava/lang/String;
+	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/VariantNode;IIILjava/lang/Object;)Ljava/lang/String;
 	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/VariantNode;IILjava/lang/Object;)Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
 }
@@ -287,8 +289,12 @@ public final class app/oreshkov/rabosh/variant/VariantSummaryKt {
 	public static final field DEFAULT_SUMMARY_LIMIT I
 	public static final field SUMMARY_VALUE_LIMIT I
 	public static final fun appendJsonSummaryTo (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;I)V
+	public static final fun appendJsonSummaryTo (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;II)V
+	public static synthetic fun appendJsonSummaryTo$default (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;IIILjava/lang/Object;)V
 	public static synthetic fun appendJsonSummaryTo$default (Lapp/oreshkov/rabosh/variant/Variant;Ljava/lang/StringBuilder;IILjava/lang/Object;)V
 	public static final fun toJsonSummaryString (Lapp/oreshkov/rabosh/variant/Variant;I)Ljava/lang/String;
+	public static final fun toJsonSummaryString (Lapp/oreshkov/rabosh/variant/Variant;II)Ljava/lang/String;
+	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/Variant;IIILjava/lang/Object;)Ljava/lang/String;
 	public static synthetic fun toJsonSummaryString$default (Lapp/oreshkov/rabosh/variant/Variant;IILjava/lang/Object;)Ljava/lang/String;
 	public static final fun toSummaryString (Lapp/oreshkov/rabosh/variant/Variant;)Ljava/lang/String;
 }

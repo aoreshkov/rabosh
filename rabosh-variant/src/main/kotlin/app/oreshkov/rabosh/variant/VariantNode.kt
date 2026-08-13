@@ -59,6 +59,27 @@ public class VariantNode(
     }
 
     /**
+     * The same, expanding [depth] levels of [value] rather than one:
+     * `$['items'][0] {"meta":{"lot":7,…2 more},"sku":"a"}`.
+     *
+     * A node's summary is a value's summary with a location in front of it, and that stays true of
+     * every depth — this exists so the pairing does not quietly become the one thing you have to
+     * unwrap before you can look properly. Everything the [Variant] overload says about the cost of
+     * a [depth] applies unchanged, and the location's own contribution is unbounded here for the
+     * reason given above.
+     *
+     * @param limit children of [value] to show at each level.
+     * @param depth levels of [value] to expand; `1` is the outline above.
+     * @throws IllegalArgumentException if [limit] is negative, if [depth] is out of range, or if
+     *   [location] holds a field name with an unpaired surrogate.
+     */
+    public fun toJsonSummaryString(limit: Int = DEFAULT_SUMMARY_LIMIT, depth: Int): String = buildString {
+        append(location.toNormalizedPath())
+        append(' ')
+        value.appendJsonSummaryTo(this, limit, depth)
+    }
+
+    /**
      * One line, never throwing: `$.items[0] Variant(object, children=1, bytes=12)`.
      *
      * The location is spelled the engine's way here rather than the standard's, for one reason —

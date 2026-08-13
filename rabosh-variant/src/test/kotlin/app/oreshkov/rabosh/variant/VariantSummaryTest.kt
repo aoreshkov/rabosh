@@ -206,6 +206,97 @@ class VariantSummaryTest {
         assertEquals("Variant(array, children=20000, bytes=${huge.byteSize})", huge.toSummaryString())
     }
 
+    // --- the nested outline -------------------------------------------------------------------
+
+    @Test
+    fun `a nested outline expands one more level per depth and elides below the last`() {
+        val document = Variant.fromJson("""{"a":{"b":{"c":1,"d":[2,3]}},"e":5}""")
+
+        // The ladder, rather than one depth: each rung must differ from the one above it in exactly
+        // the level it added, which is what says `depth` selects a level and not merely more output.
+        assertEquals("""{"a":{…1},"e":5}""", document.toJsonSummaryString(depth = 1))
+        assertEquals("""{"a":{"b":{…2}},"e":5}""", document.toJsonSummaryString(depth = 2))
+        assertEquals("""{"a":{"b":{"c":1,"d":[…2]}},"e":5}""", document.toJsonSummaryString(depth = 3))
+        // Past the bottom of the document, where there is nothing left to elide.
+        assertEquals("""{"a":{"b":{"c":1,"d":[2,3]}},"e":5}""", document.toJsonSummaryString(depth = 4))
+        assertEquals(document.toJsonString(), document.toJsonSummaryString(depth = 4))
+    }
+
+    @Test
+    fun `a nested outline applies its limit at every level, not only the top`() {
+        val document = Variant.fromJson("""{"a":{"x":1,"y":2,"z":3},"b":{"x":1},"c":{"x":1}}""")
+
+        assertEquals("""{"a":{"x":1,"y":2,…1 more},"b":{"x":1},…1 more}""",
+            document.toJsonSummaryString(limit = 2, depth = 2))
+        // A limit of zero collapses every level onto the root's own count, however deep it is asked
+        // to go — the "just tell me the shape" form does not stop being that because depth grew.
+        assertEquals("{…3 more}", document.toJsonSummaryString(limit = 0, depth = 4))
+    }
+
+    @Test
+    fun `a nested outline stops at its depth however far the document runs below it`() {
+        // Built rather than parsed, deliberately, and far deeper than JsonParser would accept: the
+        // claim is that the walk is bounded by its argument alone, so the fixture has to be a
+        // document that any walk following the *value* would not survive. `toJsonString` is the
+        // control — it refuses this document, and that refusal is the thing being avoided here.
+        val deep = nest(DEEP)
+
+        assertEquals("""{"down":{"down":{"down":{…1}}}}""", deep.toJsonSummaryString(depth = 3))
+        assertFailsWith<JsonWriteException> { deep.toJsonString() }
+    }
+
+    @Test
+    fun `a nested outline of a huge document is short and cheap`() {
+        // The unfavourable case for a *nested* outline: the second level is where the bytes are, so
+        // nothing the top level does can keep this bounded. Without the byte gate applying below the
+        // root as well, showing eight rows here decodes eight kilobytes to print eight counts.
+        val blob = "x".repeat(1024)
+        val huge = build {
+            startArray()
+            repeat(ROWS) { index ->
+                startObject()
+                field("blob"); appendString(blob)
+                field("id"); appendLong(index.toLong())
+                endObject()
+            }
+            endArray()
+        }
+        assertTrue(huge.byteSize > 5_000_000, "fixture is not large enough: ${huge.byteSize}")
+
+        val outline = huge.toJsonSummaryString(depth = 2)
+        // 1 header + 4 length + 1024 bytes, the same arithmetic as the top-level case above.
+        val expected = (0 until DEFAULT_SUMMARY_LIMIT)
+            .joinToString(",", "[", ",…${ROWS - DEFAULT_SUMMARY_LIMIT} more]") {
+                """{"blob":…1029 bytes,"id":$it}"""
+            }
+        assertEquals(expected, outline)
+        assertTrue(outline.length < 400, "outline was ${outline.length} chars: $outline")
+    }
+
+    @Test
+    fun `rejects a depth outside one to the json depth`() {
+        val document = Variant.fromJson("""{"a":1}""")
+
+        for (depth in listOf(0, -1, DEFAULT_MAX_JSON_DEPTH + 1)) {
+            val failure = assertFailsWith<IllegalArgumentException>("depth $depth") {
+                document.toJsonSummaryString(depth = depth)
+            }
+            assertTrue("$depth" in failure.message.orEmpty(), failure.message.orEmpty())
+        }
+        // At the ceiling, not near it: the bound is the depth `toJsonString` refuses past, and a
+        // summary is allowed to reach it.
+        assertEquals("""{"a":1}""", document.toJsonSummaryString(depth = DEFAULT_MAX_JSON_DEPTH))
+        // The limit is still the limit, and it is rejected before the depth is looked at.
+        assertFailsWith<IllegalArgumentException> { document.toJsonSummaryString(limit = -1, depth = 2) }
+    }
+
+    @Test
+    fun `appendJsonSummaryTo appends a nested outline rather than replacing`() {
+        val out = StringBuilder("value: ")
+        Variant.fromJson("""{"a":{"b":1},"c":2}""").appendJsonSummaryTo(out, limit = 1, depth = 2)
+        assertEquals("""value: {"a":{"b":1},…1 more}""", out.toString())
+    }
+
     @Test
     fun `toString falls back to a summary above the byte limit and not below it`() {
         // A long string is 1 header + 4 length + n bytes, so n picks byteSize exactly.
@@ -223,7 +314,7 @@ class VariantSummaryTest {
     // --- properties ---------------------------------------------------------------------------
 
     /** See [maxJsonSummaryLength], which `VariantNodeTest` bounds a node against too. */
-    private fun maxSummaryLength(limit: Int): Int = maxJsonSummaryLength(limit)
+    private fun maxSummaryLength(limit: Int, depth: Int = 1): Int = maxJsonSummaryLength(limit, depth)
 
     @Test
     fun `an outline is bounded by its limit and not by the document`() {
@@ -258,6 +349,55 @@ class VariantSummaryTest {
         assertTrue(compared > 0, "no scalar was small enough to compare; the property proved nothing")
     }
 
+    /**
+     * The pin that makes the two spellings one outline rather than two that resemble each other.
+     *
+     * Everything the one-level form's KDoc promises is inherited by the nested one *because* it is
+     * the nested one at `depth = 1`; if that ever stops being true, the inheritance is a claim about
+     * code that no longer holds, and every other assertion here would still pass.
+     */
+    @Test
+    fun `a depth of one is the top-level outline, for every document and every limit`() {
+        forAll(JsonGens.document(), Gen.int(0..16)) { document, limit ->
+            val variant = Variant.fromJson(document.toJsonString())
+            assertEquals(variant.toJsonSummaryString(limit), variant.toJsonSummaryString(limit, depth = 1))
+        }
+    }
+
+    @Test
+    fun `a nested outline is bounded by its limit and depth, and not by the document`() {
+        forAll(JsonGens.document(), Gen.int(0..8)) { document, limit ->
+            val variant = Variant.fromJson(document.toJsonString())
+            for (depth in 1..3) {
+                val summary = variant.toJsonSummaryString(limit, depth)
+                val bound = maxSummaryLength(limit, depth)
+                assertTrue(
+                    summary.length <= bound,
+                    "limit $limit depth $depth allows $bound chars, got ${summary.length}: $summary",
+                )
+                assertTrue(summary.isNotEmpty(), "empty summary for $document")
+            }
+        }
+    }
+
+    @Test
+    fun `a nested outline that elides nothing is the JSON`() {
+        // The generalisation of the scalar case above, and the reason it can be stated for a whole
+        // document: `…` has no JSON production, so its absence from the result is exactly the
+        // statement that no cut, no count and no byte gate fired anywhere in the walk. A document
+        // holding a literal `…` only ever makes this skip a case, never accept a wrong one.
+        var compared = 0
+        forAll(JsonGens.document()) { document ->
+            val variant = Variant.fromJson(document.toJsonString())
+            val summary = variant.toJsonSummaryString(limit = Int.MAX_VALUE, depth = DEFAULT_MAX_JSON_DEPTH)
+            if (ELISION !in summary) {
+                compared++
+                assertEquals(variant.toJsonString(), summary)
+            }
+        }
+        assertTrue(compared > 0, "nothing was small enough to compare; the property proved nothing")
+    }
+
     @Test
     fun `childCount agrees with the typed counters everywhere`() {
         forAll(JsonGens.document()) { document ->
@@ -280,5 +420,24 @@ class VariantSummaryTest {
             VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING ->
                 assertEquals(0, variant.childCount)
         }
+    }
+
+    /** A chain of [depth] objects under `down`, with `{"leaf":7}` at the bottom. */
+    private fun nest(depth: Int): Variant = build {
+        repeat(depth) {
+            startObject()
+            field("down")
+        }
+        startObject()
+        field("leaf")
+        appendLong(7)
+        endObject()
+        repeat(depth) { endObject() }
+    }
+
+    private companion object {
+        /** Well above `DEFAULT_MAX_JSON_DEPTH`, and above any stack a value-following walk would have. */
+        const val DEEP = 20_000
+        const val ROWS = 5_000
     }
 }

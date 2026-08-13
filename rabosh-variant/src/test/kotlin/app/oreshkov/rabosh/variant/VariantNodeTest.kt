@@ -36,6 +36,39 @@ class VariantNodeTest {
     }
 
     @Test
+    fun `a node summarises nested levels of its value, keeping the location in front`() {
+        val document = Variant.fromJson("""{"items":[{"sku":"a","meta":{"lot":7,"bin":"c"}}]}""")
+        val location = VariantPath.parse("$.items[0]")
+        val node = VariantNode(location, checkNotNull(document.select(location)))
+
+        assertEquals("""$['items'][0] {"meta":{…2},"sku":"a"}""", node.toJsonSummaryString(depth = 1))
+        assertEquals("""$['items'][0] {"meta":{"bin":"c","lot":7},"sku":"a"}""", node.toJsonSummaryString(depth = 2))
+        // A node's summary is its value's summary with a location in front of it, at every depth —
+        // asserted against the value rather than against a second literal, so the two cannot drift.
+        assertEquals(
+            "${location.toNormalizedPath()} ${node.value.toJsonSummaryString(limit = 1, depth = 2)}",
+            node.toJsonSummaryString(limit = 1, depth = 2),
+        )
+    }
+
+    @Test
+    fun `a nested node summary is bounded by its limit, its depth and its location`() {
+        forAll(JsonGens.document(), Gen.int(0..8)) { document, limit ->
+            val node = VariantNode(LONG_LOCATION, Variant.fromJson(document.toJsonString()))
+            for (depth in 1..3) {
+                val summary = node.toJsonSummaryString(limit, depth)
+                val bound = LONG_LOCATION.toNormalizedPath().length + 1 + maxJsonSummaryLength(limit, depth)
+
+                assertTrue(
+                    summary.length <= bound,
+                    "limit $limit depth $depth allows $bound chars, got ${summary.length}: $summary",
+                )
+                assertTrue(summary.startsWith(LONG_LOCATION.toNormalizedPath()), "no location in $summary")
+            }
+        }
+    }
+
+    @Test
     fun `toString names the location the engine's way and cannot throw`() {
         val document = Variant.fromJson("""{"a":{"b":1}}""")
         val location = VariantPath.parse("$.a")
