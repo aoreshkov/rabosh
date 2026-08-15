@@ -112,9 +112,9 @@ class CatalogPathNodesTest {
     /**
      * The bound the writers' walks carry and this one must not.
      *
-     * Arranged rather than hoped for: five thousand elements is above `CatalogOptions.maxChildren`
-     * (4096) and well above `IndexOptions.maxChildren` (1024), so an expander that inherited either
-     * budget would stop early here and a caller who narrowed by the index would find nothing. The
+     * Arranged rather than hoped for: the fixture is above `CatalogOptions.maxChildren`, which
+     * `IndexOptions.maxChildren` now shares, so an expander that inherited either budget would stop
+     * early here and a caller who narrowed by the index would find nothing. The
      * differential against `TermExtractor` in `rabosh-index` is the other half of this; this is the
      * half that can be stated without leaving the module.
      */
@@ -166,7 +166,13 @@ class CatalogPathNodesTest {
             listOf(catalogPathOf("absent"), CatalogPath.parse("$.absent[*].deeper"))
 
     private companion object {
-        const val WIDE = 5000
+        /**
+         * Above every writer budget in the engine, and a **literal** rather than derived from
+         * `DEFAULT_MAX_CHILDREN` on purpose: derived, the assertion that this exceeds the budget
+         * could not fail, and the point of it is to stop somebody raising the default without
+         * looking at what the expander is being asked to prove.
+         */
+        const val WIDE = 70_000
         const val DEEP = 64
     }
 }

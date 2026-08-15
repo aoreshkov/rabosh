@@ -13,6 +13,35 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ## [Unreleased]
 
+### Changed
+
+- **The walk's breadth budget is raised to 65 536, and the two copies of it are now one number.**
+  `CatalogOptions.maxChildren` was 4096 and `IndexOptions.maxChildren` was 1024; both now default to
+  `DEFAULT_MAX_CHILDREN` = 65 536. No format change, no ABI change, and nothing on disk means
+  anything different — a sidecar written before this is read exactly as it was.
+
+  **The reason is that this bound was the one budget in the engine that could cost a document
+  silently.** Every other one either reports having fired or is declined symmetrically by the reader:
+  `maxPaths` overflow is counted in `InferredSchema.truncatedPathEstimate`, `maxTermsPerSegment`
+  drops the index for the segment so it reads as *not covered* and is scanned, `maxTermBytes` is
+  applied to the same bytes by the planner so what the writer dropped is what the query declines, and
+  a truncated bound widens. `maxChildren` does none of that: a container wider than the bound is
+  walked to the bound, the segment still reads as covered, and — because the recheck runs the same
+  `TermExtractor` — the fallback scan truncates identically, so both differential oracles agree with
+  the shortfall. It is invisible to the suite by construction, which is why the number rather than the
+  mechanism is what moved here.
+
+  **The index's copy being *lower* than the catalog's was its own defect.** `TermExtractor` is
+  `SegmentSketchBuilder`'s walk with a filter on it, and says so, because a differently-shaped
+  traversal would make the estimator and the index disagree about what a path is. At 1024 against 4096
+  the catalog counted a path's occurrences, recommended an index on the strength of them, and the
+  index then recorded a quarter of them and reported itself covered.
+
+  **Raising it is a mitigation and not a fix**, and it is written down as one: the fix is a coverage
+  signal, which would let the bound come back down. A corpus with containers wider than 65 536 must
+  still set the option — a measured protobuf-JSON dump holds 12 040 elements under one path, and a
+  store that does not know its own widest array is trusting a number rather than checking one.
+
 ## [0.3.0] — 2026-08-13
 
 **The release about everything around the answers.** 0.2.0 finished what the engine can *answer*;

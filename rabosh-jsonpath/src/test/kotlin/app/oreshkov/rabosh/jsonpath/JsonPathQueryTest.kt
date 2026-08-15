@@ -84,8 +84,8 @@ class JsonPathQueryTest {
      *
      * `TermExtractor` stops at `IndexOptions.maxChildren`, and an expander that inherited *any* such
      * bound would return fewer nodes than the index matched — a caller who narrowed by the index and
-     * then expanded would find nothing, with nothing anywhere to say so. Five thousand elements is
-     * above every budget in the engine.
+     * then expanded would find nothing, with nothing anywhere to say so. The fixture is above every
+     * budget in the engine.
      */
     @Test
     fun `a wide array is reported entirely`() {
@@ -94,7 +94,7 @@ class JsonPathQueryTest {
 
         assertEquals(WIDE, JsonPathQuery.compile("$.items[*].sku").nodesIn(document).size)
         assertEquals(WIDE, JsonPathQuery.compile("$..sku").nodesIn(document).size)
-        assertEquals(1, JsonPathQuery.compile("$.items[?@.sku == 's4999']").nodesIn(document).size)
+        assertEquals(1, JsonPathQuery.compile("$.items[?@.sku == 's${WIDE - 1}']").nodesIn(document).size)
     }
 
     /**
@@ -182,7 +182,8 @@ class JsonPathQueryTest {
     private companion object {
         /** Well above `DEFAULT_MAX_JSON_DEPTH`, and above any stack a recursive walk would have. */
         const val DEEP = 20_000
-        const val WIDE = 5_000
+        /** Above every writer budget in the engine. A literal, for `CatalogPathNodesTest.WIDE`'s reason. */
+        const val WIDE = 70_000
         const val THREADS = 8
         const val REPEATS = 50
         const val TIMEOUT_SECONDS = 30L

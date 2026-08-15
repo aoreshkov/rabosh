@@ -12,8 +12,32 @@ public const val DEFAULT_MAX_PATHS: Int = 1024
 /** Default ceiling on how deep into a document the walk goes. */
 public const val DEFAULT_MAX_DEPTH: Int = 32
 
-/** Default ceiling on children visited per container. */
-public const val DEFAULT_MAX_CHILDREN: Int = 4096
+/**
+ * Default ceiling on children visited per container.
+ *
+ * **Sixty-five thousand five hundred and thirty-six, raised from 4096, and the reason is that this
+ * bound does not behave like the others.** Every other budget in the engine either reports having
+ * fired or is declined symmetrically by the reader: `maxPaths` overflow is counted in
+ * [InferredSchema.truncatedPathEstimate], `IndexOptions.maxTermsPerSegment` drops the index for the
+ * segment so it reads as *not covered* and is scanned, `maxTermBytes` is applied to the same bytes by
+ * the planner so what the writer dropped is what the query declines, and a truncated bound widens.
+ * This one does none of that. A container wider than the bound is walked to the bound, the segment
+ * still reads as covered, and — because the recheck runs the same walk — the fallback scan truncates
+ * identically, so both differential oracles agree with the shortfall. It is invisible to the suite by
+ * construction.
+ *
+ * `IndexOptions.maxChildren`'s KDoc defends the bound as *"a far worse outcome than an index that
+ * reports itself incomplete"*. That trade is the right one and it is not the trade actually on offer
+ * here, because nothing reports. So the bound is set where truncating is genuinely the better answer
+ * rather than where it is merely cheaper: past 65 536 children a container is generated data, and
+ * below it a walk is `O(65 536)` against the segment write it rides on.
+ *
+ * **Raising it is a mitigation and not a fix.** The fix is a coverage signal, which would let the
+ * bound come back down. Until then a corpus with containers wider than this must set the option —
+ * the measured protobuf-JSON dump holds 12 040 elements under one path — and a store that does not
+ * know its own widest array is trusting a number rather than checking one.
+ */
+public const val DEFAULT_MAX_CHILDREN: Int = 65_536
 
 /** Default byte length at which a text bound is truncated. */
 public const val DEFAULT_TEXT_BOUND_BYTES: Int = 64

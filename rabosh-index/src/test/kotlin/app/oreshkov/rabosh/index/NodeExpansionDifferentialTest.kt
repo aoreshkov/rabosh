@@ -56,8 +56,8 @@ class NodeExpansionDifferentialTest {
     /**
      * The gap on breadth, arranged rather than hoped for.
      *
-     * Five thousand elements is above `IndexOptions.maxChildren`, so the index recorded a term for
-     * the first 1024 of them and the expander must still report all five thousand. An expander that
+     * The fixture is above `IndexOptions.maxChildren`, so the index recorded a term for the first
+     * `maxChildren` of them and the expander must still report every one. An expander that
      * inherited *any* child budget fails here, which is what makes the superset direction a tested
      * claim rather than a stated one — the containment above would still hold if both walks
      * truncated alike.
@@ -176,11 +176,18 @@ class NodeExpansionDifferentialTest {
     )
 
     private companion object {
-        const val WIDE = 5000
+        /** Above `IndexOptions.maxChildren`. A literal, for `CatalogPathNodesTest.WIDE`'s reason. */
+        const val WIDE = 70_000
         const val DEEP = 40
 
-        /** Wide enough that any budget an expander might inherit is below it. */
-        val WIDENED = IndexOptions(maxDepth = 64, maxChildren = 8192)
+        /**
+         * Past both writer budgets, so a term the default declines is reported here.
+         *
+         * `maxChildren` tracks the default rather than naming a number: since it was aligned with
+         * `CatalogOptions`' the default is the larger of the two bounds, and an option literal left
+         * behind at 8192 would have quietly *narrowed* the walk this is supposed to widen.
+         */
+        val WIDENED = IndexOptions(maxDepth = 64, maxChildren = IndexOptions.DEFAULT.maxChildren + 8192)
 
         /**
          * Paths over the field names [JsonGens] draws from, so a generated document hits them often
