@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.index
 
+import app.oreshkov.rabosh.catalog.DEFAULT_MAX_CHILDREN
+
 /**
  * What to do about a sidecar that will not decode.
  *
@@ -48,8 +50,23 @@ public class IndexOptions(
     /** How deep the walk goes. Matches `CatalogOptions.maxDepth`'s reasoning. */
     public val maxDepth: Int = 32,
 
-    /** How many fields of an object, or elements of an array, are visited. */
-    public val maxChildren: Int = 1024,
+    /**
+     * How many fields of an object, or elements of an array, are visited.
+     *
+     * **The default is `CatalogOptions`', deliberately, and it used to be a quarter of it.** This walk
+     * is `SegmentSketchBuilder`'s with a filter on it — `TermExtractor` says so and gives the reason:
+     * a differently-shaped traversal would make the estimator and the index disagree about what a
+     * path *is*. A narrower bound here is exactly such a disagreement, and it points the wrong way.
+     * The catalog counted a path's occurrences to 4096 and recommended an index on the strength of
+     * them; the index then recorded 1024 of them and reported itself covered. Tie the two together so
+     * that an index records what the model measured, and set both in the same place —
+     * [app.oreshkov.rabosh.catalog.DEFAULT_MAX_CHILDREN], where the argument for the number is.
+     *
+     * Unlike [maxTermsPerSegment] this bound has **no escape**: a container wider than it contributes
+     * terms for its prefix, and the segment still reads as covered. See the catalog constant's KDoc
+     * for why that makes it the one budget in the engine that can cost a document silently.
+     */
+    public val maxChildren: Int = DEFAULT_MAX_CHILDREN,
 
     /** What to do about a sidecar that will not decode. */
     public val damagedSidecars: DamagedIndexPolicy = DamagedIndexPolicy.REPORT,
