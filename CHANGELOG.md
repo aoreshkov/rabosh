@@ -15,6 +15,41 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`IndexCandidateOptions.maxDistinctFraction` — a ceiling on cardinality, unbounded by default.**
+  `indexCandidates()` had `minDistinct` and no upper end, on the argument that a distinct value per
+  document is the *best* equality index there is and that excluding it would confuse a bitmap's
+  storage shape with an index's usefulness. That argument is still right, which is why the default is
+  `Double.POSITIVE_INFINITY` and every existing caller gets the recommendations it got before.
+
+  **What it missed is that the scorer is not the one who knows.** Over the transcript corpus the
+  top-ranked candidate, at a score of 1.00, is `$.toolUseResult.structuredPatch[*].lines[*]` — every
+  individual line of every diff Claude Code has ever shown. Present, perfectly type-stable, ~61 000
+  distinct values: exactly what the ranking rewards, and an index over it would answer
+  `line == "import app.oreshkov.rabosh.variant.Variant"` beautifully. It is just not a question
+  anybody has. The missing input is **how many rows the caller expects back**, which the caller always
+  has and a sketch can never derive, because an identifier and a category are the same shape. So
+  `maxDistinctFraction = 1.0 / 50` says *a term should name a category*: at most one distinct value
+  per fifty documents.
+
+  Measured against `InferredSchema.documentCount` and against the *estimate* at the path, so a
+  repeated path may exceed `1.0` legitimately — `$.tags[*]` can hold more distinct values than there
+  are documents, the same asymmetry `InferredField.presence` has. Like `minDistinct` it gates the
+  inverted index alone: a shredded column is read for the bytes it avoids, not for how many rows a
+  lookup returns, so the tightest band that admits no term at all still admits the column.
+
+  `IndexCandidateOptions` is stable core, and adding a constructor parameter *replaces* a JVM
+  signature rather than adding one — so the six-argument form is retained at
+  `DeprecationLevel.HIDDEN`, which is what [STABILITY.md](STABILITY.md)'s deprecation cycle reaches
+  for at exactly this point: the symbol stays in the bytecode and leaves the source language.
+  Already-compiled callers keep linking, and the committed ABI dump loses nothing.
+
+  `:rabosh-samples:runTranscripts` was the caller filtering the recommendation by hand, which is the
+  usual sign of a knob that belongs in the API, and it now hands the band to `indexCandidates`
+  instead. That is not only tidier: a filter over the results is a filter over the *top sixteen*
+  results, so a category ranked behind sixteen identifiers was one the sample could never reach. The
+  sample's step 2 still prints the unbanded report, because what the scorer says without being told
+  the expected answer size is the finding rather than a mistake to hide.
+
 - **A sample that runs the three steps over Claude Code's own session transcripts, and a
   `SessionEnd` hook that feeds it.** `./gradlew :rabosh-samples:runTranscripts` ingests
   `~/.claude/projects/**/*.jsonl` — JSONL written by a program none of us control, in a shape

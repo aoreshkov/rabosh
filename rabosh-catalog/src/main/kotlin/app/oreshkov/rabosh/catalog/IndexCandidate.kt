@@ -99,15 +99,36 @@ public class IndexCandidateOptions(
      * Distinct values a path needs **to be worth an inverted index**.
      *
      * Two, because an index over a path with one value returns every document and has cost nothing
-     * but space. There is deliberately **no upper bound**: a path with a distinct value per document
-     * is a perfectly good equality index — it is the best one — and excluding it would be confusing
-     * a bitmap's storage shape with an index's usefulness.
+     * but space. The upper end is [maxDistinctFraction], and it is unbounded by default for the
+     * reason stated there.
      *
      * It does not apply to [IndexKind.SHREDDED_COLUMN], which is not answering an equality question:
      * a column exists so that a scan of one field never touches the documents, and it pays in
      * proportion to the bytes it avoids reading whatever the cardinality is.
      */
     public val minDistinct: Long = 2,
+    /**
+     * Distinct values a path may have **per document** and still be worth an inverted index.
+     *
+     * Unbounded by default, and that default is not a placeholder: a path with a distinct value per
+     * document is a perfectly good equality index — it is the best one — so excluding it *by
+     * default* would be confusing a bitmap's storage shape with an index's usefulness. The estimator
+     * cannot tell an identifier from a category, because they are the same shape.
+     *
+     * What separates them is **how many rows the caller expects back**, which the scorer never knows
+     * and the caller always does. `1.0 / 50` says *a term should name a category*: at most one
+     * distinct value per fifty documents, so a lookup returns a group rather than a row. Without it
+     * the top recommendation over a corpus of prose is the prose — every line of it, perfectly
+     * type-stable, enormously distinct, and not a question anybody has.
+     *
+     * Measured against [InferredSchema.documentCount] and against the *estimate* at the path, so a
+     * repeated path may legitimately exceed `1.0`: `$.tags[*]` can hold more distinct values than
+     * there are documents. That is the same asymmetry [InferredField.presence] has, kept for the
+     * same reason — documents are the unit the answer is counted in.
+     *
+     * Like [minDistinct] it gates the inverted index alone and never [IndexKind.SHREDDED_COLUMN].
+     */
+    public val maxDistinctFraction: Double = Double.POSITIVE_INFINITY,
     /**
      * The share of the corpus's bytes a path must carry before a shredded column is suggested.
      *
@@ -123,17 +144,62 @@ public class IndexCandidateOptions(
         require(minPresence in 0.0..Double.MAX_VALUE) { "minPresence must not be negative" }
         require(minTypeStability in 0.0..1.0) { "minTypeStability must be in 0.0..1.0" }
         require(minDistinct >= 1) { "minDistinct must be at least 1, was $minDistinct" }
+        // Positive rather than "in 0.0..1.0", at both ends. Zero admits nothing and is a mistake
+        // rather than an intent, and a NaN fails here rather than silently admitting nothing later,
+        // since every comparison against it is false. Above 1.0 is meaningful — see the property.
+        require(maxDistinctFraction > 0.0) {
+            "maxDistinctFraction must be positive, was $maxDistinctFraction"
+        }
         require(minColumnByteShare in 0.0..1.0) { "minColumnByteShare must be in 0.0..1.0" }
         require(limit > 0) { "limit must be positive, was $limit" }
     }
 
+    /**
+     * The parameter list before [maxDistinctFraction] existed, kept so that already-compiled callers
+     * keep linking.
+     *
+     * `IndexCandidateOptions` is stable core, and adding a parameter to a primary constructor
+     * *replaces* its JVM signature rather than adding one — every caller who named all six arguments
+     * would fail to link against a release that merely gained a seventh default. `HIDDEN` is what
+     * `STABILITY.md`'s deprecation cycle reaches for at exactly this point: the symbol stays in the
+     * bytecode and leaves the source language, so nothing new can reach it and nothing old breaks.
+     * There is no replacement to name because the primary constructor with the default *is* the
+     * replacement, and it means what this one meant: no ceiling.
+     *
+     * Verified in both directions, because a compatibility claim nobody has watched fail is worth
+     * nothing: a `OldCaller.class` compiled against the released `0.3.0` jar and naming all six
+     * arguments runs against this build and reads back `maxDistinctFraction=Infinity`, and deleting
+     * this constructor makes the same class file fail with `NoSuchMethodError` on the same six-argument
+     * descriptor. `checkKotlinAbi` sees it too — the dump keeps `(JDDJDI)V`, now marked synthetic.
+     */
+    @Deprecated("Binary compatibility only.", level = DeprecationLevel.HIDDEN)
+    public constructor(
+        minObservations: Long,
+        minPresence: Double,
+        minTypeStability: Double,
+        minDistinct: Long,
+        minColumnByteShare: Double,
+        limit: Int,
+    ) : this(
+        minObservations = minObservations,
+        minPresence = minPresence,
+        minTypeStability = minTypeStability,
+        minDistinct = minDistinct,
+        minColumnByteShare = minColumnByteShare,
+        limit = limit,
+    )
+
     override fun toString(): String =
         "IndexCandidateOptions(minObservations=$minObservations, minPresence=$minPresence, " +
             "minTypeStability=$minTypeStability, minDistinct=$minDistinct, " +
+            "maxDistinctFraction=$maxDistinctFraction, " +
             "minColumnByteShare=$minColumnByteShare, limit=$limit)"
 
     public companion object {
-        /** Present in half the documents, one type in nine out of ten, at least two values. */
+        /**
+         * Present in half the documents, one type in nine out of ten, at least two values, and no
+         * ceiling on cardinality.
+         */
         public val DEFAULT: IndexCandidateOptions = IndexCandidateOptions()
     }
 }
@@ -153,6 +219,14 @@ internal fun rankIndexCandidates(
     // model — no share can be computed and no column is suggested.
     val corpusBytes = schema[CatalogPath.ROOT]?.sketch?.totalBytes ?: 0
 
+    // The ceiling in values rather than as a fraction, because that is what a path's estimate is
+    // compared against. With no documents there is nothing to be a fraction *of*, so there is no
+    // ceiling rather than a ceiling of zero — the same shape as the byte share below, and the case
+    // that would otherwise multiply an infinity by nothing and compare everything against a NaN.
+    val maxDistinct =
+        if (schema.documentCount > 0) options.maxDistinctFraction * schema.documentCount
+        else Double.POSITIVE_INFINITY
+
     val candidates = ArrayList<IndexCandidate>()
     for (field in schema.fields) {
         if (field.path.isRoot) continue
@@ -168,8 +242,10 @@ internal fun rankIndexCandidates(
         val presence = minOf(field.presence, 1.0)
 
         // Cardinality gates the inverted index and nothing else: a column is not answering an
-        // equality question, so a constant field can still be worth lifting out of the documents.
-        if (field.distinctEstimate >= options.minDistinct) {
+        // equality question, so a constant field can still be worth lifting out of the documents —
+        // and neither is an identifier-shaped one any less worth lifting for having too many values
+        // to be a useful *term*.
+        if (field.distinctEstimate >= options.minDistinct && field.distinctEstimate <= maxDistinct) {
             val discrimination = 1.0 - 1.0 / field.distinctEstimate.toDouble()
             candidates += IndexCandidate(
                 path = field.path,

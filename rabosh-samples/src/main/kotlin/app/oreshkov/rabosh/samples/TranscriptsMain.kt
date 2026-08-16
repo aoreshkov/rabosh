@@ -4,6 +4,7 @@ import app.oreshkov.rabosh.api.Rabosh
 import app.oreshkov.rabosh.api.RaboshOptions
 import app.oreshkov.rabosh.catalog.CatalogPath
 import app.oreshkov.rabosh.catalog.CatalogStep
+import app.oreshkov.rabosh.catalog.IndexCandidateOptions
 import app.oreshkov.rabosh.catalog.InferredField
 import app.oreshkov.rabosh.core.Key
 import app.oreshkov.rabosh.core.StoreOptions
@@ -375,15 +376,35 @@ object TranscriptsMain {
      * know and a caller always does — roughly how many rows the answer should have — and the band
      * expresses it: at least [MIN_DISTINCT] values, so the predicate is not a coin flip, and at most
      * one value per [SELECTIVITY_RATIO] documents, so a term is a category rather than an identifier.
+     *
+     * **The band is handed to `indexCandidates` rather than applied to its answer**, which is worth a
+     * sentence because the first version did the opposite. A filter over the results is a filter over
+     * the *top sixteen* results, so a category ranked seventeenth behind sixteen identifiers is one
+     * this program would never see; and a sample quietly post-processing a recommendation is the
+     * usual sign of a knob missing from the API. [IndexCandidateOptions.maxDistinctFraction] is that
+     * knob. Step 2 above still prints the **unbanded** report, because what the scorer says without
+     * being told the expected answer size is the finding, not a mistake to hide.
      */
     private fun chooseTerm(db: Rabosh): Term? {
         val documents = db.schema().documentCount
-        for (candidate in db.indexCandidates()) {
-            val distinct = candidate.field.distinctEstimate
-            if (distinct < MIN_DISTINCT || distinct > documents / SELECTIVITY_RATIO) {
-                println("   (skipping ${candidate.path}: ~$distinct distinct values in $documents documents)")
-                continue
-            }
+        val banded = IndexCandidateOptions(
+            minDistinct = MIN_DISTINCT,
+            maxDistinctFraction = 1.0 / SELECTIVITY_RATIO,
+        )
+        val candidates = db.indexCandidates(banded)
+
+        // Named rather than merely absent: the top recommendation being outside the band is the
+        // whole reason the band exists, and a program that silently declined its own step 2 would be
+        // hiding the interesting half of the result.
+        val top = db.indexCandidates().firstOrNull()
+        if (top != null && candidates.none { it.path == top.path }) {
+            println(
+                "   (top recommendation ${top.path} is outside the band: " +
+                    "~${top.field.distinctEstimate} distinct values in $documents documents)",
+            )
+        }
+
+        for (candidate in candidates) {
             val counts = HashMap<String, Int>()
             var sampled = 0
             db.scan().use { cursor ->
