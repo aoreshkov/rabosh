@@ -119,6 +119,31 @@ tasks.register<JavaExec>("runThreeStepsOnModulePath") {
     jvmArgumentProviders.add(CommandLineArgumentProvider { listOf("--module-path", jars.asPath) })
 }
 
+/*
+ * The dogfood run, and the one sample whose corpus this repository does not generate.
+ *
+ * `--args` is how the three optional arguments arrive, positionally: a directory to keep the store
+ * in, a corpus root that is not `~/.claude/projects`, and the `SessionEnd` queue that
+ * `hooks/session-end-queue.sh` appends to. All three are optional and all three are documented on
+ * `TranscriptsMain`; with none, it ingests this machine's transcripts into a temporary store and
+ * deletes it afterwards. A later argument needs the earlier ones spelled out, because they are read
+ * by position.
+ *
+ *   ./gradlew :rabosh-samples:runTranscripts
+ *   ./gradlew :rabosh-samples:runTranscripts --args="C:/scratch/transcripts"
+ *
+ * Deliberately **not** wired into `check`, and `SamplesTest` runs it against a synthesised corpus
+ * rather than this one. A test whose input is the developer's own `~/.claude` passes or fails for
+ * reasons that have nothing to do with the commit.
+ */
+tasks.register<JavaExec>("runTranscripts") {
+    group = "sample"
+    description = "The three steps over Claude Code's own session transcripts: JSON nobody designed."
+    mainClass = "app.oreshkov.rabosh.samples.TranscriptsMain"
+    classpath = sourceSets["main"].runtimeClasspath
+    jvmArgs("--enable-native-access=ALL-UNNAMED")
+}
+
 tasks.register<JavaExec>("runDrain") {
     group = "sample"
     description = "A staging buffer drained: snapshot, ship, watermark, retire, compact — in that order."

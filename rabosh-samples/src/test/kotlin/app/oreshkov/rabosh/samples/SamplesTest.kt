@@ -129,6 +129,67 @@ class SamplesTest {
     }
 
     /**
+     * The transcript ingester, against a corpus this test writes rather than the developer's own.
+     *
+     * `TranscriptsMain` reads `~/.claude/projects` by default, and a test that did the same would
+     * pass or fail for reasons that have nothing to do with the commit — different on every machine,
+     * empty on CI, and a privacy problem the first time an assertion printed a diff. So it is given a
+     * corpus [synthesiseCorpus] builds, shaped like Claude Code's but with the three awkward cases
+     * arranged deliberately, exactly as the pruning fixtures arrange disjoint ranges: a **torn tail**
+     * that a live writer would leave, a **malformed interior line** that must be reported rather than
+     * defaulted, and a **sub-agent transcript** a directory deeper than its session.
+     *
+     * The run happens twice, and the second one is the assertion the first cannot make. An ingester
+     * whose resume does not work is indistinguishable from one whose resume does — it ingests
+     * everything, the keys are the same, every answer is right — until you count. This is a
+     * regression test for exactly that: `Key.successor()` appends `0x00`, so the ledger's prefix scan
+     * returned nothing, so every receipt was invisible and every run re-read the whole corpus. The
+     * only symptom was the document count going up.
+     */
+    @Test
+    fun `the transcripts sample reports its damage, resumes, and does not re-ingest`(
+        @TempDir directory: Path,
+    ) {
+        val projects = directory.resolve("projects")
+        val queue = directory.resolve("queue.jsonl")
+        synthesiseCorpus(projects, queue)
+
+        val first = capturingStdout { TranscriptsMain.run(directory.resolve("one"), projects, queue) }
+
+        // The two damaged shapes were noticed and named, rather than parsed or silently skipped.
+        assertTrue("1 line(s) the parser rejected" in first, "the malformed line should be reported:\n$first")
+        assertTrue(
+            "1 with a tail still being written" in first,
+            "the unterminated last line should be held back, not parsed:\n$first",
+        )
+
+        // The hook's contribution: reasons no transcript records.
+        assertTrue("clear=2" in first && "logout=1" in first, "the queue's end reasons should be counted:\n$first")
+
+        // Step 2 derived a model of somebody else's JSON, including the path a sub-agent file writes.
+        assertTrue("\$.type" in first, "the rendered model should name \$.type")
+        assertTrue("\$.message.content[*].type" in first, "the model should reach into the content array")
+
+        // Step 3: the same rows, less work. The row equality is `check`ed inside the sample itself.
+        val (readBefore, readAfter) = transition(first, "documents read")
+        assertTrue(readAfter < readBefore, "the index should have removed document reads: $readBefore -> $readAfter")
+        val (indexedBefore, indexedAfter) = transition(first, "segments from sidecars")
+        assertEquals(0, indexedBefore, "no segment can be answered from a sidecar before the index exists")
+        assertTrue(indexedAfter > 0, "segments should be answered from sidecars once the index is built")
+
+        // And the run that only a second run can check.
+        val second = capturingStdout { TranscriptsMain.run(directory.resolve("one"), projects, queue) }
+        assertTrue("ingested 0 line(s)" in second, "nothing changed, so nothing should be ingested:\n$second")
+        assertTrue("0 new record(s)" in second, "the queue should resume where it stopped:\n$second")
+        assertEquals(
+            documentCount(first),
+            documentCount(second),
+            "re-running must not add documents; a broken resume looks exactly like a working one " +
+                "except for this number",
+        )
+    }
+
+    /**
      * The entry point itself, not just the body.
      *
      * `main` is what the Gradle task invokes, and it owns the argument handling and the cleanup that
@@ -195,6 +256,69 @@ class SamplesTest {
         val match = Regex("""${Regex.escape(label)}: (\d+) of (\d+)""").find(output)
         requireNotNull(match) { "the sample no longer prints a '$label: a of b' line; output was:\n$output" }
         return match.groupValues[1].toInt() to match.groupValues[2].toInt()
+    }
+
+    /** Reads `"documents: <n>, paths: …"` out of step 2. */
+    private fun documentCount(output: String): Long {
+        val match = Regex("""documents: (\d+), paths:""").find(output)
+        requireNotNull(match) { "the sample no longer prints a document count; output was:\n$output" }
+        return match.groupValues[1].toLong()
+    }
+
+    /**
+     * A corpus shaped like Claude Code's, with the awkward cases put in on purpose.
+     *
+     * Not a copy of the real format and not trying to be — the ingester names no field, so what it
+     * needs from a fixture is the *structure* a transcript has: a directory per project, a file per
+     * session, sub-agents a level deeper, a repeated `content` array, and a `type` that varies. What
+     * it does need exactly right is the damage, because that is what the assertions are about.
+     *
+     * `$.type` is given five values at deliberately uneven frequencies so the sample's "least common
+     * recurring value" has one answer rather than a tie, and so the distinct count lands inside the
+     * band `chooseTerm` requires: at least four values, and at most one per fifty documents.
+     */
+    private fun synthesiseCorpus(projects: Path, queue: Path) {
+        val alpha = projects.resolve("project-alpha")
+        val beta = projects.resolve("project-beta")
+        Files.createDirectories(alpha.resolve("session-a/subagents"))
+        Files.createDirectories(beta)
+
+        // 400 documents over five types: 200/150/40/8/2. The rarest recurring one is unambiguous.
+        val types = List(200) { "user" } + List(150) { "assistant" } + List(40) { "system" } +
+            List(8) { "summary" } + List(2) { "file-history-snapshot" }
+        val lines = types.mapIndexed { index, type ->
+            """{"type":"$type","uuid":"u-$index","sessionId":"session-a","cwd":"/w",""" +
+                """"gitBranch":"main","message":{"role":"${if (index % 2 == 0) "user" else "assistant"}",""" +
+                """"content":[{"type":"text"},{"type":"tool_use","name":"tool-${index % 6}"}]}}"""
+        }
+        Files.write(alpha.resolve("session-a.jsonl"), lines.map { it })
+
+        // A sub-agent transcript, a directory deeper: the reason the walk is recursive.
+        Files.write(
+            alpha.resolve("session-a/subagents/agent-01.jsonl"),
+            listOf("""{"type":"user","uuid":"sub-0","agentId":"agent-01"}"""),
+        )
+
+        // The damaged file: a blank line, a line the parser must reject, and no terminator at the end
+        // - which is what a transcript being appended to right now looks like from the outside.
+        Files.writeString(
+            beta.resolve("session-b.jsonl"),
+            """
+            {"type":"user","uuid":"b-0","sessionId":"session-b"}
+
+            {"type":"user","uuid":"b-1","truncated":
+            {"type":"user","uuid":"b-2","sessionId":"session-b"}
+            {"type":"user","uuid":"b-3","sessionId":"session-b"
+            """.trimIndent(),
+        )
+
+        // The hook's queue, in the shape `SessionEnd` hands it over.
+        Files.write(
+            queue,
+            listOf("clear", "clear", "logout", "resume").map {
+                """{"session_id":"s","hook_event_name":"SessionEnd","reason":"$it"}"""
+            },
+        )
     }
 
     private fun temporaryDirectoryNames(): Set<String> {

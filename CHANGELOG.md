@@ -13,6 +13,42 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ## [Unreleased]
 
+### Added
+
+- **A sample that runs the three steps over Claude Code's own session transcripts, and a
+  `SessionEnd` hook that feeds it.** `./gradlew :rabosh-samples:runTranscripts` ingests
+  `~/.claude/projects/**/*.jsonl` — JSONL written by a program none of us control, in a shape
+  documented nowhere — and then derives a model of it and indexes it. Nothing published, nothing
+  added to the runtime, no new dependency: JSONL is lines of JSON and `Variant.fromJson` takes bytes.
+
+  **`ThreeStepsMain` makes the argument on a corpus this repository generates, which is the honest
+  way to make it reproducible and the dishonest way to make it convincing.** `SampleCorpus` is ragged
+  because somebody chose its raggedness. This one is ragged because it is: on the corpus it was
+  developed against, `$.message.content` arrived as an array 47 492 times and as a string 995 times,
+  and `$.parentUuid` was explicitly `null` 258 times and absent otherwise — the two shapes
+  `SampleCorpus` has to fabricate, occurring unprompted.
+
+  Three things it does that no existing sample does, each because the corpus is live rather than
+  generated. The reader is **resumable** and holds back a **torn tail** — the last line of the
+  session being written right now has not finished arriving, and parsing it would turn a timing
+  accident into a decode failure the next run would then skip past. A parse failure is **counted and
+  reported**, which is `.claude/rules/format-permanence.md`'s rule about unknown data arriving from
+  outside for once rather than being asserted about our own bytes. And the derived model comes back
+  **truncated**: the corpus has roughly six times `CatalogOptions.maxPaths` distinct paths, and
+  `InferredSchema.truncatedPathEstimate` is what turns that from a silent cap into a stated one.
+
+  The `SessionEnd` hook (`rabosh-samples/hooks/session-end-queue.sh`) is deliberately not registered
+  by this repository — a committed `.claude/settings.json` would switch it on for everyone who clones
+  and write to their home directory — and deliberately does no ingest: `SessionEnd` hooks share a
+  1.5-second budget, and a JVM start does not fit in it. It appends its stdin verbatim, so the queue
+  is JSONL and the transcript reader reads it unchanged.
+
+  `SamplesTest` runs the whole thing twice against a corpus it synthesises, never against the
+  developer's own `~/.claude`, and asserts on the second run that the document count did **not**
+  move. That assertion is there because a broken resume is invisible: keys are deterministic, so
+  re-ingesting the whole corpus duplicates nothing, answers nothing wrongly and leaves the store
+  correct. The count is the only symptom, and it was verified by breaking it.
+
 ### Changed
 
 - **The walk's breadth budget is raised to 65 536, and the two copies of it are now one number.**
