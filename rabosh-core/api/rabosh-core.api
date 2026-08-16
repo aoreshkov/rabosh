@@ -43,6 +43,9 @@ public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoClosea
 	public fun close ()V
 	public final fun compact ()V
 	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)V
+	public final fun deletePrefix (Lapp/oreshkov/rabosh/core/Key;)J
+	public final fun deletePrefix (Lapp/oreshkov/rabosh/core/Key;I)J
+	public static synthetic fun deletePrefix$default (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/core/Key;IILjava/lang/Object;)J
 	public final fun deleteRange ()J
 	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;)J
 	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)J
@@ -60,6 +63,8 @@ public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoClosea
 	public final fun rotate ()V
 	public final fun scan (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public static synthetic fun scan$default (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public final fun scanPrefix (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public static synthetic fun scanPrefix$default (Lapp/oreshkov/rabosh/core/DocumentStore;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public final fun scanSegments (Ljava/util/Set;Lapp/oreshkov/rabosh/core/Snapshot;ZLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public static synthetic fun scanSegments$default (Lapp/oreshkov/rabosh/core/DocumentStore;Ljava/util/Set;Lapp/oreshkov/rabosh/core/Snapshot;ZLapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public final fun snapshot ()Lapp/oreshkov/rabosh/core/Snapshot;
@@ -89,6 +94,7 @@ public final class app/oreshkov/rabosh/core/Key : java/lang/Comparable {
 	public final fun get (I)B
 	public final fun getSize ()I
 	public fun hashCode ()I
+	public final fun startsWith (Lapp/oreshkov/rabosh/core/Key;)Z
 	public final fun successor ()Lapp/oreshkov/rabosh/core/Key;
 	public final fun toByteArray ()[B
 	public fun toString ()Ljava/lang/String;

@@ -171,6 +171,24 @@ public class Rabosh private constructor(
     public fun deleteRange(from: Key? = null, to: Key? = null): Long = store.deleteRange(from, to)
 
     /**
+     * Deletes every key beginning with [prefix], and returns how many.
+     *
+     * ```kotlin
+     * val retired = db.deletePrefix(Key.of("session/2026-07/"))
+     * db.compact()   // as deleteRange: tombstones are reclaimed by compaction, not by this call
+     * ```
+     *
+     * Retention by namespace rather than by range, for a store that keys by owner or by tenant. It
+     * delegates to [DocumentStore.deletePrefix] unchanged.
+     *
+     * **Not spellable as [deleteRange], which is why it is here.** `[from, to]` is inclusive at both
+     * ends and a prefix's upper end is exclusive, so the range a caller reaches for — the prefix with
+     * its last byte raised — retires one key too many, and the extra key is the first one in the
+     * neighbouring namespace. [Key.startsWith] carries the argument.
+     */
+    public fun deletePrefix(prefix: Key): Long = store.deletePrefix(prefix)
+
+    /**
      * Commits [batch] as one record, atomically and as one view.
      *
      * The unit of atomicity the engine offers, and the one that makes durable writing fast: one
@@ -203,6 +221,23 @@ public class Rabosh private constructor(
     @JvmOverloads
     public fun scan(from: Key? = null, to: Key? = null, snapshot: Snapshot? = null): DocumentCursor =
         store.scan(from, to, snapshot)
+
+    /**
+     * An ordered walk over every document whose key begins with [prefix].
+     *
+     * ```kotlin
+     * db.scanPrefix(Key.of("receipt/")).use { cursor ->
+     *     while (cursor.next()) println(cursor.key)
+     * }
+     * ```
+     *
+     * The read half of the same idea as [deletePrefix], and there for the same reason: a prefix is
+     * not a `[from, to]` range this API can express, and the range a caller writes instead returns
+     * one key too many. Delegates to [DocumentStore.scanPrefix] unchanged.
+     */
+    @JvmOverloads
+    public fun scanPrefix(prefix: Key, snapshot: Snapshot? = null): DocumentCursor =
+        store.scanPrefix(prefix, snapshot)
 
     // --- queries ------------------------------------------------------------------------------
 

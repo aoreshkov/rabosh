@@ -58,7 +58,7 @@ internal class TranscriptLedger(directory: Path) : AutoCloseable {
     /** Every receipt, by transcript name. Read once at startup: there is one per file, not per line. */
     fun receipts(): Map<String, Receipt> {
         val receipts = HashMap<String, Receipt>()
-        db.scan(Key.of(RECEIPT_PREFIX), endOf(RECEIPT_PREFIX)).use { cursor ->
+        db.scanPrefix(Key.of(RECEIPT_PREFIX)).use { cursor ->
             while (cursor.next()) {
                 val document = cursor.document
                 val name = document.field("name")?.stringValue() ?: continue
@@ -123,7 +123,7 @@ internal class TranscriptLedger(directory: Path) : AutoCloseable {
     /** Every session end recorded so far, as `reason -> count`. The hook's whole contribution. */
     fun endReasons(): Map<String, Long> {
         val reasons = HashMap<String, Long>()
-        db.scan(Key.of(END_PREFIX), endOf(END_PREFIX)).use { cursor ->
+        db.scanPrefix(Key.of(END_PREFIX)).use { cursor ->
             while (cursor.next()) {
                 val reason = cursor.document.field("reason")?.stringValue() ?: "(absent)"
                 reasons[reason] = (reasons[reason] ?: 0L) + 1L
@@ -140,30 +140,25 @@ internal class TranscriptLedger(directory: Path) : AutoCloseable {
         const val RECEIPT_PREFIX = "receipt/"
         const val END_PREFIX = "session-end/"
 
-        /**
-         * The first key that is **not** under [prefix]: its last byte raised by one.
+        /*
+         * There was an `endOf(prefix)` here — the prefix with its last byte raised — and both of the
+         * things it went through are worth keeping written down, because this sample is where the
+         * engine learned that a prefix is not a range.
          *
-         * `Key.successor()` is the wrong tool here and looks like the right one, which is worth a
-         * comment rather than a silent correction. It appends `0x00`, and its KDoc says exactly what
-         * that is for — an *exclusive lower* bound, the spelling of "resume after the key I just
-         * handled". As an upper bound it is the tightest possible one: `scan("receipt/",
+         * It replaced a `Key.successor()` call, which appends `0x00` and is the spelling of an
+         * *exclusive lower* bound. As an upper bound that is the tightest one possible: `scan("receipt/",
          * "receipt/\u0000")` is a range containing at most the empty-suffix key itself, which is not
-         * a document anybody wrote, so the scan returns nothing and every transcript looks unread.
+         * a document anybody wrote, so the scan returned nothing and every transcript looked unread.
          * That is what this ingester did until it was measured — the second run re-ingested the whole
          * corpus and reported it as new, and only the document count coming out doubled said so.
          *
-         * Raising the last byte is the prefix bound, and it is exact for every prefix here because
-         * they end in `/`. A prefix ending in `0xFF` would need the byte before it raised instead,
-         * which is a generality this does not need and should not pretend to have.
+         * The replacement then claimed to be "exact for every prefix here", and was not. Raising the
+         * last byte gives the **exclusive** upper bound, and `scan`'s `to` is inclusive — so
+         * `[receipt/, receipt0]` also returns a key spelled exactly `receipt0`, in whatever namespace
+         * sorts next. Latent here only because no such key is written; that is luck, not a design.
+         *
+         * Both are gone. `db.scanPrefix(prefix)` names the prefix and computes no bound at all.
          */
-        fun endOf(prefix: String): Key {
-            val bytes = prefix.toByteArray(Charsets.UTF_8)
-            val last = bytes.size - 1
-            require(bytes[last] != (-1).toByte()) { "prefix '$prefix' ends in 0xFF, which needs a carry" }
-            bytes[last]++
-            return Key.of(bytes)
-        }
-
         /**
          * A JSON string literal.
          *
