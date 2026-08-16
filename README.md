@@ -577,13 +577,14 @@ front end to the planner by accident, because the build would have to acquire th
 
 ## Samples
 
-Three runnable programs, in `rabosh-samples`. None is published and none depends on anything
+Four runnable programs, in `rabosh-samples`. None is published and none depends on anything
 but `rabosh-api`.
 
 ```sh
 ./gradlew :rabosh-samples:runThreeSteps   # write blind -> model later -> index later, narrated
 ./gradlew :rabosh-samples:runIndexLater   # a background build, queried while it is half finished
 ./gradlew :rabosh-samples:runDrain        # a staging buffer drained, checkpointed and retired
+./gradlew :rabosh-samples:runTranscripts  # the three steps again, on JSON this repository did not write
 ```
 
 `runThreeSteps` is the README's opening snippet with the evidence attached: it runs one query before
@@ -610,8 +611,20 @@ never compacts grows for ever while reporting that it deleted everything. It als
 sequence and nothing after it. Deliberately not a `DrainCursor` — the value is the order, which a
 wrapper would hide.
 
-Both are executed by `SamplesTest` on every `./gradlew build`, and what it asserts is their *output*:
-a sample that ran to completion and printed `0 rows` has failed at the only job it has.
+`runTranscripts` is the same three steps on a corpus this repository did not write and cannot
+predict: Claude Code's own session transcripts under `~/.claude/projects`, which are JSONL produced
+by a program none of us control, in a shape documented nowhere, that grows every time you use the
+tool. Everything the other three arrange, it finds — a field that is an array in most documents and a
+string in a few, a field that is explicitly `null` rather than absent, more distinct paths than the
+model will hold — and it also has to cope with two things a generated corpus never does: the file
+being appended to *while it reads*, so a last line that has not finished arriving is held back rather
+than parsed, and a line the parser refuses, which is counted and reported rather than defaulted. Give
+it a directory and the store survives, so the second run ingests only what a session added. It reads
+your machine's transcripts and prints paths and counts from them, so it is a sample you run rather
+than one CI does; the test runs it against a corpus it synthesises instead.
+
+All four are executed by `SamplesTest` on every `./gradlew build`, and what it asserts is their
+*output*: a sample that ran to completion and printed `0 rows` has failed at the only job it has.
 
 ## Dependencies
 
@@ -658,6 +671,7 @@ documentation that nothing executes rots:
 ./gradlew :rabosh-samples:runThreeSteps    # the three steps, narrated, with the counters
 ./gradlew :rabosh-samples:runIndexLater    # a background index build, stopped and resumed
 ./gradlew :rabosh-samples:runDrain         # drain, checkpoint and retention, in the order they go
+./gradlew :rabosh-samples:runTranscripts   # the three steps over your own Claude Code transcripts
 ```
 
 A benchmark task **fails if it produced no results** — JMH can decline to start and still exit zero,
