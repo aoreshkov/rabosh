@@ -15,6 +15,41 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`scanPrefix`, `deletePrefix` and `Key.startsWith` — because a prefix is not a range, and
+  spelling it as one fails silently.** `DocumentStore` and `Rabosh` both gain the two verbs; `Key`
+  gains the predicate underneath them. Purely additive: no existing signature moved, the committed
+  ABI dumps grow by ten lines and lose none, and nothing on disk means anything different.
+
+  **The bound arithmetic a caller reaches for is wrong in two different ways, and neither announces
+  itself.** `Key.successor()` appends `0x00` and is the spelling of an *exclusive lower* bound; used
+  as an upper bound, `[p, p.successor()]` contains `p` alone, so a scan returns nothing and a
+  `deleteRange` retires at most one document and reports success. Raising the prefix's last byte
+  fixes that and introduces a subtler one: it is the **exclusive** upper bound, and every range in
+  this API is inclusive at both ends, so `[receipt/, receipt0]` also returns a key spelled exactly
+  `receipt0` — the first key of whatever namespace sorts next.
+
+  **There is no third spelling to reach for.** A prefix range has no *inclusive* upper bound at all:
+  keys have no maximum length, so `p`, `p + 0x00`, `p + 0xFF`, `p + 0xFF 0xFF` … continue with no
+  greatest element. The range form cannot express the question, which is why the answer is a verb
+  that takes the prefix and computes no bound.
+
+  **Separate names rather than a `prefix` parameter on `scan`/`deleteRange`, deliberately.** As an
+  overload, an existing positional `scan(k)` would start resolving to the prefix form — `Key` being
+  more specific than `Key?` — and silently mean something else. A change that fixes a silent bug
+  must not introduce one to do it.
+
+  **Three callers had already got this wrong, which is what moved it from a footnote to an API.**
+  `2026-08-16`'s ledger used `successor()` and re-ingested its whole corpus every run, visible only
+  as a document count that doubled; the document specifying `rabosh-memory` made the same mistake in
+  prose; and the ledger's *fix* then carried the off-by-one above under a comment claiming it was
+  "exact for every prefix here". `:rabosh-samples:runTranscripts` now calls `scanPrefix` and computes
+  no bound, and its `endOf` helper is gone.
+
+  `PrefixScanTest` writes the neighbouring key deliberately in every fixture — a corpus without it
+  passes for either spelling — and asserts the range form's over-inclusion as well as the prefix
+  form's correctness, so the two cannot quietly converge. Verified by breaking it: removing the
+  cursor's prefix stop fails four of its seven tests.
+
 - **`IndexCandidateOptions.maxDistinctFraction` — a ceiling on cardinality, unbounded by default.**
   `indexCandidates()` had `minDistinct` and no upper end, on the argument that a distinct value per
   document is the *best* equality index there is and that excluding it would confuse a bitmap's

@@ -237,7 +237,37 @@ public class DocumentStore private constructor(
         from: Key? = null,
         to: Key? = null,
         snapshot: Snapshot? = null,
-    ): DocumentCursor {
+    ): DocumentCursor = cursor(from, to, prefix = null, snapshot = snapshot)
+
+    /**
+     * An ordered walk over every document whose key begins with [prefix].
+     *
+     * ```kotlin
+     * store.scanPrefix(Key.of("receipt/")).use { cursor ->
+     *     while (cursor.next()) println(cursor.key)
+     * }
+     * ```
+     *
+     * **This exists because the range spelling of it does not work, and fails silently.** `[from,
+     * to]` is inclusive at both ends, and a prefix range's upper end is inherently exclusive: the
+     * prefix with its last byte raised is one key too generous, so scanning `[receipt/, receipt0]`
+     * returns `receipt0` — a key in a neighbouring namespace. There is no inclusive bound to reach
+     * for instead, because keys have no maximum length and so no greatest key carries a given
+     * prefix. [Key.startsWith] carries the full argument; [Key.successor] carries the other way the
+     * arithmetic goes wrong.
+     *
+     * An **empty prefix matches every key**, which makes this the same walk as [scan] with no
+     * bounds rather than a special case to guard.
+     *
+     * A separate name rather than a `prefix` parameter on [scan], deliberately: as an overload,
+     * `scan(k)` on an existing caller would start resolving to the prefix form — `Key` being more
+     * specific than `Key?` — and silently mean something else.
+     */
+    public fun scanPrefix(prefix: Key, snapshot: Snapshot? = null): DocumentCursor =
+        cursor(from = prefix, to = null, prefix = prefix, snapshot = snapshot)
+
+    /** The one place a [DocumentCursor] is built, so all three bound kinds are applied identically. */
+    private fun cursor(from: Key?, to: Key?, prefix: Key?, snapshot: Snapshot?): DocumentCursor {
         checkOpen()
         snapshot?.checkOpen()
         val view = snapshot ?: snapshot()
@@ -246,7 +276,14 @@ public class DocumentStore private constructor(
             cursors += MemtableCursor(view.state.active)
             for (sealed in view.state.sealed.asReversed()) cursors += MemtableCursor(sealed.memtable)
             for (table in view.version.segments()) cursors += table.cursor()
-            DocumentCursor(MergingCursor(cursors), view.sequence, from, to, if (snapshot == null) view else null)
+            DocumentCursor(
+                MergingCursor(cursors),
+                view.sequence,
+                from,
+                to,
+                prefix,
+                if (snapshot == null) view else null,
+            )
         } catch (failure: Throwable) {
             closeAll(cursors)
             if (snapshot == null) view.close()
@@ -298,7 +335,7 @@ public class DocumentStore private constructor(
             for (table in snapshot.version.segments()) {
                 if (table.number in segmentNumbers) cursors += table.cursor()
             }
-            DocumentCursor(MergingCursor(cursors), snapshot.sequence, from, to, ownedSnapshot = null)
+            DocumentCursor(MergingCursor(cursors), snapshot.sequence, from, to, prefix = null, ownedSnapshot = null)
         } catch (failure: Throwable) {
             closeAll(cursors)
             throw failure
@@ -434,6 +471,58 @@ public class DocumentStore private constructor(
                 // itself, because the scan's lower bound is inclusive: restarting at the key just
                 // deleted would re-scan a range whose first entry is now a tombstone, and a short
                 // batch would end the loop early on a range that still has keys in it.
+                if (keys.size < batchSize) exhausted = true else cursorFrom = keys.last().successor()
+            }
+        }
+        return deleted
+    }
+
+    /**
+     * Deletes every document whose key begins with [prefix], and returns how many.
+     *
+     * ```kotlin
+     * val retired = store.deletePrefix(Key.of("session/2026-07/"))
+     * ```
+     *
+     * [deleteRange]'s contract in every respect — point deletes under one snapshot, atomic per
+     * batch and not overall, one tombstone per key, converging when called again — differing only
+     * in how the keys are chosen. See [scanPrefix] for why a prefix is named rather than spelled as
+     * a range, and [Key.startsWith] for why the range arithmetic a caller would otherwise write
+     * retires one key too many.
+     *
+     * An **empty prefix deletes every document**, exactly as `deleteRange()` with no bounds does.
+     *
+     * @param prefix the prefix every deleted key begins with.
+     * @param batchSize keys per commit, as [deleteRange].
+     * @return the number of keys deleted.
+     */
+    @JvmOverloads
+    public fun deletePrefix(prefix: Key, batchSize: Int = DEFAULT_DELETE_BATCH): Long {
+        checkWritable()
+        require(batchSize > 0) { "batchSize must be positive, not $batchSize" }
+
+        var deleted = 0L
+        // One snapshot for the whole loop, for the reason `deleteRange` takes one: a compaction
+        // landing between batches would change what the next scan sees, so a key that was under the
+        // prefix when it was asked for could be silently left behind.
+        snapshot().use { view ->
+            var cursorFrom = prefix
+            var exhausted = false
+            while (!exhausted) {
+                val keys = ArrayList<Key>(batchSize)
+                cursor(from = cursorFrom, to = null, prefix = prefix, snapshot = view).use { cursor ->
+                    while (keys.size < batchSize && cursor.next()) keys += cursor.key
+                }
+                if (keys.isEmpty()) break
+
+                val batch = WriteBatch()
+                for (key in keys) batch.delete(key)
+                write(batch)
+                deleted += keys.size
+
+                // `successor` for the same reason as in `deleteRange`: the lower bound is inclusive,
+                // so resuming at the last key handled would re-scan a range whose head is now a
+                // tombstone and end the loop early on a prefix that still has keys under it.
                 if (keys.size < batchSize) exhausted = true else cursorFrom = keys.last().successor()
             }
         }

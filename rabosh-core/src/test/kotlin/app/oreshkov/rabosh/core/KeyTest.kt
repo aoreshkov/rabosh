@@ -38,6 +38,16 @@ class KeyTest {
     }
 
     @Test
+    fun `startsWith is a byte prefix, not a text one`() {
+        assertTrue(Key.of("receipt/1").startsWith(Key.of("receipt/")))
+        assertTrue(Key.of("receipt/").startsWith(Key.of("receipt/")), "a key carries itself")
+        assertTrue(Key.of("anything").startsWith(Key.of(ByteArray(0))), "an empty prefix matches all")
+        assertTrue(!Key.of("receipt").startsWith(Key.of("receipt/")), "shorter than the prefix")
+        // The key the raised-byte bound would admit: one byte different, and not under the prefix.
+        assertTrue(!Key.of("receipt0").startsWith(Key.of("receipt/")))
+    }
+
+    @Test
     fun `equality is by content`() {
         assertEquals(Key.of("a"), Key.of(byteArrayOf('a'.code.toByte())))
         assertEquals(Key.of("a").hashCode(), Key.of("a").hashCode())

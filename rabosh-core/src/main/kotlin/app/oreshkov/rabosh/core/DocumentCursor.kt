@@ -28,6 +28,7 @@ public class DocumentCursor internal constructor(
     private val maxSequence: Long,
     private val from: Key?,
     private val to: Key?,
+    private val prefix: Key?,
     private val ownedSnapshot: Snapshot?,
 ) : AutoCloseable {
 
@@ -74,6 +75,13 @@ public class DocumentCursor internal constructor(
                 continue
             }
             if (to != null && userKey > to) break
+
+            // The prefix ends the walk rather than filtering it: keys sharing a prefix are
+            // contiguous under this ordering, and the scan was seeked to the prefix itself, so the
+            // first key that does not carry it is past every key that does. Testing the prefix
+            // directly is also the only exact spelling — see `Key.startsWith` for why the range
+            // arithmetic a caller would otherwise write is off by one.
+            if (prefix != null && !userKey.startsWith(prefix)) break
 
             // The first version at or below the bound is the current one, so whatever it says is
             // the answer — including a tombstone, which ends this key rather than continuing past it.

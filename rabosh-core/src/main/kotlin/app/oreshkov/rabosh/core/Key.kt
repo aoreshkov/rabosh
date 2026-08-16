@@ -63,8 +63,37 @@ public class Key private constructor(private val bytes: ByteArray) : Comparable<
      * Cheap, and not free: the key is one byte longer than its predecessor, so a watermark carried
      * through many rounds should be recomputed from the last key handled rather than by calling this
      * on its own result.
+     *
+     * **It is not a prefix bound, and that mistake is silent.** `scan(p, p.successor())` is a range
+     * containing `p` alone — `p + 0x00` is the smallest key above `p`, so nothing under `p` except
+     * `p` itself lies inside it — and a `deleteRange` spelled that way deletes at most one document,
+     * returns a count saying so, and reports success. Two separate callers in this repository
+     * reached for it that way; for "everything under `p`" use [DocumentStore.scanPrefix] and
+     * [DocumentStore.deletePrefix], which take the prefix itself. [startsWith] carries the argument
+     * for why there is no arithmetic to offer instead.
      */
     public fun successor(): Key = Key(bytes + 0)
+
+    /**
+     * Whether this key begins with [prefix]. An empty prefix matches every key.
+     *
+     * **This is the whole of what a prefix range needs, and it exists because the arithmetic does
+     * not work.** The obvious spelling of "every key under `p`" is a range, and this API has no
+     * bound that can express one: `[p, q]` is inclusive at both ends, while a prefix range's upper
+     * end is inherently *exclusive* — and there is no inclusive one to reach for, because keys have
+     * no maximum length, so `p`, `p + 0x00`, `p + 0xFF`, `p + 0xFF 0xFF` … continue without a
+     * greatest element. Raising the prefix's last byte gives the exclusive bound and is therefore
+     * exactly one key too generous when it is handed to an inclusive `to`: scanning
+     * `[receipt/, receipt0]` returns `receipt0`, which is not under `receipt/` at all.
+     *
+     * That failure is silent — a scan that returns one key too many, a `deleteRange` that retires a
+     * neighbouring namespace's first key — so the engine does not offer the arithmetic and asks
+     * callers to name the prefix instead. See [DocumentStore.scanPrefix] and
+     * [DocumentStore.deletePrefix], which are the supported way to say it.
+     */
+    public fun startsWith(prefix: Key): Boolean =
+        bytes.size >= prefix.bytes.size &&
+            Arrays.equals(bytes, 0, prefix.bytes.size, prefix.bytes, 0, prefix.bytes.size)
 
     /**
      * Unsigned lexicographic comparison; the shorter key wins when one is a prefix of the other.

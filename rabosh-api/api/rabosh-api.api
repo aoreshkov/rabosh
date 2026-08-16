@@ -8,6 +8,7 @@ public final class app/oreshkov/rabosh/api/Rabosh : java/lang/AutoCloseable {
 	public final fun createIndex (Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexHandle;
 	public final fun createIndexInBackground (Lapp/oreshkov/rabosh/index/IndexDefinition;)Lapp/oreshkov/rabosh/index/IndexBuild;
 	public final fun delete (Lapp/oreshkov/rabosh/core/Key;)V
+	public final fun deletePrefix (Lapp/oreshkov/rabosh/core/Key;)J
 	public final fun deleteRange ()J
 	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;)J
 	public final fun deleteRange (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)J
@@ -45,6 +46,9 @@ public final class app/oreshkov/rabosh/api/Rabosh : java/lang/AutoCloseable {
 	public final fun scan (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public final fun scan (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public static synthetic fun scan$default (Lapp/oreshkov/rabosh/api/Rabosh;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public final fun scanPrefix (Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public final fun scanPrefix (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
+	public static synthetic fun scanPrefix$default (Lapp/oreshkov/rabosh/api/Rabosh;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentCursor;
 	public final fun schema ()Lapp/oreshkov/rabosh/catalog/InferredSchema;
 	public final fun snapshot ()Lapp/oreshkov/rabosh/core/Snapshot;
 	public final fun sync ()V
