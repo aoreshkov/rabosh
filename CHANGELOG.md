@@ -86,6 +86,28 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Changed
 
+- **The README's *Why* argues the three steps against a corpus this repository did not write, and
+  names the module built on the engine.** The section stated the three steps and left the reader to
+  take them; it now carries three measurements from `:rabosh-samples:runTranscripts` over Claude
+  Code's own session transcripts — 228 MiB ingested at 40.8 MiB/s with no schema declared, ~6 500
+  distinct paths derived with the truncation *stated*, and 624 ms → 41 ms for the same five rows
+  after a 0.7 s `createIndex` — plus the two shapes that corpus produces unprompted: a field that is
+  an array in 47 492 documents and a string in 995, and a field that is explicitly `null` rather than
+  absent.
+
+  **They are labelled as not a benchmark, and nothing asserts them.** `.claude/rules/testing.md` is
+  explicit that a statistic is asserted against a plan and never against a clock; the sample's test
+  asserts `documentsRead` fell, not that 41 ms is fast, and the README points at *What it costs* for
+  the figures that are measured under `:rabosh-bench`. **Nothing rendered from `bounds` appears**,
+  and that is a rule rather than an oversight: a value bound is a 64-byte slice of a real document,
+  which in this corpus means a slice of somebody's prompts. Path names and counts are structural;
+  bounds are content.
+
+  A *Built on it* section now names `app.oreshkov:rabosh-memory` — Anthropic's memory tool over a
+  rabosh store — which was reachable from that repository but not from this one. It is a separate
+  repository precisely so the Anthropic SDK stays out of this dependency graph, and the section says
+  so where a reader meets it, one heading above the claim it protects.
+
 - **The walk's breadth budget is raised to 65 536, and the two copies of it are now one number.**
   `CatalogOptions.maxChildren` was 4096 and `IndexOptions.maxChildren` was 1024; both now default to
   `DEFAULT_MAX_CHILDREN` = 65 536. No format change, no ABI change, and nothing on disk means

@@ -51,6 +51,23 @@ rabosh is built around that order:
 3. **Index later.** Indexes and columnar projections are built *retroactively* against data
    already written, without rewriting or re-ingesting a single document.
 
+All three, run over a corpus this project did not write and cannot predict — 228 MiB of Claude
+Code's own session transcripts, JSONL emitted by a program none of us control, in a shape documented
+nowhere:
+
+| | |
+|---|---|
+| **Write blind** | 75 445 documents, 228 MiB, ingested at **40.8 MiB/s** with no schema declared — and not one line the parser refused |
+| **Model later** | **~6 500 distinct paths** derived from them, of which the schema keeps the 1024 most-observed and *reports* the shortfall rather than implying completeness |
+| **Index later** | the same five rows in **624 ms → 41 ms**, after one `createIndex` costing 0.7 s against bytes already on disk |
+
+One machine, one corpus, and not a benchmark — the benchmarked figures are under
+[What it costs](#what-it-costs), and nothing here is asserted against a clock. What this is instead
+is the three steps meeting data whose shape nobody here chose, including two things a generated
+corpus never does by accident: a field that is an array in 47 492 documents and a string in 995, and
+a field that is explicitly `null` rather than absent. `./gradlew :rabosh-samples:runTranscripts` runs
+it against your own transcripts.
+
 The third point drives the design. Indexes live in per-segment immutable **sidecar files**,
 never inside the document data. Creating an index on an existing collection is a sidecar build,
 not a migration — and because a query uses sidecars where they exist and scans where they do not,
@@ -625,6 +642,31 @@ than one CI does; the test runs it against a corpus it synthesises instead.
 
 All four are executed by `SamplesTest` on every `./gradlew build`, and what it asserts is their
 *output*: a sample that ran to completion and printed `0 rows` has failed at the only job it has.
+
+## Built on it
+
+**[rabosh-memory](https://github.com/aoreshkov/rabosh-memory)** — Anthropic's **memory tool**
+(`memory_20250818`), backed by a rabosh store instead of a directory of files.
+
+That tool is *client-side*: Anthropic defines six commands — `view`, `create`, `str_replace`,
+`insert`, `delete`, `rename` — the model emits them, and the application executes them against
+storage it controls. Python and TypeScript ship a local-filesystem backend for that; the Java SDK
+ships the `BetaMemoryToolHandler` interface and leaves the implementation to the reader, so every JVM
+application wanting the memory tool today writes its own path handling and its own crash semantics.
+
+Two things change when the backend is a storage engine. **Every command is one commit**, so a
+recursive `rename` is all-or-nothing across a crash rather than a directory walk that can stop
+halfway. And the path-traversal warning that dominates the tool's own documentation has nothing to
+escape into: a path is normalised into a `Key`, and a malformed one addresses a key that does not
+exist.
+
+```kotlin
+implementation("app.oreshkov:rabosh-memory:0.1.1")
+```
+
+It is a **separate repository on its own release cadence**, and deliberately so: the Anthropic SDK is
+that module's dependency and never this engine's, which is what keeps the next section literally
+true.
 
 ## Dependencies
 
