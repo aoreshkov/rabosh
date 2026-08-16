@@ -5,6 +5,7 @@ import app.oreshkov.rabosh.variant.Variant
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.io.TempDir
 
@@ -56,14 +57,60 @@ class IndexCandidateTest {
 
     @Test
     fun `a unique path is a candidate, and a strong one`() {
-        // Deliberately *not* excluded. A distinct value per document is the best equality index
-        // there is; confusing a bitmap's storage shape with an index's usefulness is what an upper
-        // bound on cardinality would do.
+        // Deliberately *not* excluded by default. A distinct value per document is the best equality
+        // index there is; confusing a bitmap's storage shape with an index's usefulness is what an
+        // upper bound on cardinality would do *unasked*. Asked for, it is the next test.
         withSchema { schema ->
             val unique = rankIndexCandidates(schema, IndexCandidateOptions.DEFAULT)
                 .first { it.path.toString() == "$.id" && it.kind == IndexKind.INVERTED }
             assertTrue(unique.score > 0.9, "score ${unique.score}")
         }
+    }
+
+    @Test
+    fun `a cardinality ceiling separates a category from an identifier`() {
+        // The knob a scorer cannot infer: `$.id` and `$.team` are the same *shape* — present, one
+        // type, well distributed — and differ only in how many rows a caller expects back. One
+        // distinct value per ten documents keeps the twelve teams and drops the four hundred ids.
+        withSchema { schema ->
+            val banded = IndexCandidateOptions(maxDistinctFraction = 0.1)
+            val terms = rankIndexCandidates(schema, banded)
+                .filter { it.kind == IndexKind.INVERTED }
+                .map { it.path.toString() }
+
+            assertTrue("$.team" in terms, "twelve values over 400 documents: $terms")
+            assertTrue("$.id" !in terms, "one value per document is an identifier, not a category")
+            assertTrue(
+                "$.id" in rankIndexCandidates(schema, IndexCandidateOptions.DEFAULT)
+                    .filter { it.kind == IndexKind.INVERTED }
+                    .map { it.path.toString() },
+                "only the ceiling was keeping it out",
+            )
+        }
+    }
+
+    @Test
+    fun `a cardinality ceiling does not reach the columns`() {
+        // `$.description` carries a large share of the bytes and a distinct value per document. The
+        // ceiling is about how many rows a *term* returns; a column is read for the bytes it avoids,
+        // so the tightest band that admits no term at all must still admit it.
+        withSchema { schema ->
+            val banded = IndexCandidateOptions(maxDistinctFraction = 1.0 / 400)
+            val byKind = rankIndexCandidates(schema, banded).groupBy({ it.kind }, { it.path.toString() })
+
+            assertTrue("$.description" in byKind[IndexKind.SHREDDED_COLUMN].orEmpty(), "$byKind")
+            assertTrue("$.description" !in byKind[IndexKind.INVERTED].orEmpty(), "$byKind")
+        }
+    }
+
+    @Test
+    fun `the ceiling is a positive number or it is not a ceiling`() {
+        // NaN is the one that matters: every comparison against it is false, so an unvalidated NaN
+        // would silently recommend nothing at all and look like a corpus with no indexable paths.
+        assertFailsWith<IllegalArgumentException> { IndexCandidateOptions(maxDistinctFraction = 0.0) }
+        assertFailsWith<IllegalArgumentException> { IndexCandidateOptions(maxDistinctFraction = -1.0) }
+        assertFailsWith<IllegalArgumentException> { IndexCandidateOptions(maxDistinctFraction = Double.NaN) }
+        assertEquals(Double.POSITIVE_INFINITY, IndexCandidateOptions.DEFAULT.maxDistinctFraction)
     }
 
     @Test

@@ -130,9 +130,11 @@ public final class app/oreshkov/rabosh/catalog/IndexCandidate {
 public final class app/oreshkov/rabosh/catalog/IndexCandidateOptions {
 	public static final field Companion Lapp/oreshkov/rabosh/catalog/IndexCandidateOptions$Companion;
 	public fun <init> ()V
-	public fun <init> (JDDJDI)V
-	public synthetic fun <init> (JDDJDIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (JDDJDDI)V
+	public synthetic fun <init> (JDDJDDIILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (JDDJDI)V
 	public final fun getLimit ()I
+	public final fun getMaxDistinctFraction ()D
 	public final fun getMinColumnByteShare ()D
 	public final fun getMinDistinct ()J
 	public final fun getMinObservations ()J
