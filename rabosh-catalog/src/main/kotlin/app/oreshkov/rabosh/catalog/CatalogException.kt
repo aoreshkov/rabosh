@@ -49,3 +49,41 @@ public class UnsupportedSketchFormatException(message: String) : CatalogExceptio
 
 /** The catalog has been closed, or used before it was attached to a store. A programming error. */
 public class CatalogStateException(message: String) : CatalogException(message)
+
+/**
+ * A walk budget fired while modelling a segment, so that segment's model is built from part of a
+ * container rather than all of it.
+ *
+ * **Never thrown, and not a failure.** It is recorded in [SchemaCatalog.problems], the same channel a
+ * sidecar that would not decode reaches under `DamagedSketchPolicy.REBUILD`, because truncating is
+ * what [CatalogOptions.maxChildren] and [CatalogOptions.maxDepth] are *for* — a document's shape is
+ * caller-controlled and a sketch pass rides inside compaction. What is not allowed is doing it
+ * quietly: `maxPaths` has said what it dropped since the format was written, and this is the other
+ * two budgets brought up to that rule.
+ *
+ * **What it means for the model.** Counts under [example] and below it are low, so a field's
+ * occurrence rate is understated and `IndexCandidate` may rank it lower than a complete walk would.
+ * It does not mean an index over that path would be wrong: an index build that hits the same bound
+ * leaves its segment **not covered**, so a query scans it rather than answering from a prefix. A
+ * recommendation moves; an answer does not.
+ *
+ * **This is a fact about a run, not about a file.** Sketch sidecars carry no counter for it, so a
+ * model assembled from sidecars an earlier process wrote reports nothing here. Absence means *not
+ * observed in this process* and never *did not happen* — the same reading `SECTION_FIDELITY`'s
+ * absence gets in a `.col`, and the reason the counter was not simply defaulted to zero somewhere it
+ * would be read as a claim.
+ *
+ * @property segmentNumber the segment whose model is short.
+ * @property containers how many containers were visited in part.
+ * @property skippedChildren how many of their children were never visited, summed.
+ * @property example the path of the first such container, to point a caller at their own data.
+ */
+public class TruncatedWalkException(
+    public val segmentNumber: Long,
+    public val containers: Long,
+    public val skippedChildren: Long,
+    public val example: CatalogPath,
+) : CatalogException(
+    "the model of segment $segmentNumber is built from part of $containers container(s): " +
+        "$skippedChildren child value(s) were not visited, first at $example",
+)

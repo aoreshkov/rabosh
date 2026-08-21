@@ -130,9 +130,15 @@ public class IndexCatalog @RaboshExperimental constructor(
      * Failures raised inside this catalog's own callbacks, in order.
      *
      * A sidecar that could not be written, one that would not decode, a segment whose term budget was
-     * exceeded. None of them propagates into the write path — derived data must not cost a document —
-     * and each leaves its segment simply not covered, which `IndexReader.coverage` reports and
-     * [rebuild] fixes.
+     * exceeded, a segment holding a container wider than [IndexOptions.maxChildren]. None of them
+     * propagates into the write path — derived data must not cost a document — and each leaves its
+     * segment simply not covered, which `IndexReader.coverage` reports and [rebuild] fixes.
+     *
+     * The last of those is the one [rebuild] cannot fix, and it is worth knowing which: a rebuild
+     * re-runs the same bounded walk over the same document and stands down again, every time. What
+     * fixes it is a larger [IndexOptions.maxChildren], and until then the segment is scanned and the
+     * answers are complete — which is the whole point of standing down rather than writing a sidecar
+     * covering part of a path.
      */
     public val problems: List<Throwable> get() = lock.withLock { failures.toList() }
 
@@ -658,6 +664,16 @@ public class IndexCatalog @RaboshExperimental constructor(
         private val columns = arrayOfNulls<ColumnBuilder>(targets.size)
 
         /**
+         * Which targets a walk budget stopped short of, and therefore which sidecars are not written.
+         *
+         * Set from the extractors' `onTruncated`, cleared never: one document with a container wider
+         * than [IndexOptions.maxChildren] is enough to make this index's dictionary for this segment
+         * a *prefix* of the path's values, and there is nothing in a posting file that could say which
+         * prefix. Read in [complete], where it takes the same exit `PostingBuilder.overflowed` takes.
+         */
+        private val truncated = BooleanArray(targets.size)
+
+        /**
          * The composite targets, with the second walk they need.
          *
          * A composite index is over the *elements* at its path, and `TermExtractor` reaches its sink
@@ -675,6 +691,12 @@ public class IndexCatalog @RaboshExperimental constructor(
         }
 
         private val elements = ElementExtractor(composites.map { it.handle.path }, options)
+
+        // Fields rather than lambdas written at the call site: these capture nothing but `this`, so
+        // one allocation per segment instead of one per document. The same reason the extractors and
+        // the composite targets are built here.
+        private val onPathTruncated: (Int) -> Unit = { truncated[it] = true }
+        private val onElementTruncated: (Int) -> Unit = { truncated[composites[it].position] = true }
 
         init {
             targets.forEachIndexed { index, handle ->
@@ -695,7 +717,7 @@ public class IndexCatalog @RaboshExperimental constructor(
             base.observe(userKey, sequence, isPut = document != null)
             if (document == null) return
             if (!extractor.isEmpty) {
-                extractor.extract(document) { pathIndex, value ->
+                extractor.extract(document, onPathTruncated) { pathIndex, value ->
                     // A composite target's own path is in this walk too and reaches nothing, because
                     // it names a container. Its terms come from the element walk below.
                     // The kind check is load-bearing rather than defensive: a composite index over
@@ -725,10 +747,13 @@ public class IndexCatalog @RaboshExperimental constructor(
          * half of the leaf claim something the terms do not support.
          */
         private fun observeElements(ordinal: Int, document: Variant) {
-            elements.extract(document) { compositeIndex, element ->
+            elements.extract(document, onElementTruncated) { compositeIndex, element ->
                 val target = composites[compositeIndex]
                 val values = arrayOfNulls<Variant>(target.fields.size)
-                target.extractor.extract(element) { fieldIndex, value -> values[fieldIndex] = value }
+                // A tuple read from a truncated element is missing a field it has, so the element
+                // contributes no term and the presence bitmap does not claim it — which is a *silent*
+                // shortfall of exactly the kind above, and takes the same exit.
+                target.extractor.extract(element, target.onTruncated) { fieldIndex, value -> values[fieldIndex] = value }
                 val term = CompositeTerm.of(values.asList(), options)
                 if (term != null) postings[target.position]?.add(term, ordinal)
             }
@@ -763,6 +788,20 @@ public class IndexCatalog @RaboshExperimental constructor(
             val defined = lock.withLock { registry.indexes.mapTo(HashSet()) { it.id } }
             for ((position, handle) in targets.withIndex()) {
                 if (handle.id !in defined) continue
+                // The walk saw a prefix of a container this index is over. Not covered rather than
+                // partially covered, for `PostingBuilder.overflowed`'s reason applied to the other
+                // budget: a dictionary holding some of a path's values with no record of which ones
+                // is an index that deletes documents from a result. Before the sidecars rather than
+                // inside them, because it disqualifies every kind — an inverted index, a column and a
+                // composite tuple are all built from this walk.
+                if (truncated[position]) {
+                    uncovered(
+                        handle,
+                        "a document stopped the walk at maxChildren=${options.maxChildren} " +
+                            "or maxDepth=${options.maxDepth}",
+                    )
+                    continue
+                }
                 // Each index accumulates and fails separately, so a budget hit or a throw while
                 // building one leaves the others intact and marks only that one uncovered.
                 postings[position]?.let { builder ->
@@ -832,6 +871,9 @@ public class IndexCatalog @RaboshExperimental constructor(
             val extractor: TermExtractor,
         ) {
             val fields: List<CatalogPath> get() = handle.definition.fields
+
+            /** Held here for the reason the observation's two are: once per segment, not per element. */
+            val onTruncated: (Int) -> Unit = { truncated[position] = true }
         }
 
         private fun uncovered(handle: IndexHandle, reason: String) {

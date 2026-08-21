@@ -23,6 +23,32 @@ differential suites that hold every claim here in `.claude/rules/testing.md`.
   actually see; everything the index cannot answer for is **scanned**; and the recheck runs the *same*
   walk that built the index, so "does this document match" is answered by the code that decided what to
   index rather than by a second definition of what a path means.
+- **A walk budget bounds what the engine writes and never what a query answers, which takes both a
+  stand-down and a wider reader.** `maxChildren` and `maxDepth` exist because the writer's walk runs
+  inside flush and compaction, where a document's caller-controlled shape would otherwise become the
+  engine's maintenance cost. Neither reason survives contact with a query, so `TermExtractor.reading`
+  and `ElementExtractor.reading` carry no budget at all — and because a bounded build records a
+  *prefix* of a path's values with nothing in the sidecar to say which prefix, a segment whose build
+  hit either bound is left **not covered** by that index, `maxTermsPerSegment`'s escape applied to the
+  other budget.
+
+  The two halves are one mechanism and neither works alone: standing down without a wider reader buys
+  a scan that truncates at the same element, and a wider reader without standing down leaves the index
+  answering from its prefix. `WalkTruncationTest` in `rabosh-query` asserts both by construction rather
+  than against `scanKeys` — the oracle *is* the reader's walk, so before the pair existed the whole
+  differential suite agreed with the shortfall.
+
+  This does not weaken *the recheck runs the same walk that built the index*. A covered segment is by
+  construction one whose build did not truncate, so on every document a recheck sees, the bounded walk
+  and the complete one visit the same children; the widening is only ever reached where no index claims
+  anything. Attribution is per index and per path — an array reports the candidates its wildcard step
+  kept, an object every candidate still alive at it, and a path that has *arrived* is reported by
+  neither — because one wide container must not stand down every index in the store.
+
+  The catalog's copy of the budget takes the opposite exit, and the asymmetry is the point: an
+  under-counted sketch is a recommendation that ranks low, not a document that goes missing, so a
+  partial model is written and kept and the shortfall is reported as `TruncatedWalkException` in
+  `SchemaCatalog.problems`. Truncating is allowed; being silent about it is not.
 - **An index over a segment is sound at a snapshot if and only if the snapshot's sequence is at or
   above that segment's largest sequence.** An observation reports only the newest version of each key,
   and a segment holds older versions precisely when a snapshot pinned them — so a reader older than the

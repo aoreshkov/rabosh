@@ -222,6 +222,78 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   still set the option — a measured protobuf-JSON dump holds 12 040 elements under one path, and a
   store that does not know its own widest array is trusting a number rather than checking one.
 
+  **The fix is in this release too**, under *Fixed* below, and it is the sentence above taken
+  literally: a build that hits the bound stands the index down for that segment, the walk that answers
+  a query has no bound at all, and the number is a performance dial from here rather than a
+  correctness one. The last clause of the paragraph above no longer holds — a store that does not know
+  its own widest array now finds out, in `IndexCatalog.problems` and in its coverage.
+
+### Fixed
+
+- **A walk budget now costs coverage instead of documents.** `IndexOptions.maxChildren` was the one
+  budget in the engine that could delete a document from a result and say nothing. A container wider
+  than it was walked to it, so the terms recorded for a path underneath were a *prefix* of the values
+  the document held there; the segment still read as **covered**, so the documents whose value sat
+  past the bound were never candidates and were never opened. Any store with an array wider than
+  65 536 was getting silently short answers. Two changes, and neither is a fix on its own:
+
+  **A build that hit either walk bound leaves its segment not covered by that index.** The escape
+  `IndexOptions.maxTermsPerSegment` already takes — *not covered rather than partially covered* —
+  applied to the other budget, with the same argument: a dictionary holding some of a path's values
+  and no record of which ones is an index that returns wrong answers, and nothing downstream can tell
+  it apart from a complete one. The reason lands in `IndexCatalog.problems` naming the index and the
+  bound, and `IndexReader.coverage` reports it like any other uncovered segment.
+
+  **The walk that answers a question carries no bound at all** — `TermExtractor.reading` and
+  `ElementExtractor.reading`, used by the recheck, the scan and the column fallback. Standing an index
+  down buys nothing while the scan replacing it truncates at the same element, which is exactly what
+  the old code did. The bounds exist because the *writer's* walk runs inside flush and compaction; a
+  query is a caller's own thread reading documents the caller is already paying for, and
+  `CatalogPath.forEachNodeIn` had reached that conclusion independently.
+
+  It does not weaken *the recheck runs the same walk that built the index*: a covered segment is by
+  construction one whose build did not truncate, so wherever an index answers, the two walks visit the
+  same children. Attribution is per index and per path — one wide array stands down the index over it
+  and not the index beside it — and a path that has *arrived* at the truncated container is reported
+  by neither, because a skipped child could not have carried a value for it.
+
+  **Why no existing test caught it.** The recheck and the fallback scan ran the same bounded walk as
+  the build, so the index, the scan and both differential oracles agreed with the shortfall. A suite
+  cannot see a truncation it shares. `WalkTruncationTest` names its expected keys **by construction**
+  instead of comparing the engine with itself, and was verified by breaking each half separately:
+  removing the stand-down fails three of its five tests, and removing the wider reader fails three.
+
+  **What it costs.** Coverage, and only where the bound actually fires. A store whose containers fit
+  under `maxChildren` — which the default's 65 536 is chosen to make the ordinary case — is unaffected
+  in every respect: same sidecars, same bytes, same plans. A store with wider containers now scans
+  those segments for the indexes over the wide path, and gets complete answers where it used to get
+  short ones. `IndexOptions.maxChildren` is the dial, and lowering it is now a performance decision
+  rather than a correctness one, which is what the raise to 65 536 named as the actual fix and could
+  not do by itself.
+
+- **The catalog's copy of the same budget reports what it skipped.** `CatalogOptions.maxChildren` and
+  `maxDepth` truncated a segment's model with no counter, no flag and no estimate anywhere saying so —
+  while `maxPaths`, three fields away, has counted its overflow into `InferredSchema.truncatedPathEstimate`
+  since the format was written. A sketch pass that hits either bound now records
+  `TruncatedWalkException` in `SchemaCatalog.problems`, carrying how many containers were seen in
+  part, how many children went unvisited, and the path of the first one.
+
+  **The opposite exit from the index half, deliberately.** A partial model is still written and its
+  segment still covered, because an under-counted path is an `IndexCandidate` that ranks low — a
+  recommendation that moves, not a document that goes missing. Dropping the sketch would trade an
+  understated count for no count at all.
+
+  **It is a fact about a run, not about a file.** Sketch sidecars carry no counter for this and gaining
+  one would cost `SketchFormat` a version: `.sk` is a flat payload whose reader rejects trailing bytes,
+  and a version bump buying a *report* is not a trade this engine takes. So a model assembled from
+  sidecars an earlier process wrote reports nothing, and silence means **not observed in this process**
+  rather than *did not happen* — the reading `SECTION_FIDELITY`'s absence already gets in a `.col`, and
+  the reason the counter was not defaulted to zero somewhere it would be read as a claim.
+
+  `TruncatedWalkException` joins the sealed `CatalogException` hierarchy, so it is inside the stable
+  tier and catchable by name. Binary-compatible; source-incompatible only for an exhaustive `when` over
+  `CatalogException`, which is not a thing anybody writes over an exception type.
+
 ## [0.3.0] — 2026-08-13
 
 **The release about everything around the answers.** 0.2.0 finished what the engine can *answer*;

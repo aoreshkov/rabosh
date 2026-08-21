@@ -131,7 +131,9 @@ public object ColumnQuery {
     ): ColumnScan {
         val keys = sortedSetOf<Key>()
         var documentsRead = 0
-        val extractor = TermExtractor(listOf(reader.path), reader.options)
+        // A reader's walk: this is the fallback for a segment no column covers, and a fallback that
+        // truncated where the column did would answer exactly as short as the thing it replaced.
+        val extractor = TermExtractor.reading(listOf(reader.path))
         store.scan(snapshot = reader.snapshot).use { cursor ->
             while (cursor.next()) {
                 documentsRead++
@@ -158,7 +160,7 @@ public object ColumnQuery {
         key: Key,
     ): Boolean {
         val document = store.get(key, reader.snapshot) ?: return false
-        val extractor = TermExtractor(listOf(reader.path), reader.options)
+        val extractor = TermExtractor.reading(listOf(reader.path))
         var matched = false
         extractor.extract(document) { _, value -> if (predicate.matches(value)) matched = true }
         return matched

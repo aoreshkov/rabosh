@@ -15,27 +15,29 @@ public const val DEFAULT_MAX_DEPTH: Int = 32
 /**
  * Default ceiling on children visited per container.
  *
- * **Sixty-five thousand five hundred and thirty-six, raised from 4096, and the reason is that this
- * bound does not behave like the others.** Every other budget in the engine either reports having
- * fired or is declined symmetrically by the reader: `maxPaths` overflow is counted in
- * [InferredSchema.truncatedPathEstimate], `IndexOptions.maxTermsPerSegment` drops the index for the
- * segment so it reads as *not covered* and is scanned, `maxTermBytes` is applied to the same bytes by
- * the planner so what the writer dropped is what the query declines, and a truncated bound widens.
- * This one does none of that. A container wider than the bound is walked to the bound, the segment
- * still reads as covered, and — because the recheck runs the same walk — the fallback scan truncates
- * identically, so both differential oracles agree with the shortfall. It is invisible to the suite by
- * construction.
+ * **Sixty-five thousand five hundred and thirty-six, raised from 4096, and the number outlived the
+ * argument for it.** It was raised because this bound did not behave like the others: every budget in
+ * the engine either reports having fired or is declined symmetrically by the reader — `maxPaths`
+ * overflow is counted in [InferredSchema.truncatedPathEstimate], `IndexOptions.maxTermsPerSegment`
+ * drops the index for the segment so it reads as *not covered* and is scanned, `maxTermBytes` is
+ * applied to the same bytes by the planner, a truncated bound widens — and this one did none of
+ * that. A container wider than it was walked to it and nothing said so. Raising the number was named
+ * at the time as a mitigation rather than a fix, with the fix identified as *a coverage signal, which
+ * would let the bound come back down*.
  *
- * `IndexOptions.maxChildren`'s KDoc defends the bound as *"a far worse outcome than an index that
- * reports itself incomplete"*. That trade is the right one and it is not the trade actually on offer
- * here, because nothing reports. So the bound is set where truncating is genuinely the better answer
- * rather than where it is merely cheaper: past 65 536 children a container is generated data, and
- * below it a walk is `O(65 536)` against the segment write it rides on.
+ * **Both halves now report, and they report differently because they are different failures.** An
+ * index build that hits this bound leaves its segment not covered, so the question is answered by a
+ * scan and the walk that scans carries no bound at all — an answer no longer depends on this number.
+ * A *sketch* that hits it has no such escape and needs none: an under-counted path is a
+ * recommendation that ranks low, not a document that goes missing. So the catalog reports instead,
+ * as [TruncatedWalkException] in `SchemaCatalog.problems`, naming the container and what it skipped.
  *
- * **Raising it is a mitigation and not a fix.** The fix is a coverage signal, which would let the
- * bound come back down. Until then a corpus with containers wider than this must set the option —
- * the measured protobuf-JSON dump holds 12 040 elements under one path — and a store that does not
- * know its own widest array is trusting a number rather than checking one.
+ * The number itself still stands where truncating is genuinely the better answer rather than merely
+ * the cheaper one: past 65 536 children a container is generated data, and below it a walk is
+ * `O(65 536)` against the segment write it rides on. What changed is the cost of being wrong about
+ * it. A corpus with containers wider than this — the measured protobuf-JSON dump holds 12 040
+ * elements under one path — now pays in coverage and in an understated model, both of which are
+ * visible, rather than in answers that are quietly short.
  */
 public const val DEFAULT_MAX_CHILDREN: Int = 65_536
 
@@ -84,10 +86,16 @@ public class CatalogOptions(
      * How deep into a document the walk descends.
      *
      * A bound rather than trust, because a document's nesting is caller-controlled and a sketch pass
-     * runs inside compaction. Values below the limit are still counted; only their children are not.
+     * runs inside compaction. Values below the limit are still counted; only their children are not —
+     * and reaching it is reported, as [TruncatedWalkException] in [SchemaCatalog.problems].
      */
     public val maxDepth: Int = DEFAULT_MAX_DEPTH,
-    /** How many children of one object or array are visited. See [maxDepth] for why there is a bound. */
+    /**
+     * How many children of one object or array are visited.
+     *
+     * See [maxDepth] for why there is a bound and where reaching it is reported, and
+     * [DEFAULT_MAX_CHILDREN] for why this number and what it costs an index over a wider container.
+     */
     public val maxChildren: Int = DEFAULT_MAX_CHILDREN,
     /**
      * Byte length at which a text bound is truncated.

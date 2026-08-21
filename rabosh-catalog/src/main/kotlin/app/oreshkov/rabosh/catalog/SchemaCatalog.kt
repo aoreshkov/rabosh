@@ -233,6 +233,13 @@ public class SchemaCatalog @RaboshExperimental constructor(
             val sketch = builder.build()
             SketchFile.write(directory, segmentNumber, sketch)
             lock.withLock { sketches[segmentNumber] = sketch }
+            // After the write, not instead of it: a partial model is still a model, and dropping it
+            // would trade an understated count for no count at all. The report is the whole of the
+            // change — see `TruncatedWalkException` for why this is a fact about a run and not a
+            // fact about the sidecar just written.
+            builder.truncation()?.let {
+                observerFailed(TruncatedWalkException(segmentNumber, it.containers, it.skippedChildren, it.example))
+            }
         }
 
         override fun abandon() {

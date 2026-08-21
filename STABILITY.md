@@ -54,6 +54,14 @@ limits are: it exists to be **caught**, and a catch target a caller cannot rely 
 a subclass of `IllegalArgumentException` and deliberately outside `CatalogException`, which is sealed
 and describes state a store got into rather than an argument a caller passed.
 
+`TruncatedWalkException` joined that sealed hierarchy, which is additive in the binary sense and, for
+a `sealed class`, **source-incompatible for an exhaustive `when`** over `CatalogException` — a
+construct nobody writes over an exception type, which is why the hierarchy is sealed in the first
+place. It is inside `CatalogException` where `PathNotRepresentableException` is outside it, and the
+line between them is the one that paragraph draws: this one describes what a store's own pass did,
+not what a caller passed. Recorded here because a sealed hierarchy gaining a member is a decision,
+not a detail.
+
 **`rabosh-variant`** — `Variant` and its readers including `detached`, `VariantNode`, `VariantPath`
 (including `parseJsonPathOrNull`), `VariantPathStep`,
 `VariantKind`, `VariantBasicType`, `VariantPrimitiveType`, `VariantBuilder`, `VariantMetadata`,
