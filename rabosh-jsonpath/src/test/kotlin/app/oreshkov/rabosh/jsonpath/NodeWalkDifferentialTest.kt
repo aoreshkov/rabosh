@@ -145,6 +145,18 @@ class NodeWalkDifferentialTest {
     /**
      * `$['items'][:]['sku']` — the RFC 9535 spelling of a catalog path, escaping and all.
      *
+     * **This was a private helper here and is now `CatalogPath.toJsonPath`**, which is where the
+     * repository's only correct interchange rendering belongs: a consumer that has to hand a shape
+     * to something outside the engine cannot reach into a test source set for it.
+     *
+     * Promoting it does not weaken this differential, and the reason is worth stating because it
+     * looks as though it should. What is compared here is two *evaluators* over a shared rendering —
+     * `CatalogPathNodes` and `JsonPathQuery` — so the rendering is the input to the comparison and
+     * never its answer. A wrong rendering makes the two walks disagree and fails the test, exactly
+     * as it did when the string was built three lines further down. What would have hollowed the
+     * differential out is rendering the query *with* the evaluator that reads it, and that is not
+     * what moved.
+     *
      * **`AnyElement` renders as the slice `[:]` and not as the wildcard `[*]`**, and getting that
      * backwards is what turns this differential from an equality into an approximation. A wildcard
      * selects every child of an object *and* of an array; `AnyElement` selects array elements, and so
@@ -152,44 +164,7 @@ class NodeWalkDifferentialTest {
      * object yields nothing, which is exactly what `CatalogPathNodes` does. See the test above, which
      * is where that difference is pinned rather than merely noted.
      */
-    private fun renderAsJsonPath(path: CatalogPath): String = buildString {
-        append('$')
-        for (step in path.steps) {
-            when (step) {
-                is CatalogStep.Field -> {
-                    append("['")
-                    appendEscaped(step.name)
-                    append("']")
-                }
-
-                CatalogStep.AnyElement -> append("[:]")
-            }
-        }
-    }
-
-    /**
-     * RFC 9535 §2.3.1.1's `single-quoted`: only `'`, the backslash and the control characters need
-     * escaping.
-     *
-     * A control character is written in the `\uXXXX` form even where a named escape exists, because
-     * both are `escapable` and one form is fewer branches. That is allowed *here* and would not be in
-     * a Normalized Path: §2.7 is the grammar with exactly one spelling per name, and `VariantPath` is
-     * what implements it. Two grammars, one bracket.
-     */
-    private fun StringBuilder.appendEscaped(name: String) {
-        for (character in name) {
-            when {
-                character == '\'' -> append(BACKSLASH).append('\'')
-                character == BACKSLASH -> append(BACKSLASH).append(BACKSLASH)
-                character.code < CONTROL_LIMIT -> {
-                    append(BACKSLASH).append('u')
-                    append(character.code.toString(radix = 16).padStart(HEX_DIGITS, '0'))
-                }
-
-                else -> append(character)
-            }
-        }
-    }
+    private fun renderAsJsonPath(path: CatalogPath): String = path.toJsonPath()
 
     private class Corpus(val name: String, val document: Variant, val paths: List<CatalogPath>)
 
@@ -255,8 +230,6 @@ class NodeWalkDifferentialTest {
 
     private companion object {
         const val BACKSLASH: Char = '\\'
-        const val CONTROL_LIMIT: Int = 0x20
-        const val HEX_DIGITS: Int = 4
 
         val AWKWARD_DOCUMENT: String = """{"a'b":1,"a\\b":2,"a\nb":3,"":4,"日本語":[5,6],"@type":"x"}"""
 

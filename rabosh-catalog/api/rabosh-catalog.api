@@ -46,12 +46,14 @@ public final class app/oreshkov/rabosh/catalog/CatalogPath : java/lang/Comparabl
 	public final fun isRoot ()Z
 	public final fun plus (Lapp/oreshkov/rabosh/catalog/CatalogStep;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
 	public final fun startsWith (Lapp/oreshkov/rabosh/catalog/CatalogPath;)Z
+	public final fun toJsonPath ()Ljava/lang/String;
 	public fun toString ()Ljava/lang/String;
 }
 
 public final class app/oreshkov/rabosh/catalog/CatalogPath$Companion {
 	public final fun getROOT ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
 	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun parseJsonPath (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/CatalogPath;
 }
 
 public final class app/oreshkov/rabosh/catalog/CatalogPathKt {
@@ -194,6 +196,21 @@ public final class app/oreshkov/rabosh/catalog/NumericRange {
 	public final fun getMin ()Ljava/math/BigDecimal;
 	public fun hashCode ()I
 	public fun toString ()Ljava/lang/String;
+}
+
+public final class app/oreshkov/rabosh/catalog/PathConstruct : java/lang/Enum {
+	public static final field DESCENDANT Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static final field FILTER Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static final field INDEX Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static final field MULTIPLE_SELECTORS Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static final field SLICE Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lapp/oreshkov/rabosh/catalog/PathConstruct;
+	public static fun values ()[Lapp/oreshkov/rabosh/catalog/PathConstruct;
+}
+
+public final class app/oreshkov/rabosh/catalog/PathNotRepresentableException : java/lang/IllegalArgumentException {
+	public final fun getConstruct ()Lapp/oreshkov/rabosh/catalog/PathConstruct;
 }
 
 public final class app/oreshkov/rabosh/catalog/PathSketch {
