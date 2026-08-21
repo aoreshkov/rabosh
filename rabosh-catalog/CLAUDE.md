@@ -15,3 +15,17 @@ The bound **codec** is the deliberate exception and the reasoning is written int
 are duplicated between `SketchFormat` and `ColumnFormat` because publishing a permanent on-disk shape as
 public API to save eighty lines would make every private-format change an ABI event, and because a codec
 that disagreed fails loudly, on decode, in the module that wrote it. Semantics shared, bytes not.
+
+**A budget here reports and does not stand anything down, which is the opposite of what the same
+budget does in `rabosh-index`.** `maxPaths` has always counted its overflow into
+`InferredSchema.truncatedPathEstimate`; `maxChildren` and `maxDepth` now record a
+`TruncatedWalkException` in `SchemaCatalog.problems`, and the segment stays covered with its partial
+model written. The asymmetry is the severity: an under-counted path is an `IndexCandidate` that ranks
+low, while an under-recorded index is a document that goes missing. Do not "make them consistent" by
+dropping a truncated sketch — that trades an understated count for no count at all.
+
+The counter is **not** in the sidecar, and that is a decision with a price. `.sk` is a flat payload
+whose reader rejects trailing bytes, so persisting it costs `SketchFormat` a version; a version bump
+buying a report is not a trade this engine takes. The consequence to keep true: silence from a model
+assembled out of sidecars means *not observed in this process*, never *did not happen*, and nothing
+may default that to zero anywhere a caller would read it as a claim.

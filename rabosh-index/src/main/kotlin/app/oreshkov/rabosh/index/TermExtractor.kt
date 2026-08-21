@@ -43,6 +43,13 @@ import app.oreshkov.rabosh.variant.VariantBasicType
  * to make that a fact rather than an intention is for there to be one class with every layer as a
  * caller of it. `rabosh-query` builds exactly one of these over every path a predicate mentions, so
  * a whole predicate costs one narrowing walk per document rather than one walk per leaf.
+ *
+ * **One class, two budgets: the writer's constructor carries them and [reading] does not.** The
+ * narrowing, the pruning and what counts as a value are identical — that is the part the rule above
+ * is about — but a walk that runs inside compaction is bounded and a walk that answers a question is
+ * not. The two never disagree about a document either of them would report on, because a segment
+ * whose build hit a budget is not covered by the index it was building; the argument is under
+ * [reading], and `.claude/rules/index-and-query.md` states it as the rule it now is.
  */
 @RaboshExperimental
 public class TermExtractor(
@@ -75,35 +82,71 @@ public class TermExtractor(
      * copied.
      */
     public fun extract(document: Variant, sink: (pathIndex: Int, value: Variant) -> Unit) {
+        extract(document, NOTHING_TRUNCATED, sink)
+    }
+
+    /**
+     * The same walk, reporting every path a budget stopped it short of.
+     *
+     * [onTruncated] fires with a `pathIndex` when [IndexOptions.maxChildren] or
+     * [IndexOptions.maxDepth] cut a container this path was still a candidate under — the case where
+     * the values reported for it are a *prefix* of the values the document holds there. Nothing else
+     * distinguishes that from a complete walk: the sink reports what was found and cannot report what
+     * was never looked at.
+     *
+     * **The one caller that must use this overload is the one writing an index.** A dictionary built
+     * from a prefix of a path's values, in a segment that then reads as *covered*, is an index that
+     * deletes documents from a result — and because the recheck and the scan would truncate at the
+     * same element, both differential oracles would agree with the shortfall. So `IndexCatalog` marks
+     * the segment **not covered** for that index rather than writing the sidecar, which is the escape
+     * [IndexOptions.maxTermsPerSegment] already takes and for the same reason. A reader's walk has no
+     * budget to fire — see [reading] — so nothing on the query path has to ask.
+     *
+     * Conservative in the direction that costs a scan rather than a document. A truncated object
+     * reports every candidate still alive at it, because deciding which of them a skipped *field*
+     * would have matched means reading the names the bound exists to avoid reading; a truncated array
+     * reports only the candidates the wildcard step kept, which is exact.
+     *
+     * A path may be reported more than once for one document, and once per document that truncated
+     * it. The caller wants a set; this reports events.
+     */
+    public fun extract(
+        document: Variant,
+        onTruncated: (pathIndex: Int) -> Unit,
+        sink: (pathIndex: Int, value: Variant) -> Unit,
+    ) {
         if (paths.isEmpty()) return
-        walk(document, 0, all, sink)
+        walk(document, 0, all, onTruncated, sink)
     }
 
     private fun walk(
         value: Variant,
         depth: Int,
         candidates: IntArray,
+        onTruncated: (Int) -> Unit,
         sink: (Int, Variant) -> Unit,
     ) {
         when (value.basicType) {
             VariantBasicType.OBJECT -> {
-                if (depth >= options.maxDepth) return
+                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
                 val children = minOf(value.fieldCount, options.maxChildren)
+                if (children < value.fieldCount) reportTruncated(candidates, depth, onTruncated)
                 for (index in 0 until children) {
                     val name = value.fieldName(index)
                     val next = narrow(candidates, depth) { it is CatalogStep.Field && it.name == name }
-                    if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, sink)
+                    if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, onTruncated, sink)
                 }
             }
 
             VariantBasicType.ARRAY -> {
-                if (depth >= options.maxDepth) return
+                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
                 // One step for the whole array, not one per index: an index over `$.tags[*]` is over
                 // the values, and which position a value happened to occupy is not what a query asks.
                 val next = narrow(candidates, depth) { it is CatalogStep.AnyElement }
                 if (next.isEmpty()) return
                 val children = minOf(value.elementCount, options.maxChildren)
-                for (index in 0 until children) walk(value.element(index), depth + 1, next, sink)
+                if (children < value.elementCount) reportTruncated(next, depth, onTruncated)
+                for (index in 0 until children) walk(value.element(index), depth + 1, next, onTruncated, sink)
             }
 
             VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> {
@@ -125,5 +168,50 @@ public class TermExtractor(
             if (depth < steps.size && matches(steps[depth])) kept[count++] = candidate
         }
         return if (count == kept.size) kept else kept.copyOf(count)
+    }
+
+    /**
+     * Reports the candidates a container's bound could have cost, which is not all of them.
+     *
+     * A path that has consumed every step it has is *arrived*: it reports at a scalar and matches
+     * nothing below a container, so a skipped child could not have carried a value for it. Including
+     * it would uncover a segment on the strength of a path the bound never touched. The test is
+     * `narrow`'s own — a candidate is alive at this depth only while `depth < steps.size`.
+     */
+    private inline fun reportTruncated(candidates: IntArray, depth: Int, onTruncated: (Int) -> Unit) {
+        for (candidate in candidates) if (depth < paths[candidate].steps.size) onTruncated(candidate)
+    }
+
+    public companion object {
+        /**
+         * The **reader's** walk over [paths]: the same narrowing, with no budget on it.
+         *
+         * The budgets are on the writer for one stated reason — this walk runs inside flush and
+         * compaction, and a document that made it expensive would make the engine's background
+         * maintenance expensive. A recheck or a scan is neither: it happens because a caller asked a
+         * question, on the caller's own thread, about documents the caller is already paying to read.
+         * `CatalogPath.forEachNodeIn` is the same argument reached earlier and independently.
+         *
+         * **This is what makes the budget cost a scan instead of a document.** A segment whose build
+         * truncated is not covered, so it is scanned — and a scan that truncated at the same element
+         * would answer exactly as short as the index it replaced, which is no fix at all. The pair is
+         * the mechanism: bounded where an index is *written*, complete where an answer is *decided*.
+         *
+         * It does not weaken *the recheck runs the same walk that built the index*. Where an index
+         * answers, its segment is covered, and a covered segment is by construction one whose build
+         * did not truncate — so on every document a recheck sees, the two walks visit the same
+         * children. The widening is only ever reached where no index claims anything.
+         *
+         * No [IndexOptions] is asked for because none is used: this walk reads `maxDepth` and
+         * `maxChildren` and nothing else, and it wants neither. Depth stays bounded by the longest
+         * path — a candidate is dropped once it has no step left, so nothing descends past the deepest
+         * one — which is why removing the ceiling cannot deepen the recursion.
+         */
+        public fun reading(paths: List<CatalogPath>): TermExtractor = TermExtractor(paths, UNBOUNDED)
+
+        /** A no-op, so the two-argument [extract] costs a call and not a branch per container. */
+        private val NOTHING_TRUNCATED: (Int) -> Unit = {}
+
+        internal val UNBOUNDED: IndexOptions = IndexOptions(maxDepth = Int.MAX_VALUE, maxChildren = Int.MAX_VALUE)
     }
 }

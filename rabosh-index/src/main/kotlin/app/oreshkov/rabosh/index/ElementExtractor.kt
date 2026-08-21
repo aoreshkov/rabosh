@@ -14,11 +14,13 @@ import app.oreshkov.rabosh.variant.VariantBasicType
  * over an array is false and has always been — and quietly widening it to report containers would
  * change what every existing index and every existing predicate means. Two walks, one narrowing rule.
  *
- * **The narrowing, the budgets and the pruning are the same**, and that is what has to stay true. This
- * runs inside flush and compaction like the other one, so it carries [IndexOptions.maxDepth] and
- * [IndexOptions.maxChildren]; a document that made the walk expensive would make the engine's
- * background maintenance expensive. It is *not* `CatalogPath.forEachNodeIn`, which is a reader's walk
- * with no budget at all and no ordinal in sight.
+ * **The narrowing and the pruning are the same**, and that is what has to stay true. Built from an
+ * [IndexOptions] this walk runs inside flush and compaction like the other one, so it carries
+ * [IndexOptions.maxDepth] and [IndexOptions.maxChildren]; a document that made the walk expensive
+ * would make the engine's background maintenance expensive. Built by [reading] it carries neither,
+ * for the reason [TermExtractor.reading] gives — and that is the half of this sentence that changed:
+ * the budgets are the *writer's*, not the walk's. It is still not `CatalogPath.forEachNodeIn`, which
+ * arrived at the same conclusion for a reader's walk with no ordinal in sight.
  *
  * **Public for the reason [TermExtractor] is.** The recheck of a composite candidate has to be the
  * code that built the term, not a second traversal that agrees with it today — so `rabosh-query`
@@ -50,11 +52,37 @@ public class ElementExtractor(
      * copied.
      */
     public fun extract(document: Variant, sink: (pathIndex: Int, element: Variant) -> Unit) {
-        if (paths.isEmpty()) return
-        walk(document, 0, all, sink)
+        extract(document, NOTHING_TRUNCATED, sink)
     }
 
-    private fun walk(value: Variant, depth: Int, candidates: IntArray, sink: (Int, Variant) -> Unit) {
+    /**
+     * The same walk, reporting every path a budget stopped it short of.
+     *
+     * [TermExtractor.extract]'s three-argument form one level up, with the same contract and for the
+     * same caller: a composite index whose element walk saw a prefix of a container is an index that
+     * has *fewer tuples than the document has elements*, in a segment that would otherwise read as
+     * covered. `IndexCatalog` marks it not covered instead.
+     *
+     * A truncated array reports the candidates the wildcard step kept; a truncated object reports
+     * every candidate still alive at it. Arrived paths — the containers this walk exists to find —
+     * are excluded, because a skipped child cannot carry a container a completed path already named.
+     */
+    public fun extract(
+        document: Variant,
+        onTruncated: (pathIndex: Int) -> Unit,
+        sink: (pathIndex: Int, element: Variant) -> Unit,
+    ) {
+        if (paths.isEmpty()) return
+        walk(document, 0, all, onTruncated, sink)
+    }
+
+    private fun walk(
+        value: Variant,
+        depth: Int,
+        candidates: IntArray,
+        onTruncated: (Int) -> Unit,
+        sink: (Int, Variant) -> Unit,
+    ) {
         // A path that has consumed all its steps has *arrived*, and this walk reports what it arrived
         // at whatever shape it is. The check is before the descent rather than inside the scalar
         // branch, which is the one structural difference from `TermExtractor`.
@@ -64,21 +92,23 @@ public class ElementExtractor(
 
         when (value.basicType) {
             VariantBasicType.OBJECT -> {
-                if (depth >= options.maxDepth) return
+                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
                 val children = minOf(value.fieldCount, options.maxChildren)
+                if (children < value.fieldCount) reportTruncated(candidates, depth, onTruncated)
                 for (index in 0 until children) {
                     val name = value.fieldName(index)
                     val next = narrow(candidates, depth) { it is CatalogStep.Field && it.name == name }
-                    if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, sink)
+                    if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, onTruncated, sink)
                 }
             }
 
             VariantBasicType.ARRAY -> {
-                if (depth >= options.maxDepth) return
+                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
                 val next = narrow(candidates, depth) { it is CatalogStep.AnyElement }
                 if (next.isEmpty()) return
                 val children = minOf(value.elementCount, options.maxChildren)
-                for (index in 0 until children) walk(value.element(index), depth + 1, next, sink)
+                if (children < value.elementCount) reportTruncated(next, depth, onTruncated)
+                for (index in 0 until children) walk(value.element(index), depth + 1, next, onTruncated, sink)
             }
 
             VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> Unit
@@ -93,5 +123,27 @@ public class ElementExtractor(
             if (depth < steps.size && matches(steps[depth])) kept[count++] = candidate
         }
         return if (count == kept.size) kept else kept.copyOf(count)
+    }
+
+    /** [TermExtractor]'s rule: a path with no step left at this depth is past what the bound cut. */
+    private inline fun reportTruncated(candidates: IntArray, depth: Int, onTruncated: (Int) -> Unit) {
+        for (candidate in candidates) if (depth < paths[candidate].steps.size) onTruncated(candidate)
+    }
+
+    public companion object {
+        /**
+         * The **reader's** walk over [paths]: the same narrowing, with no budget on it.
+         *
+         * [TermExtractor.reading]'s argument applies here unchanged — an `elemMatch` rechecked or
+         * scanned is a question a caller asked, not maintenance the engine chose — and it has to
+         * apply here, because a correlated predicate is decided by *this* walk feeding a nested
+         * matcher. Widening one and not the other would leave a correlated query truncating where an
+         * uncorrelated one no longer does.
+         */
+        public fun reading(paths: List<CatalogPath>): ElementExtractor =
+            ElementExtractor(paths, TermExtractor.UNBOUNDED)
+
+        /** A no-op, so the two-argument [extract] costs a call and not a branch per container. */
+        private val NOTHING_TRUNCATED: (Int) -> Unit = {}
     }
 }

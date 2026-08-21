@@ -18,6 +18,13 @@ import java.util.TreeMap
  * model. So depth stops at [CatalogOptions.maxDepth], children at [CatalogOptions.maxChildren], and
  * distinct paths at [CatalogOptions.maxPaths], and every one of them reports what it dropped.
  */
+/** What a walk budget cost one segment's model: how often it fired, how much it skipped, and where. */
+internal class WalkTruncation(
+    val containers: Long,
+    val skippedChildren: Long,
+    val example: CatalogPath,
+)
+
 internal class SegmentSketchBuilder(private val options: CatalogOptions) {
     private val builders = HashMap<CatalogPath, PathSketchBuilder>()
     private val droppedPaths = HyperLogLog()
@@ -27,8 +34,28 @@ internal class SegmentSketchBuilder(private val options: CatalogOptions) {
     private var observations = 0L
     private var droppedObservations = 0L
 
+    private var truncatedContainers = 0L
+    private var skippedChildren = 0L
+    private var firstTruncated: CatalogPath? = null
+
     /** Documents added so far. */
     val documentCount: Long get() = documents
+
+    /**
+     * What [CatalogOptions.maxChildren] and [CatalogOptions.maxDepth] cost this segment's model, or
+     * `null` if neither fired.
+     *
+     * Not part of [SegmentSketch] and therefore not written to the sidecar, which is a limitation
+     * with a name: `.sk` is a flat payload whose reader rejects trailing bytes, so a counter here
+     * costs a format version, and the reasoning that a version buys a *report* is not one this engine
+     * has taken. So the fact is reported where it is observed — `SchemaCatalog.problems` — and a
+     * sketch read back from disk says nothing about it either way. That is honest in the direction
+     * that matters: silence here means *not observed in this process*, never *did not happen*.
+     */
+    fun truncation(): WalkTruncation? {
+        val path = firstTruncated ?: return null
+        return WalkTruncation(truncatedContainers, skippedChildren, path)
+    }
 
     /** Adds one document. Tombstones are not documents and must not be passed here. */
     fun add(document: Variant) {
@@ -51,10 +78,11 @@ internal class SegmentSketchBuilder(private val options: CatalogOptions) {
 
     private fun walk(value: Variant, depth: Int) {
         val builder = record(value)
-        if (depth >= options.maxDepth) return
+        if (depth >= options.maxDepth) return recordDepthStop(value)
         when (value.basicType) {
             VariantBasicType.OBJECT -> {
                 val children = minOf(value.fieldCount, options.maxChildren)
+                if (children < value.fieldCount) recordTruncation(value.fieldCount - children)
                 for (index in 0 until children) {
                     steps.add(CatalogStep.Field(value.fieldName(index)))
                     walk(value.fieldValue(index), depth + 1)
@@ -64,6 +92,7 @@ internal class SegmentSketchBuilder(private val options: CatalogOptions) {
 
             VariantBasicType.ARRAY -> {
                 val children = minOf(value.elementCount, options.maxChildren)
+                if (children < value.elementCount) recordTruncation(value.elementCount - children)
                 if (children == 0) return
                 // One step for the whole array, not one per index: see [CatalogPath].
                 steps.add(CatalogStep.AnyElement)
@@ -76,6 +105,36 @@ internal class SegmentSketchBuilder(private val options: CatalogOptions) {
                 if (builder != null) recordScalar(builder, value)
             }
         }
+    }
+
+    /**
+     * The depth bound, counted as what it is: every child of this container went unvisited.
+     *
+     * The container itself was recorded — [record] ran before the guard — so what is lost is the
+     * subtree, and the number of children is the honest measure of it at this level. A scalar has
+     * none, and reaching the bound at one costs nothing.
+     */
+    private fun recordDepthStop(value: Variant) {
+        val children = when (value.basicType) {
+            VariantBasicType.OBJECT -> value.fieldCount
+            VariantBasicType.ARRAY -> value.elementCount
+            VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> 0
+        }
+        if (children > 0) recordTruncation(children)
+    }
+
+    /**
+     * Counts one container the walk saw only part of.
+     *
+     * The path is built here rather than at [build] because it is the path *of the container*, which
+     * the step stack holds only while the walk is inside it. Only the first is kept: a report needs an
+     * example to point at, and keeping every one would put a caller-controlled number of paths in a
+     * counter whose whole purpose is to say that a caller-controlled number was too large.
+     */
+    private fun recordTruncation(skipped: Int) {
+        truncatedContainers++
+        skippedChildren += skipped
+        if (firstTruncated == null) firstTruncated = CatalogPath(steps.toList())
     }
 
     /**

@@ -140,7 +140,10 @@ public object IndexQuery {
  * JSON null forces.
  */
 internal class Evaluator(path: CatalogPath, private val options: IndexOptions) {
-    private val extractor = TermExtractor(listOf(path), options)
+    // The reader's walk. `options` is still carried, for `maxTermBytes` below: that bound *is* applied
+    // symmetrically by the writer and the reader, which is what makes it the one budget a recheck has
+    // to keep rather than drop.
+    private val extractor = TermExtractor.reading(listOf(path))
 
     fun terms(document: Variant): Set<IndexTerm>? {
         var present = false

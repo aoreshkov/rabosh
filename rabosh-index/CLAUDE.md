@@ -39,6 +39,16 @@ segment outside `usableSegments` and must never answer emptily: an empty bitmap 
 "no matches here", which is an index changing an answer rather than a speed. `TermExtractor` is public for
 the same class of reason — the recheck has to *be* the code that built the index, not agree with it.
 
+**`TermExtractor` and `ElementExtractor` each come in two, and the pair is a correctness mechanism
+rather than an optimisation.** The constructor takes an `IndexOptions` and carries its `maxDepth` and
+`maxChildren`, because that walk runs inside flush and compaction; `reading(paths)` carries neither,
+because a recheck or a scan is a caller's question on the caller's thread. What ties them together is
+the third piece: a build whose walk hit either bound leaves its segment **not covered** by that index —
+`IndexCatalog` takes `PostingBuilder.overflowed`'s exit before writing any sidecar — so wherever an
+index answers, the bounded walk and the complete one saw the same children. Widen one without standing
+the other down, or the reverse, and the budget is back to costing documents; `.claude/rules/index-and-query.md`
+states it and `WalkTruncationTest` breaks in both directions.
+
 Since phase 22 there is a **third kind**, `COMPOSITE_TERM`, and the thing to understand about it is how
 little it added: its sidecar *is* a `.pst`, written by the same `PostingBuilder`, read by the same
 `PostingFile` and `IndexReader`, with the same dictionary, the same two posting encodings and the same

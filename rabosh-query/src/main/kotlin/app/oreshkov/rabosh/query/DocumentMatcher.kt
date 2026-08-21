@@ -16,6 +16,13 @@ import java.util.IdentityHashMap
  * index. A second, differently-shaped traversal would be a second definition of what a path means,
  * and the two would eventually disagree about an array or a nested null.
  *
+ * **Same walk, and deliberately no budget on it** — `TermExtractor.reading`, not the constructor the
+ * writer uses. This one decides answers, so a bound firing here would make what a predicate *means*
+ * depend on a number chosen to keep compaction cheap; and because a segment whose index build hit a
+ * budget is left uncovered, the documents an index answers for are exactly the documents on which the
+ * two walks visit the same children. The [IndexOptions] is still carried: `maxTermBytes` is the one
+ * bound the writer and the reader apply to the same bytes, and `lower` needs the rest.
+ *
  * **One walk per document, not one per leaf.** A single [TermExtractor] carries every distinct path
  * the predicate mentions, and its candidate narrowing prunes any subtree none of them reaches — so a
  * three-leaf predicate over shallow paths costs three field comparisons per document rather than
@@ -37,7 +44,7 @@ internal class DocumentMatcher(private val normal: Normal, private val options: 
      * signal at all. */
     internal val leaves: List<Normal.Leaf> = normal.leaves()
     private val paths = leaves.map { it.path }.distinct()
-    private val extractor = TermExtractor(paths, options)
+    private val extractor = TermExtractor.reading(paths)
 
     /** Leaf indices by path index, so one reported value is offered only to the leaves that want it. */
     private val leavesOfPath: Array<IntArray> = Array(paths.size) { pathIndex ->
@@ -59,7 +66,7 @@ internal class DocumentMatcher(private val normal: Normal, private val options: 
      * document's own walk is the one it always was.
      */
     private val elementNodes: List<Normal.Element> = normal.elements()
-    private val elementExtractor = ElementExtractor(elementNodes.map { it.path }, options)
+    private val elementExtractor = ElementExtractor.reading(elementNodes.map { it.path })
     private val elementMatchers: List<DocumentMatcher> = elementNodes.map { DocumentMatcher(it.inner, options) }
     private val indexOfElement = IdentityHashMap<Normal.Element, Int>(elementNodes.size).apply {
         elementNodes.forEachIndexed { index, node -> put(node, index) }

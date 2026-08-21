@@ -304,6 +304,14 @@ public final class app/oreshkov/rabosh/catalog/TextRange {
 	public fun toString ()Ljava/lang/String;
 }
 
+public final class app/oreshkov/rabosh/catalog/TruncatedWalkException : app/oreshkov/rabosh/catalog/CatalogException {
+	public fun <init> (JJJLapp/oreshkov/rabosh/catalog/CatalogPath;)V
+	public final fun getContainers ()J
+	public final fun getExample ()Lapp/oreshkov/rabosh/catalog/CatalogPath;
+	public final fun getSegmentNumber ()J
+	public final fun getSkippedChildren ()J
+}
+
 public final class app/oreshkov/rabosh/catalog/UnsupportedSketchFormatException : app/oreshkov/rabosh/catalog/CatalogException {
 	public fun <init> (Ljava/lang/String;)V
 }

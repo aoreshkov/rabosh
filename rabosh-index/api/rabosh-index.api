@@ -188,9 +188,15 @@ public final class app/oreshkov/rabosh/index/DamagedIndexPolicy : java/lang/Enum
 }
 
 public final class app/oreshkov/rabosh/index/ElementExtractor {
+	public static final field Companion Lapp/oreshkov/rabosh/index/ElementExtractor$Companion;
 	public fun <init> (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)V
+	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
 	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function2;)V
 	public final fun isEmpty ()Z
+}
+
+public final class app/oreshkov/rabosh/index/ElementExtractor$Companion {
+	public final fun reading (Ljava/util/List;)Lapp/oreshkov/rabosh/index/ElementExtractor;
 }
 
 public final class app/oreshkov/rabosh/index/IndexBuild {
@@ -437,9 +443,15 @@ public final class app/oreshkov/rabosh/index/RoaringPortable {
 }
 
 public final class app/oreshkov/rabosh/index/TermExtractor {
+	public static final field Companion Lapp/oreshkov/rabosh/index/TermExtractor$Companion;
 	public fun <init> (Ljava/util/List;Lapp/oreshkov/rabosh/index/IndexOptions;)V
+	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;)V
 	public final fun extract (Lapp/oreshkov/rabosh/variant/Variant;Lkotlin/jvm/functions/Function2;)V
 	public final fun isEmpty ()Z
+}
+
+public final class app/oreshkov/rabosh/index/TermExtractor$Companion {
+	public final fun reading (Ljava/util/List;)Lapp/oreshkov/rabosh/index/TermExtractor;
 }
 
 public final class app/oreshkov/rabosh/index/UnsupportedBitmapFormatException : app/oreshkov/rabosh/index/IndexException {

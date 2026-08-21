@@ -62,9 +62,19 @@ public class IndexOptions(
      * that an index records what the model measured, and set both in the same place —
      * [app.oreshkov.rabosh.catalog.DEFAULT_MAX_CHILDREN], where the argument for the number is.
      *
-     * Unlike [maxTermsPerSegment] this bound has **no escape**: a container wider than it contributes
-     * terms for its prefix, and the segment still reads as covered. See the catalog constant's KDoc
-     * for why that makes it the one budget in the engine that can cost a document silently.
+     * **It takes [maxTermsPerSegment]'s escape, and until it did it was the one budget in the engine
+     * that could cost a document silently.** A container wider than this is walked to the bound, so
+     * the terms recorded for a path under it are a *prefix* of the values the document holds there —
+     * and a dictionary holding some of a path's values with no record of which ones is an index that
+     * deletes documents from a result. So a segment in which this bound fired is left **not covered**
+     * by the index being built, exactly as one whose dictionary overflowed is, and the scan that
+     * replaces it walks the document whole: `TermExtractor.reading` carries no budget, because the
+     * argument for one is about background maintenance and a query is not that.
+     *
+     * The consequence to plan for is coverage, not correctness. Lowering this number costs scans;
+     * raising it costs walk time inside flush and compaction; neither changes an answer. A store
+     * whose containers are wider than this reports the shortfall in `IndexCatalog.problems` and in
+     * [IndexCoverage], which is what a caller tunes against.
      */
     public val maxChildren: Int = DEFAULT_MAX_CHILDREN,
 
