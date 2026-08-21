@@ -89,6 +89,35 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
         }
     }
 
+    /**
+     * This shape as an RFC 9535 query: `$['items'][:]['sku']`.
+     *
+     * The interchange spelling, and deliberately not the engine's. [toString] writes `$.items[*]`,
+     * which parses under RFC 9535 and **means something else** — `*` selects every child, of an
+     * object as well as an array, while [CatalogStep.AnyElement] selects array elements. Over
+     * `{"items":{"sku":"a"}}` the two nodelists differ, with nothing to say so. So `AnyElement` is
+     * written here as the slice `[:]`, which §2.3.4.2.2 defines over arrays alone — *"It selects no
+     * nodes from a node that is not an array"* — and the rendering means what the walk means over
+     * every document shape. `NodeWalkDifferentialTest` is where that equality is checked rather than
+     * claimed.
+     *
+     * Member names are single-quoted with §2.3.1.1's escapes, and a control character is written
+     * `\uXXXX` even where a named escape exists.
+     *
+     * **This is a query, and never a Normalized Path.** RFC 9535 §2.7 admits name selectors and
+     * non-negative index selectors only, so a shape carrying `AnyElement` has no normalized form at
+     * all — there is no single location to name. Two of these must therefore not be compared as
+     * text the way two `VariantPath.toNormalizedPath` strings can be; compare the paths.
+     *
+     * **This is not what the engine writes to disk.** A path is persisted as [toString] and read
+     * back by [parse]. Reach for this to hand a shape to something outside the engine, and for
+     * [toString] everywhere else.
+     *
+     * @throws IllegalArgumentException if a field name holds an unpaired surrogate, which RFC 9535
+     *   has no production for. A name decoded from a stored document cannot hold one.
+     */
+    public fun toJsonPath(): String = buildString { appendJsonPath(steps) }
+
     public companion object {
         /** The path that selects the document itself. */
         public val ROOT: CatalogPath = CatalogPath(emptyList())
@@ -163,6 +192,47 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
             }
             return CatalogPath(steps)
         }
+
+        /**
+         * Reads an RFC 9535 query as a shape, over the sub-language this type can represent.
+         *
+         * The inverse of [toJsonPath], and the reader to reach for when the expression came from
+         * outside the engine — a command line, a configuration file, or the same string a JSONPath
+         * evaluation was handed. [parse] reads the engine's own spelling and accepts neither single
+         * quotes nor RFC escapes; this one accepts both, which is what lets one expression be
+         * written once and used for both a filter and an extraction.
+         *
+         * Accepted: `$`, the shorthand `.name` and `.*`, and a bracketed `['name']`, `["name"]`,
+         * `[*]` or `[:]`, with blanks where §2.3.5's `S` allows them. Names carry §2.3.1.1's
+         * escapes, so `$['a\nb']` is `a`, newline, `b` — and **not** what [parse] makes of the same
+         * eight characters, where a backslash escapes the next character literally. The two
+         * grammars are different languages that happen to share a bracket.
+         *
+         * **`[*]` is accepted as [CatalogStep.AnyElement] while [toJsonPath] emits `[:]`, and the
+         * asymmetry is deliberate.** The two selectors do not mean the same thing — see
+         * [toJsonPath] — so the lenient direction takes what a consumer will type and the strict
+         * direction emits what cannot be misread. Postel's rule, applied where the meanings differ.
+         * Do not "fix" this into a symmetry: making the reader refuse `[*]` would reject the
+         * spelling every existing filter uses, and making the writer emit `[*]` would reintroduce a
+         * rendering that is wrong over objects.
+         *
+         * **A construct this type has no step for is refused by name, never approximated.** `[0]`,
+         * `..`, `[?…]`, a slice with a bound or a step, and two selectors in one segment each raise
+         * [PathNotRepresentableException] carrying the [PathConstruct] — so a caller can tell *a
+         * typo the operator can fix* from *a question this grammar does not ask*, which is the
+         * distinction an `IllegalArgumentException` from [parse] cannot make. Widening `$.items[0]`
+         * to `$.items[*]` would answer a question nobody asked.
+         *
+         * ```kotlin
+         * CatalogPath.parseJsonPath("""$['response']['body']['@type']""")   // = $.response.body["@type"]
+         * CatalogPath.parseJsonPath("$.items[*].sku")                       // = $.items[*].sku
+         * ```
+         *
+         * @throws PathNotRepresentableException if [expression] is a valid JSONPath query naming
+         *   something this type has no step for.
+         * @throws IllegalArgumentException with the offending position, for malformed input.
+         */
+        public fun parseJsonPath(expression: String): CatalogPath = parseJsonPathQuery(expression)
 
         private inline fun readQuoted(expression: String, from: Int, advance: (Int) -> Unit): String {
             var position = from

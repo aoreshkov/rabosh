@@ -189,6 +189,38 @@ public class VariantPath(public val steps: List<VariantPathStep>) {
          * @throws IllegalArgumentException with the offending position, for anything else.
          */
         public fun parseNormalized(expression: String): VariantPath = parseNormalizedPath(expression)
+
+        /**
+         * The location an RFC 9535 query names, or `null` when it does not name exactly one.
+         *
+         * The reader for an expression that came from outside the engine. [parse] reads the
+         * engine's own spelling and [parseNormalized] reads §2.7's; neither reads what a person
+         * types, which is §2.3.1.1's grammar — either quoting, RFC escapes, and the shorthand
+         * `.name`. So `$['content'][108]`, `$["content"][108]` and `$.content[108]` are all this
+         * one location, and all three answer.
+         *
+         * **`null` is an answer and not a failure, which is why this throws nothing at all.** A
+         * wildcard, a slice, a descendant, a filter and a negative index each name something other
+         * than one location; so does a typo; and the caller's response to both is the same — do
+         * whatever it did before. The distinction between them is a different question, and
+         * `CatalogPath.parseJsonPath` one module up is where it is asked and answered by name.
+         *
+         * **The use this exists for is deciding whether a projection can be pushed down**, and the
+         * check a caller writes without it is `parse(e).toString() == e`, which fails closed on
+         * every valid expression the two grammars spell differently: `$["response"]["body"]`
+         * round-trips to `$.response.body`, misses the equality, and silently costs the caller its
+         * column projection. That is a stringly-typed test of a semantic property. This is the
+         * property.
+         *
+         * ```kotlin
+         * VariantPath.parseJsonPathOrNull("""$['a']['b']""")   // = $.a.b
+         * VariantPath.parseJsonPathOrNull("$.a[0]")            // = $.a[0]
+         * VariantPath.parseJsonPathOrNull("$.a[*]")            // null: not one location
+         * VariantPath.parseJsonPathOrNull("$.a[-1]")           // null: one location per document
+         * ```
+         */
+        public fun parseJsonPathOrNull(expression: String): VariantPath? =
+            parseSingularJsonPathOrNull(expression)
     }
 }
 

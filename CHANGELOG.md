@@ -15,6 +15,58 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **One spelling for a filter and an extraction — `CatalogPath.toJsonPath` / `parseJsonPath`,
+  `VariantPath.parseJsonPathOrNull`, and `PathNotRepresentableException`.** The engine speaks four
+  path grammars and a consumer holding two of them could not write one expression that both would
+  take: `CatalogPath.parse` accepts `"` only, RFC 9535 accepts both quotings, and on Windows a shell
+  eats the inner double quotes — so the portable spelling of a name selector was the one a filter
+  rejected. Purely additive: the committed ABI dumps grow by eighteen lines and lose none, no
+  existing signature moved, and nothing on disk means anything different.
+
+  **The two engine readers are untouched, and that is not caution.** A path is *persisted* as
+  `CatalogPath.toString` and read back by `parse`, so widening `parse` to take single quotes would
+  change what stored bytes mean — and worse, it would put two escaping rules behind one
+  quote-agnostic reader, where `$["a\nb"]` and `$['a\nb']` would name different fields *in the same
+  grammar*. The divergence stays at a named boundary instead of moving inside a parser.
+
+  **`AnyElement` is written as the slice `[:]` and read from either `[:]` or `[*]`, and the asymmetry
+  is the design.** `toString` renders `$.items[*]`, which parses under RFC 9535 and means something
+  else: `*` selects every child, of an object as well as an array. §2.3.4.2.2 defines the slice over
+  arrays alone, so `[:]` is the selector that means what the walk means over every document shape.
+  Reading is lenient because `[*]` is what a consumer types; writing is strict because a rendering
+  that is wrong over objects is worse than one that is unfamiliar. `NodeWalkDifferentialTest` pins
+  both halves — the equality for `[:]` and the divergence for `[*]` — and the rendering it used to
+  build privately is now the published one.
+
+  **`parseJsonPathOrNull` returns `null` rather than throwing, and that is the whole feature.** The
+  check a consumer writes without it is `parse(e).toString() == e`, a stringly-typed test of a
+  semantic property that fails **closed**: `$["response"]["body"]` round-trips to `$.response.body`,
+  misses the equality, and silently costs the caller its column projection — observable only through
+  `Explain.projectsFromColumns`. The `…OrNull` pairing is the standard library's own convention, and
+  it removes the `runCatching { … }.getOrNull()` such a caller reaches for, which catches `Throwable`
+  and swallows a cancellation along with the typo.
+
+  **A construct is refused by name; a typo is not.** `[0]`, `..`, `[?…]`, a bounded or stepped slice,
+  and two selectors in one segment each raise `PathNotRepresentableException` carrying a
+  `PathConstruct`, so *fix your path* can be answered differently from *use the other flag*. Until
+  now both arrived as `IllegalArgumentException` and differed only in prose — the argument
+  `JsonPathLimitExceededException` already makes one case earlier, applied to a fourth. It is a
+  **subclass** of `IllegalArgumentException` rather than a new hierarchy: every existing
+  `catch (IllegalArgumentException)` and `catch (RuntimeException)` around a path parse keeps working
+  unchanged, and a caller wanting the distinction catches the narrower type first.
+
+  **What this does not do**, because a grammar alignment is not a capability: `--where`-style filters
+  still cannot say `..`, a filter selector or an index, and `[*]` still means array elements to a
+  catalog path and every child to RFC 9535. The refusal is now legible instead of silent; it is
+  still a refusal.
+
+  The escape decoder is implemented twice — `rabosh-variant` cannot see `rabosh-catalog`'s and
+  neither may depend on `rabosh-jsonpath` — for the reason `ColumnBounds` gives about the bound
+  codec. `PathReaderDifferentialTest` is what makes that safe: both are compared against
+  `JsonPathQuery`, the module that implements the whole RFC and knows about neither, over an object
+  holding every name the three could decode differently. Comparing the two copies with each other
+  would pass for two readers that agree and are both wrong.
+
 - **`scanPrefix`, `deletePrefix` and `Key.startsWith` — because a prefix is not a range, and
   spelling it as one fails silently.** `DocumentStore` and `Rabosh` both gain the two verbs; `Key`
   gains the predicate underneath them. Purely additive: no existing signature moved, the committed

@@ -20,8 +20,8 @@ wrap all of the API or none of it. Two tiers cost nothing and say what the evide
 Small on purpose. It is the surface the README's examples call, the surface the samples call, and
 nothing in it has moved in three releases. It has *gained* declarations — `checkpoint`,
 `deleteRange`, `Key.successor`, `CheckpointInfo`, `LockHolder`, `ExplainTypeNote`, `ShreddingAdvice`,
-`Variant.detached` and the JSONPath limits all arrived in 0.3.0 — which is the compatible direction
-and the only one this list has moved in.
+`Variant.detached` and the JSONPath limits all arrived in 0.3.0, and the four path-interchange
+declarations since — which is the compatible direction and the only one this list has moved in.
 
 **`rabosh-api`** — `Rabosh` (`open`, `close`, `put`, `get`, `delete`, `deleteRange`, `write`, `scan`,
 `snapshot`, `query`, `keys`, `explain`, `createIndex`, `createIndexInBackground`,
@@ -43,13 +43,19 @@ and the only one this list has moved in.
 `IndexBuildState`, `IndexCoverage`, `IndexOptions`, `DamagedIndexPolicy`, `CompositeSegmentObserver`,
 and the whole `IndexException` hierarchy.
 
-**`rabosh-catalog`** — `CatalogPath`, `CatalogStep` and the node walk, `InferredSchema`,
+**`rabosh-catalog`** — `CatalogPath` (including `toJsonPath` and `parseJsonPath`), `CatalogStep` and
+the node walk, `PathNotRepresentableException` and `PathConstruct`, `InferredSchema`,
 `InferredField` (except its `sketch`), `CatalogCoverage`, `IndexCandidate`, `IndexCandidateOptions`,
 `IndexKind`, `ValueBounds`, `NumericRange`, `TextRange`, `CatalogOptions`, `DamagedSketchPolicy`,
 `ShreddingAdvice` and `InferredSchema.shreddingAdvice`, and the whole `CatalogException` hierarchy.
 
-**`rabosh-variant`** — `Variant` and its readers including `detached`, `VariantNode`, `VariantPath`,
-`VariantPathStep`,
+`PathNotRepresentableException` is listed rather than left experimental for the reason the JSONPath
+limits are: it exists to be **caught**, and a catch target a caller cannot rely on is not one. It is
+a subclass of `IllegalArgumentException` and deliberately outside `CatalogException`, which is sealed
+and describes state a store got into rather than an argument a caller passed.
+
+**`rabosh-variant`** — `Variant` and its readers including `detached`, `VariantNode`, `VariantPath`
+(including `parseJsonPathOrNull`), `VariantPathStep`,
 `VariantKind`, `VariantBasicType`, `VariantPrimitiveType`, `VariantBuilder`, `VariantMetadata`,
 `DuplicateFieldPolicy`, `toJsonString` / `toJsonSummaryString`, and the whole `VariantException`
 hierarchy.

@@ -217,6 +217,7 @@ public final class app/oreshkov/rabosh/variant/VariantPath {
 public final class app/oreshkov/rabosh/variant/VariantPath$Companion {
 	public final fun getROOT ()Lapp/oreshkov/rabosh/variant/VariantPath;
 	public final fun parse (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
+	public final fun parseJsonPathOrNull (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
 	public final fun parseNormalized (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/VariantPath;
 }
 
