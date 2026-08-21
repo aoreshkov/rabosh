@@ -15,6 +15,29 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`PATHS.md` — the four path grammars in one place, with its tables as a test.** The repository has
+  four path readers and six entry points onto them. `$.items[*].sku` is read by three of those six,
+  and means *array elements* to a filter and *every child, object members included* to RFC 9535; a
+  backslash escapes literally on one side of that line and by JSON's rules on the other. Neither
+  divergence has a diagnostic, and until now the escaping rule was stated in exactly one KDoc and the
+  quote-style rule in none — one document existing where three readers need it.
+
+  It sits beside `COMPATIBILITY.md`, `STABILITY.md` and `INTEGRATION.md`, and covers the same kind of
+  thing they do: the traps, the reader and writer tables, the recipe for one expression that serves
+  both a filter and an extraction, why `[:]` is the interchange spelling of `[*]`, how to ask *does
+  this name one location* without the `parse(e).toString() == e` check that fails closed, and the
+  three ways a path can be rejected of which only one is the caller's typo.
+
+  **The tables are `PathGrammarTest`, not prose.** A comparison table is documentation that is true
+  when it is written and false a release later, quietly, because nothing reads it but a person. Every
+  cell of both tables is an assertion in `rabosh-jsonpath`'s test source set — the only one that sees
+  all four grammars, through the test-only dependency edge that already exists there. The division:
+  a reader's own suite owns its behaviour in depth, the table test owns only the relationships
+  *between* readers, and the document renders what the test asserts.
+
+  Documentation and one test; no API change, no behaviour change, no format change.
+
+
 - **One spelling for a filter and an extraction — `CatalogPath.toJsonPath` / `parseJsonPath`,
   `VariantPath.parseJsonPathOrNull`, and `PathNotRepresentableException`.** The engine speaks four
   path grammars and a consumer holding two of them could not write one expression that both would

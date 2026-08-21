@@ -41,6 +41,13 @@ import app.oreshkov.rabosh.variant.VariantNode
  * of the name — a query re-parsed per document is what this API exists to stop. One instance may be
  * applied to any number of documents from any number of threads at once.
  *
+ * **This grammar is a superset of the engine's two, and `PATHS.md` is where they are compared.**
+ * `$.items[*]` compiles here and in `CatalogPath.parse` and does not mean the same thing — `*`
+ * selects every child, a catalog path's `[*]` selects array elements — so an expression written once
+ * and handed to both selects different nodes over an object with nothing to say so. That document
+ * carries the table, the two boundary readers that cross the gap, and the slice `[:]` that means
+ * over every document shape what a catalog path's wildcard means.
+ *
  * @see forEachNodeIn for the lifetime rule the results carry.
  */
 public class JsonPathQuery private constructor(

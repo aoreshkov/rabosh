@@ -21,6 +21,12 @@ public sealed interface VariantPathStep {
  * a parsed list of steps rather than as a string means that comparison, prefixing and grouping are
  * exact rather than textual — `$["a.b"]` and `$.a.b` are different locations and must never
  * compare equal.
+ *
+ * **`PATHS.md` compares this grammar with the other three**, which is where to look before handing
+ * one expression to two of them: [parse] reads `"` and a backslash literally, §2.7 reads `'` and
+ * seven escapes, and RFC 9535 reads both quotings and its own escapes. [parseJsonPathOrNull] is the
+ * reader for an expression that came from outside the engine, and the one to reach for instead of
+ * comparing `parse(e).toString()` with `e`.
  */
 public class VariantPath(public val steps: List<VariantPathStep>) {
     /** `true` for the path that selects the document itself. */

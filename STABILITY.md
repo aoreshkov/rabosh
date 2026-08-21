@@ -49,6 +49,10 @@ the node walk, `PathNotRepresentableException` and `PathConstruct`, `InferredSch
 `IndexKind`, `ValueBounds`, `NumericRange`, `TextRange`, `CatalogOptions`, `DamagedSketchPolicy`,
 `ShreddingAdvice` and `InferredSchema.shreddingAdvice`, and the whole `CatalogException` hierarchy.
 
+The path declarations in that list and in `rabosh-variant`'s below it are four grammars rather than
+one, and which of them reads what is in [PATHS.md](PATHS.md) — this document says what may move,
+that one says what the things mean.
+
 `PathNotRepresentableException` is listed rather than left experimental for the reason the JSONPath
 limits are: it exists to be **caught**, and a catch target a caller cannot rely on is not one. It is
 a subclass of `IllegalArgumentException` and deliberately outside `CatalogException`, which is sealed

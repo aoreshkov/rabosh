@@ -69,6 +69,12 @@ them at the latest stable release; do not adopt pre-releases (e.g. Kotlin `-Beta
 - **The runtime contract lives in `INTEGRATION.md`** — JDK floor, the native-access question, one
   writer, the `AutoCloseable`s, copy-before-`next()`. A sentence about bytes on disk belongs in
   `COMPATIBILITY.md` and is linked, never moved.
+- **The four path grammars are compared in `PATHS.md`, and its tables are a test.** `PathGrammarTest`
+  in `rabosh-jsonpath`'s test source set — the only one that sees all four — asserts every cell, so
+  the document cannot quietly go stale the way a comparison table otherwise does. Deepen a reader's
+  own behaviour in that reader's own suite; add a cell here only when the document gains a row. A
+  KDoc explains one reader; this explains the *relationships*, which is what a consumer holding two
+  of them needs and no single module can state.
 - **No module needs `--enable-native-access`, and that is checked**:
   `:rabosh-samples:runThreeStepsOnModulePath` runs under `--illegal-native-access=deny` with no grant.
   `FileChannel::map` is not a restricted method; do not add the flag back on the assumption that it is.
