@@ -57,7 +57,20 @@ public class TermExtractor(
     private val paths: List<CatalogPath>,
     private val options: IndexOptions,
 ) {
-    private val all = IntArray(paths.size) { it }
+    /**
+     * A walk state is one `(path, position)` pair packed into an `Int`, and this is the base.
+     *
+     * One past the longest path, so a position of *size* — meaning **arrived** — is still inside its
+     * path's range and no two paths can collide. Positions are small (a path is a value a caller
+     * wrote) and so is the path count (one per indexed path), so the product cannot overflow.
+     */
+    private val stride = (paths.maxOfOrNull { it.steps.size } ?: 0) + 1
+
+    /** Whether any path holds a `..`. Every widening below is skipped when it does not. */
+    private val anyDescendant =
+        paths.any { path -> path.steps.any { it === CatalogStep.AnyDescendant } }
+
+    private val all = IntArray(paths.size) { it * stride }
 
     /** Whether there is anything to extract. */
     public val isEmpty: Boolean get() = paths.isEmpty()
@@ -122,65 +135,137 @@ public class TermExtractor(
     private fun walk(
         value: Variant,
         depth: Int,
-        candidates: IntArray,
+        arriving: IntArray,
         onTruncated: (Int) -> Unit,
         sink: (Int, Variant) -> Unit,
     ) {
+        val states = closure(arriving)
         when (value.basicType) {
             VariantBasicType.OBJECT -> {
-                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
+                if (depth >= options.maxDepth) return reportTruncated(states, onTruncated) { true }
                 val children = minOf(value.fieldCount, options.maxChildren)
-                if (children < value.fieldCount) reportTruncated(candidates, depth, onTruncated)
+                if (children < value.fieldCount) reportTruncated(states, onTruncated) { true }
                 for (index in 0 until children) {
                     val name = value.fieldName(index)
-                    val next = narrow(candidates, depth) { it is CatalogStep.Field && it.name == name }
+                    val next = advance(states) { it is CatalogStep.Field && it.name == name }
                     if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, onTruncated, sink)
                 }
             }
 
             VariantBasicType.ARRAY -> {
-                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
+                if (depth >= options.maxDepth) return reportTruncated(states, onTruncated) { true }
                 // One step for the whole array, not one per index: an index over `$.tags[*]` is over
                 // the values, and which position a value happened to occupy is not what a query asks.
-                val next = narrow(candidates, depth) { it is CatalogStep.AnyElement }
+                val next = advance(states) { it is CatalogStep.AnyElement }
                 if (next.isEmpty()) return
                 val children = minOf(value.elementCount, options.maxChildren)
-                if (children < value.elementCount) reportTruncated(next, depth, onTruncated)
+                // Reported over the states as they stood *at* the array, filtered to the ones an
+                // element would have carried — a state that already advanced past its last step has
+                // arrived, and the elements it never saw are what the bound cost.
+                if (children < value.elementCount) reportTruncated(states, onTruncated) { step ->
+                    step is CatalogStep.AnyElement || step === CatalogStep.AnyDescendant
+                }
                 for (index in 0 until children) walk(value.element(index), depth + 1, next, onTruncated, sink)
             }
 
             VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> {
-                for (candidate in candidates) {
-                    // A candidate has matched `depth` steps; it is a *complete* match only if that is
+                for (state in states) {
+                    // A state has matched `position` steps; it is a *complete* match only if that is
                     // all the steps it has. A path that continues deeper does not match a scalar.
-                    if (paths[candidate].steps.size != depth) continue
-                    sink(candidate, value)
+                    if (positionOf(state) != paths[pathOf(state)].steps.size) continue
+                    sink(pathOf(state), value)
                 }
             }
         }
     }
 
-    private inline fun narrow(candidates: IntArray, depth: Int, matches: (CatalogStep) -> Boolean): IntArray {
+    /**
+     * The states reachable from [states] without consuming a child: across a `..`, which matches at
+     * zero levels as well as below.
+     *
+     * **This is what makes a descendant path an automaton rather than a cursor.** Without one, a
+     * path's progress is its depth — step *n* is matched at level *n* — and one integer per path is
+     * the whole state. `..` breaks that: after it, the next step may match here, or one level down,
+     * or twenty, so a path is at *several* positions at once and the walk carries a set of
+     * `(path, position)` pairs instead. `CatalogPath` forbids two `..` in a row, which is what makes
+     * one pass enough here rather than a fixpoint.
+     *
+     * A store that indexes no descendant path never reaches the body — [anyDescendant] is false, the
+     * array is returned unchanged, and the walk is exactly the one it was, allocation for allocation.
+     * That is deliberate: this runs inside every flush and every compaction.
+     */
+    private fun closure(states: IntArray): IntArray {
+        if (!anyDescendant) return states
+        var extra = 0
+        for (state in states) if (isAtDescendant(state)) extra++
+        if (extra == 0) return states
+        val widened = IntArray(states.size + extra)
         var count = 0
-        val kept = IntArray(candidates.size)
-        for (candidate in candidates) {
-            val steps = paths[candidate].steps
-            if (depth < steps.size && matches(steps[depth])) kept[count++] = candidate
+        for (state in states) {
+            widened[count++] = state
+            if (isAtDescendant(state)) widened[count++] = state + 1
         }
+        return distinct(widened, count)
+    }
+
+    /**
+     * The states one child down: a step that matches consumes the child, and a `..` stays where it is.
+     *
+     * The second half is the descent rule in one line — a descendant is still open at every node
+     * below the one it was written at, so its state is copied down unchanged and its *successor* is
+     * what [closure] tries at each level.
+     */
+    private inline fun advance(states: IntArray, matches: (CatalogStep) -> Boolean): IntArray {
+        var count = 0
+        val kept = IntArray(states.size)
+        for (state in states) {
+            val steps = paths[pathOf(state)].steps
+            val position = positionOf(state)
+            if (position >= steps.size) continue
+            val step = steps[position]
+            when {
+                step === CatalogStep.AnyDescendant -> kept[count++] = state
+                matches(step) -> kept[count++] = state + 1
+            }
+        }
+        if (anyDescendant) return distinct(kept, count)
         return if (count == kept.size) kept else kept.copyOf(count)
     }
 
     /**
-     * Reports the candidates a container's bound could have cost, which is not all of them.
+     * Reports the paths a container's bound could have cost, which is not all of them.
      *
      * A path that has consumed every step it has is *arrived*: it reports at a scalar and matches
      * nothing below a container, so a skipped child could not have carried a value for it. Including
      * it would uncover a segment on the strength of a path the bound never touched. The test is
-     * `narrow`'s own — a candidate is alive at this depth only while `depth < steps.size`.
+     * [advance]'s own — a state is alive here only while its position is inside its path.
+     *
+     * A path at two positions reports twice, which the caller already tolerates: `IndexCatalog` sets
+     * a flag, and the KDoc above says this reports events rather than a set.
      */
-    private inline fun reportTruncated(candidates: IntArray, depth: Int, onTruncated: (Int) -> Unit) {
-        for (candidate in candidates) if (depth < paths[candidate].steps.size) onTruncated(candidate)
+    private inline fun reportTruncated(
+        states: IntArray,
+        onTruncated: (Int) -> Unit,
+        alive: (CatalogStep) -> Boolean,
+    ) {
+        for (state in states) {
+            val steps = paths[pathOf(state)].steps
+            val position = positionOf(state)
+            if (position < steps.size && alive(steps[position])) onTruncated(pathOf(state))
+        }
     }
+
+    private fun isAtDescendant(state: Int): Boolean {
+        val steps = paths[pathOf(state)].steps
+        val position = positionOf(state)
+        return position < steps.size && steps[position] === CatalogStep.AnyDescendant
+    }
+
+    private fun pathOf(state: Int): Int = state / stride
+
+    private fun positionOf(state: Int): Int = state % stride
+
+    private fun distinct(states: IntArray, count: Int): IntArray = distinctStates(states, count)
 
     public companion object {
         /**
@@ -214,4 +299,25 @@ public class TermExtractor(
 
         internal val UNBOUNDED: IndexOptions = IndexOptions(maxDepth = Int.MAX_VALUE, maxChildren = Int.MAX_VALUE)
     }
+}
+
+/**
+ * The first [count] entries of [states], sorted and with duplicates removed.
+ *
+ * **A duplicate is not a tidiness question, it is a wrong column.** Two descendants in one path can
+ * reach the same `(path, position)` by two routes — one where a `..` stayed open and one where the
+ * step before it consumed a child — and a walk that kept both would report the value at that path
+ * twice for one document. An inverted index would shrug, because a posting list is a set of
+ * ordinals; a shredded column stores **one slot per occurrence**, so the second copy would be a
+ * value the document does not have, in a file whose bounds and block statistics are then computed
+ * over it. The states are ints and there are a handful of them, so a sort is the cheapest correct
+ * answer, and it runs only for a store that indexes a descendant path.
+ */
+internal fun distinctStates(states: IntArray, count: Int): IntArray {
+    if (count <= 1) return if (count == states.size) states else states.copyOf(count)
+    val sorted = states.copyOf(count)
+    sorted.sort()
+    var unique = 1
+    for (index in 1 until count) if (sorted[index] != sorted[index - 1]) sorted[unique++] = sorted[index]
+    return if (unique == count) sorted else sorted.copyOf(unique)
 }

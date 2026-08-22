@@ -506,6 +506,22 @@ feature at all. An ordered-key LSM is unusually good at it: a range scan reassem
 contiguous read, and `$.items[*].sku` collapses to `$.sku`. Split when the elements are the things you
 query; use `elemMatch` when the document is.
 
+**A filter can say *anywhere*, and on a self-describing corpus it has to.** `$..["@type"]` is an
+ordinary predicate leaf and an ordinary inverted index — the discriminator wherever it sits, at any
+depth, under objects and under arrays:
+
+```kotlin
+db.createIndex(IndexDefinition.inverted("""$..["@type"]"""))
+db.query(Query.where(path("""$..["@type"]""") eq "type.googleapis.com/CityDTO"))
+```
+
+The alternative is an enumeration of the shapes, and it was measured rather than assumed: on a 46 MB
+protobuf-JSON dump, 72% of tagged elements belong to a type occupying **more than one** shape, one
+type occupies 49, and four months of drift added 29 new ones. A shape missing from that list is a
+document missing from a result, with nothing to report it. The cost is stated where it is paid — a
+descendant candidate never prunes, so that index walks each document whole while it builds — and the
+model still describes shapes, so nothing recommends one for you. [PATHS.md](PATHS.md) has the rest.
+
 **Where the walk needs a condition rather than a path, there is a JSONPath query.** A `CatalogPath`
 says *where*; a filter says *which*, and no sink or wrapper turns the first into the second. So
 `rabosh-jsonpath` compiles RFC 9535 and applies it to a document you are already holding:

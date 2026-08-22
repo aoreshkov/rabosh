@@ -72,6 +72,13 @@ public final class app/oreshkov/rabosh/catalog/CatalogStateException : app/oresh
 public abstract interface class app/oreshkov/rabosh/catalog/CatalogStep {
 }
 
+public final class app/oreshkov/rabosh/catalog/CatalogStep$AnyDescendant : app/oreshkov/rabosh/catalog/CatalogStep {
+	public static final field INSTANCE Lapp/oreshkov/rabosh/catalog/CatalogStep$AnyDescendant;
+	public fun equals (Ljava/lang/Object;)Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
 public final class app/oreshkov/rabosh/catalog/CatalogStep$AnyElement : app/oreshkov/rabosh/catalog/CatalogStep {
 	public static final field INSTANCE Lapp/oreshkov/rabosh/catalog/CatalogStep$AnyElement;
 	public fun equals (Ljava/lang/Object;)Z

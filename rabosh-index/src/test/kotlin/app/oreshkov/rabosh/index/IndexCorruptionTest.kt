@@ -373,6 +373,48 @@ class IndexCorruptionTest {
         }
     }
 
+    /**
+     * **A path this build cannot read is unsupported, not damaged**, and the distinction is the one
+     * thing a downgrade turns on.
+     *
+     * The registry stores a path as text and reads it with `CatalogPath.parse`, so it is the one
+     * field here whose *vocabulary* can grow: `..` became a step in a later release, and a registry
+     * written by that build carries a path this reader cannot parse. Every byte is intact and the
+     * checksum agrees, so reporting damage would send somebody looking for a failing disk — and
+     * under `DamagedIndexPolicy.REBUILD` it would **delete an index definition**, which is the one
+     * piece of derived data that cannot be rebuilt from a segment.
+     *
+     * Simulated by writing a path the *current* parser rejects, which is exactly the shape a future
+     * step would take.
+     */
+    @Test
+    fun `a registry naming a path this build cannot parse is unsupported rather than damaged`() {
+        val encoded = IndexRegistry.encode(
+            RegistryContents(3, listOf(IndexHandle(1, IndexDefinition.inverted("$.team"), 10))),
+        )
+        // The same width, so only the *vocabulary* changes — and then the checksum is recomputed,
+        // because a file from a newer build is intact by definition and a mismatched one would be
+        // testing the checksum instead of the parser.
+        val text = String(encoded, Charsets.ISO_8859_1).replace("$.team", "$.tea~")
+        val fromTheFuture = text.toByteArray(Charsets.ISO_8859_1)
+        val body = fromTheFuture.copyOfRange(IndexFormat.REGISTRY_HEADER_BYTES, fromTheFuture.size)
+        writeU32(
+            fromTheFuture,
+            16,
+            IndexFormat.checksum(fromTheFuture, IndexFormat.MAGIC_BYTES, 8, body),
+        )
+
+        val failure = runCatching { IndexRegistry.decode(fromTheFuture, "INDEXES") }.exceptionOrNull()
+        assertTrue(
+            failure is UnsupportedIndexFormatException,
+            "a path from a newer grammar must read as unsupported, not as corruption: $failure",
+        )
+        assertTrue(
+            failure.message!!.contains("newer release"),
+            "and must say so, since the fix is a newer build rather than a rebuild: ${failure.message}",
+        )
+    }
+
     @Test
     fun `a truncated registry is reported at every offset`() {
         sweepTruncations(registryFile(), "registry") { IndexRegistry.decode(it, "INDEXES") }

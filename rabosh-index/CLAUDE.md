@@ -87,3 +87,12 @@ them — a heap `select` and a mapped `select` that disagreed would make a query
 depending on whether the sidecar it read had been flushed yet. And **a constructive operation never mutates
 an operand**: `materialise()` hands back the receiver itself for a heap block, so an implementation that
 wrote into it would corrupt the bitmap it was reading while still returning the right answer.
+
+**The two extractors are automata since `..` became a step, and the state encoding is shared
+deliberately.** A `(path, position)` pair packed into an `Int`, a closure across a descendant, a
+dedupe of the result — written twice, in `TermExtractor` and `ElementExtractor`, because the two
+differ in their *sink* (scalars against containers) and a shared base class would have had to
+parameterise exactly the line that differs. What holds them together is
+`NodeExpansionDifferentialTest` and `DescendantWalkTest`, not a superclass. The dedupe is not
+tidiness: two descendants in one path reach the same state by two routes, and a duplicate is a value
+stored twice in a **shredded column**, whose slots are per occurrence.

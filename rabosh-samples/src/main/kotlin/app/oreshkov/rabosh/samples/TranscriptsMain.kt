@@ -3,9 +3,9 @@ package app.oreshkov.rabosh.samples
 import app.oreshkov.rabosh.api.Rabosh
 import app.oreshkov.rabosh.api.RaboshOptions
 import app.oreshkov.rabosh.catalog.CatalogPath
-import app.oreshkov.rabosh.catalog.CatalogStep
 import app.oreshkov.rabosh.catalog.IndexCandidateOptions
 import app.oreshkov.rabosh.catalog.InferredField
+import app.oreshkov.rabosh.catalog.forEachNodeIn
 import app.oreshkov.rabosh.core.Key
 import app.oreshkov.rabosh.core.StoreOptions
 import app.oreshkov.rabosh.core.WriteBatch
@@ -424,34 +424,29 @@ object TranscriptsMain {
     /**
      * Every string value [document] carries at [path].
      *
-     * Plural, and that is the whole reason this is written out rather than delegating to
-     * `Variant.select`. A [CatalogPath] can contain [CatalogStep.AnyElement] — the `[*]` that makes
-     * `$.message.content[*].name` one path rather than an unbounded family of them — and a
-     * `VariantPath` cannot: its steps are a field or a fixed index, because `select` returns one
-     * value and a wildcard does not have one. The catalog counts occurrences and the accessor
-     * retrieves a value; they are different questions and they need different path languages. Walking
-     * the wildcard here is what lets a *repeated* path be a candidate at all, and repeated paths are
-     * where the interesting terms in this corpus live.
+     * Plural, and that is the whole reason `Variant.select` is not what this calls. A [CatalogPath]
+     * can contain `[*]` — the step that makes `$.message.content[*].name` one path rather than an
+     * unbounded family of them — and a `VariantPath` cannot: its steps are a field or a fixed index,
+     * because `select` returns one value and a wildcard does not have one. The catalog counts
+     * occurrences and the accessor retrieves a value; they are different questions in different path
+     * languages. Walking the wildcard is what lets a *repeated* path be a candidate at all, and
+     * repeated paths are where the interesting terms in this corpus live.
+     *
+     * **This used to be that walk, written out by hand.** `CatalogPath.forEachNodeIn` is the engine's
+     * own, and the reason to prefer it is not brevity: a hand-rolled expander has to grow a branch
+     * every time the step type does, and the one written here would have silently ignored a `..`
+     * rather than descending — the exact failure the function's KDoc describes as *"everybody who
+     * indexed an array path was writing that walk by hand, differently each time"*.
      *
      * Non-strings are dropped rather than stringified: an inverted index brackets by type, so a term
      * that came from a number would be a term the query could never match.
      */
     private fun stringsAt(document: Variant, path: CatalogPath): List<String> {
-        var reached = listOf(document)
-        for (step in path.steps) {
-            val next = ArrayList<Variant>()
-            for (node in reached) {
-                when (step) {
-                    is CatalogStep.Field ->
-                        if (node.kind == VariantKind.OBJECT) node.field(step.name)?.let(next::add)
-                    is CatalogStep.AnyElement ->
-                        if (node.kind == VariantKind.ARRAY) next.addAll(node.elements())
-                }
-            }
-            if (next.isEmpty()) return emptyList()
-            reached = next
+        val strings = ArrayList<String>()
+        path.forEachNodeIn(document) { node ->
+            if (node.value.kind == VariantKind.STRING) strings.add(node.value.stringValue())
         }
-        return reached.filter { it.kind == VariantKind.STRING }.map { it.stringValue() }
+        return strings
     }
 
     // --- plumbing ---------------------------------------------------------------------------------

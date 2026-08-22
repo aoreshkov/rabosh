@@ -49,6 +49,25 @@ differential suites that hold every claim here in `.claude/rules/testing.md`.
   under-counted sketch is a recommendation that ranks low, not a document that goes missing, so a
   partial model is written and kept and the shortfall is reported as `TruncatedWalkException` in
   `SchemaCatalog.problems`. Truncating is allowed; being silent about it is not.
+- **A descendant path makes the writers' walk an automaton, and the states must be deduplicated.**
+  Without a `..` a path's progress *is* its depth — step *n* matches at level *n* — and one integer per
+  path is the whole state. `CatalogStep.AnyDescendant` breaks that: the step after it may match here,
+  or one level down, or twenty, so `TermExtractor` and `ElementExtractor` carry a set of
+  `(path, position)` pairs. Two rules hold it up. **A `..` state descends unchanged and its successor
+  is retried at every node**, which is the whole descent; and **states are deduplicated**, because a
+  path with two descendants reaches the same `(path, position)` by two routes and a walk that kept
+  both would report one value twice — which an inverted index shrugs off, since a posting list is a
+  set of ordinals, and a **shredded column would not**, since it stores one slot per occurrence. The
+  widening and the dedupe are skipped entirely when no path holds a `..`, so a store that spells none
+  gets the walk it always had, allocation for allocation.
+
+  Two consequences to keep true. **A descendant never prunes**, so *an unindexed subtree is not walked
+  at all* stops holding for a store that defines one, and that cost belongs in the KDoc rather than in
+  a surprise. And **a sketch can never emit one** — `SegmentSketchBuilder` walks documents and only
+  documents — which is the invariant that let one type hold both a collapse and a pattern instead of
+  forcing a third path type; `SchemaInferenceTest` asserts it over generated corpora rather than
+  leaving it to the type's documentation.
+
 - **An index over a segment is sound at a snapshot if and only if the snapshot's sequence is at or
   above that segment's largest sequence.** An observation reports only the newest version of each key,
   and a segment holds older versions precisely when a snapshot pinned them — so a reader older than the

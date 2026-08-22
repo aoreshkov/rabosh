@@ -131,8 +131,6 @@ class CatalogJsonPathTest {
         for ((expression, construct) in listOf(
             "$.items[0]" to PathConstruct.INDEX,
             "$.items[-1]" to PathConstruct.INDEX,
-            "$..sku" to PathConstruct.DESCENDANT,
-            """$..['sku']""" to PathConstruct.DESCENDANT,
             """$.items[?@.sku == 'a']""" to PathConstruct.FILTER,
             "$.items[1:3]" to PathConstruct.SLICE,
             "$.items[::2]" to PathConstruct.SLICE,
@@ -144,6 +142,36 @@ class CatalogJsonPathTest {
             }
             assertEquals(construct, failure.construct, expression)
         }
+    }
+
+    /**
+     * `..` was on that list until this type had a step for it, and the row it left behind is worth
+     * keeping: `PathConstruct.DESCENDANT` is still an entry nobody raises, because removing a value
+     * from an enum a caller may `when` over buys nothing and breaks a build.
+     *
+     * The bare `$..` is the asymmetry to know about. It is a catalog path — every node, root
+     * included — and it is **not** a JSONPath query, because RFC 9535's descendant segment must
+     * carry a selector. So it is *malformed* to this reader rather than unrepresentable, which is
+     * the same fact `toJsonPath` states from the other side by refusing to render one.
+     */
+    @Test
+    fun `a descendant is read where it used to be refused, and the bare one is still not a query`() {
+        assertEquals(
+            CatalogPath(listOf(CatalogStep.AnyDescendant, CatalogStep.Field("sku"))),
+            CatalogPath.parseJsonPath("$..sku"),
+        )
+        assertEquals(CatalogPath.parseJsonPath("$..sku"), CatalogPath.parseJsonPath("""$..['sku']"""))
+        assertEquals(
+            CatalogPath.parse("""$..["@type"]"""),
+            CatalogPath.parseJsonPath("""$..["@type"]"""),
+            "the two grammars agree about a descendant, which is why one expression can serve both",
+        )
+
+        val malformed = assertFailsWith<IllegalArgumentException> { CatalogPath.parseJsonPath("$..") }
+        assertTrue(
+            malformed !is PathNotRepresentableException,
+            "'\$..' is a path this type can hold and a query the RFC has no production for: ${malformed.message}",
+        )
     }
 
     @Test

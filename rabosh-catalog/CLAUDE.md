@@ -29,3 +29,12 @@ whose reader rejects trailing bytes, so persisting it costs `SketchFormat` a ver
 buying a report is not a trade this engine takes. The consequence to keep true: silence from a model
 assembled out of sidecars means *not observed in this process*, never *did not happen*, and nothing
 may default that to zero anywhere a caller would read it as a claim.
+
+**`CatalogStep` holds a collapse and a pattern, and only one of them can come from data.**
+`AnyElement` is emitted by `SegmentSketchBuilder` because a document *has* positions this type will
+not distinguish; `AnyDescendant` is emitted by nothing, because `..` is what a caller wrote. That
+asymmetry is the whole argument for one type rather than two — the precedent said `VariantPath`
+should not gain a wildcard, and the reason it should not is that every existing caller relies on
+`select` returning one value, which no sketch key does. So the invariant is a test rather than a
+comment: *no sketch, over any corpus, ever emits a path containing a descendant*. If a change makes
+that false, the type should be split instead of the test relaxed.

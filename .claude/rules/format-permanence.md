@@ -147,6 +147,18 @@ ids live inside are in `.claude/rules/index-sidecar-format.md`.
   widening a file: a second entry in `.col`'s list would be a claim about bytes no build has ever
   written, and the one place that decides what a version means stays the file's own `open`.
 
+- **A path in the index registry is text, so its *vocabulary* is a format surface too.**
+  `IndexRegistry` writes `CatalogPath.toString` and reads it back with `parse`, which makes the path
+  grammar the one field here that a later release can widen without touching a byte layout —
+  `CatalogStep.AnyDescendant` did exactly that. A registry from such a build is intact, checksums
+  correctly, and will not parse, so the decode maps a parse failure to `UnsupportedIndexFormatException`
+  and never to corruption. Two reasons, and the second is the load-bearing one: damage sends somebody
+  to look at a disk that is fine, and `DamagedIndexPolicy.REBUILD` would **delete the definition** —
+  the one piece of derived data that cannot be rebuilt from a segment. Anything that adds a step to
+  `CatalogStep` inherits this, and the rule that keeps it workable is that every step list must
+  round-trip through `toString`/`parse`, which is why two `..` in a row are refused at the
+  constructor rather than rendered into a spelling nothing reads.
+
 - **Unknown data decodes to a signalled failure, not to a default.** An unrecognised type id
   means the file is unreadable by this version, not that the value is absent. A directory holding
   store files but no `CURRENT` is the same kind of thing: reported, never guessed at.

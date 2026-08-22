@@ -15,6 +15,69 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
 
 ### Added
 
+- **`CatalogStep.AnyDescendant` — `..` in a filter and in an index, so a discriminator can be asked
+  about wherever it sits.** `$..["@type"]` is now a predicate leaf and an ordinary inverted index:
+  existing kind, existing `.pst`, existing dictionary and encodings, **no new id and no version
+  bump**. `$..` on its own is every node in the document, which is what `elemMatch(path("$.."), …)`
+  correlates over.
+
+  **The alternative was measured and refused, which is why this is a step rather than a helper.** The
+  spelling available before was an enumeration — `or($.a.b["@type"], $.a.c.d["@type"], …)` — and on a
+  46 MB protobuf-JSON dump that enumeration cannot be made sound: 345 types across 754 (type, path)
+  pairs, **72% of tagged elements belonging to a type that occupies more than one shape**, one type
+  occupying 49 of them, and four months of drift adding 29 new shapes. A shape missing from the list
+  is a document missing from a result, with nothing to report it. Deriving the list from `db.schema()`
+  does not rescue it either: the sketch's key is a path rather than a (path, value) pair, and
+  `maxPaths` fires on that corpus so the derived list would silently lose its tail.
+
+  **What it cost, layer by layer, is the argument that it was worth having.** The two writers' walks
+  become automata over `(path, position)` states — a `..` state descends unchanged while its successor
+  is retried at every node — and their states are deduplicated, because a path with two descendants
+  reaches the same state by two routes and a duplicate is a value stored twice in a shredded column.
+  The reader's expander gains an iterative descent, for the reason `rabosh-jsonpath`'s already is: a
+  `Variant` built through `VariantBuilder` is never re-checked against `DEFAULT_MAX_JSON_DEPTH`, so a
+  recursive one would be a stack overflow reachable from data. The planner gains **nothing**:
+  `chooseIndex` selects on exact path equality, so a descendant leaf matches a descendant index and
+  nothing else, and negation, existence and type bracketing mean what they meant.
+
+  **Two costs, charged only to the stores that spell one.** A descendant candidate never narrows away,
+  so *an unindexed subtree is not walked at all* stops holding for a store that defines such an index
+  — flush and compaction walk each document whole for it. And nothing will ever recommend one:
+  `indexCandidates` reads a model built from documents, and no model contains a `..`.
+
+  **The type discipline that let one type hold both, asserted rather than intended.** `AnyElement`
+  collapses positions the data *has*; `AnyDescendant` is a pattern a caller wrote. `SchemaInferenceTest`
+  asserts over generated corpora that **no sketch ever emits one**, which is the condition this was
+  gated on — had it failed, the right answer would have been a third path type rather than a relaxed
+  test. A projection still refuses it, because a projection reads one location.
+
+  **The forward-compatibility wart it exposed is fixed in the same change.** `IndexRegistry` persists
+  a path as `toString` and reads it with `parse`, so the path grammar is a format surface: a registry
+  written by a build with a step this one lacks is *intact* and will not parse. It now reports
+  `UnsupportedIndexFormatException` rather than corruption — because damage sends somebody to look at
+  a healthy disk, and because `DamagedIndexPolicy.REBUILD` would **delete an index definition**, the
+  one piece of derived data that cannot be rebuilt from a segment.
+
+  **`CatalogStep` is a sealed interface in the stable core, so this is a source break for one
+  construct**: an exhaustive `when` over a step needs a new branch. Binary compatibility is untouched.
+  Three places in this repository paid it, and one — a hand-rolled path walk in the transcripts sample
+  — was deleted in favour of `CatalogPath.forEachNodeIn` instead, which is the fix to reach for.
+  `PathConstruct.DESCENDANT` is kept and is no longer raised; removing a value from an enum a caller
+  may `when` over breaks a build and buys nothing.
+
+  **What is not built, and what was not measured.** A composite index over `$..` is spellable and
+  sound, and its gate — the count of distinct `(@type, name)` tuples per segment against
+  `maxTermsPerSegment`, whose overflow would drop the index for the segment and make the feature
+  useless quietly — is **still unmeasured**; so is the selectivity claim on a real corpus, which the
+  staging asks for as *~345 terms* and which needs that corpus to take. `DescendantQueryTest` pins the
+  shape of the claim on a synthetic one — six terms covering every occurrence — and a shape is not a
+  measurement.
+
+  `NodeWalkDifferentialTest` compares the expander against `JsonPathQuery` node for node over
+  descendant paths, on fixed corpora and on generated documents, so `..` here means what RFC 9535
+  says it means rather than what this repository decided it means.
+
+
 - **`PATHS.md` — the four path grammars in one place, with its tables as a test.** The repository has
   four path readers and six entry points onto them. `$.items[*].sku` is read by three of those six,
   and means *array elements* to a filter and *every child, object members included* to RFC 9535; a

@@ -33,7 +33,13 @@ public class ElementExtractor(
     private val paths: List<CatalogPath>,
     private val options: IndexOptions,
 ) {
-    private val all = IntArray(paths.size) { it }
+    /** `(path, position)` packed into an `Int`. See [TermExtractor]'s, which this mirrors exactly. */
+    private val stride = (paths.maxOfOrNull { it.steps.size } ?: 0) + 1
+
+    private val anyDescendant =
+        paths.any { path -> path.steps.any { it === CatalogStep.AnyDescendant } }
+
+    private val all = IntArray(paths.size) { it * stride }
 
     /** Whether there is anything to extract. */
     public val isEmpty: Boolean get() = paths.isEmpty()
@@ -79,35 +85,41 @@ public class ElementExtractor(
     private fun walk(
         value: Variant,
         depth: Int,
-        candidates: IntArray,
+        arriving: IntArray,
         onTruncated: (Int) -> Unit,
         sink: (Int, Variant) -> Unit,
     ) {
+        val states = closure(arriving)
         // A path that has consumed all its steps has *arrived*, and this walk reports what it arrived
         // at whatever shape it is. The check is before the descent rather than inside the scalar
         // branch, which is the one structural difference from `TermExtractor`.
-        for (candidate in candidates) {
-            if (paths[candidate].steps.size == depth) sink(candidate, value)
+        for (state in states) {
+            if (positionOf(state) == paths[pathOf(state)].steps.size) sink(pathOf(state), value)
         }
 
         when (value.basicType) {
             VariantBasicType.OBJECT -> {
-                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
+                if (depth >= options.maxDepth) return reportTruncated(states, onTruncated) { true }
                 val children = minOf(value.fieldCount, options.maxChildren)
-                if (children < value.fieldCount) reportTruncated(candidates, depth, onTruncated)
+                if (children < value.fieldCount) reportTruncated(states, onTruncated) { true }
                 for (index in 0 until children) {
                     val name = value.fieldName(index)
-                    val next = narrow(candidates, depth) { it is CatalogStep.Field && it.name == name }
+                    val next = advance(states) { it is CatalogStep.Field && it.name == name }
                     if (next.isNotEmpty()) walk(value.fieldValue(index), depth + 1, next, onTruncated, sink)
                 }
             }
 
             VariantBasicType.ARRAY -> {
-                if (depth >= options.maxDepth) return reportTruncated(candidates, depth, onTruncated)
-                val next = narrow(candidates, depth) { it is CatalogStep.AnyElement }
+                if (depth >= options.maxDepth) return reportTruncated(states, onTruncated) { true }
+                val next = advance(states) { it is CatalogStep.AnyElement }
                 if (next.isEmpty()) return
                 val children = minOf(value.elementCount, options.maxChildren)
-                if (children < value.elementCount) reportTruncated(next, depth, onTruncated)
+                // Reported over the states as they stood *at* the array, filtered to the ones an
+                // element would have carried — a state that already advanced past its last step has
+                // arrived, and the elements it never saw are what the bound cost.
+                if (children < value.elementCount) reportTruncated(states, onTruncated) { step ->
+                    step is CatalogStep.AnyElement || step === CatalogStep.AnyDescendant
+                }
                 for (index in 0 until children) walk(value.element(index), depth + 1, next, onTruncated, sink)
             }
 
@@ -115,20 +127,68 @@ public class ElementExtractor(
         }
     }
 
-    private inline fun narrow(candidates: IntArray, depth: Int, matches: (CatalogStep) -> Boolean): IntArray {
+    /**
+     * [TermExtractor.closure] and [TermExtractor.advance], on the same state encoding.
+     *
+     * The duplication is two dozen lines and it is the deliberate kind: these are two walks with two
+     * *sinks* — one reports scalars, one reports containers — and the one structural difference above
+     * is exactly what a shared base class would have had to parameterise. The rule they must not
+     * break is that they agree about what a path **means**, and `NodeExpansionDifferentialTest` is
+     * what checks that rather than a shared superclass asserting it by construction.
+     */
+    private fun closure(states: IntArray): IntArray {
+        if (!anyDescendant) return states
+        var extra = 0
+        for (state in states) if (isAtDescendant(state)) extra++
+        if (extra == 0) return states
+        val widened = IntArray(states.size + extra)
         var count = 0
-        val kept = IntArray(candidates.size)
-        for (candidate in candidates) {
-            val steps = paths[candidate].steps
-            if (depth < steps.size && matches(steps[depth])) kept[count++] = candidate
+        for (state in states) {
+            widened[count++] = state
+            if (isAtDescendant(state)) widened[count++] = state + 1
         }
+        return distinctStates(widened, count)
+    }
+
+    private inline fun advance(states: IntArray, matches: (CatalogStep) -> Boolean): IntArray {
+        var count = 0
+        val kept = IntArray(states.size)
+        for (state in states) {
+            val steps = paths[pathOf(state)].steps
+            val position = positionOf(state)
+            if (position >= steps.size) continue
+            val step = steps[position]
+            when {
+                step === CatalogStep.AnyDescendant -> kept[count++] = state
+                matches(step) -> kept[count++] = state + 1
+            }
+        }
+        if (anyDescendant) return distinctStates(kept, count)
         return if (count == kept.size) kept else kept.copyOf(count)
     }
 
-    /** [TermExtractor]'s rule: a path with no step left at this depth is past what the bound cut. */
-    private inline fun reportTruncated(candidates: IntArray, depth: Int, onTruncated: (Int) -> Unit) {
-        for (candidate in candidates) if (depth < paths[candidate].steps.size) onTruncated(candidate)
+    /** [TermExtractor]'s rule: a path with no step left here is past what the bound cut. */
+    private inline fun reportTruncated(
+        states: IntArray,
+        onTruncated: (Int) -> Unit,
+        alive: (CatalogStep) -> Boolean,
+    ) {
+        for (state in states) {
+            val steps = paths[pathOf(state)].steps
+            val position = positionOf(state)
+            if (position < steps.size && alive(steps[position])) onTruncated(pathOf(state))
+        }
     }
+
+    private fun isAtDescendant(state: Int): Boolean {
+        val steps = paths[pathOf(state)].steps
+        val position = positionOf(state)
+        return position < steps.size && steps[position] === CatalogStep.AnyDescendant
+    }
+
+    private fun pathOf(state: Int): Int = state / stride
+
+    private fun positionOf(state: Int): Int = state % stride
 
     public companion object {
         /**
