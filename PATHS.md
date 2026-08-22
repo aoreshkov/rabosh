@@ -18,7 +18,7 @@ type is the question:
 
 | you are asking | the type | example | who evaluates it |
 |---|---|---|---|
-| **which documents** have a value here | `CatalogPath` | `$.items[*].sku` | the query planner, an index, a scan |
+| **which documents** have a value here | `CatalogPath` | `$.items[*].sku`, `$..["@type"]` | the query planner, an index, a scan |
 | **where in this document** a value is | `VariantPath` | `$.items[0].sku` | `Variant.select`, a projection, `VariantNode.location` |
 | **which parts of this document** satisfy a condition | `JsonPathQuery` | `$.items[?@.qty > 5]` | `rabosh-jsonpath`, over a document you already hold |
 
@@ -38,24 +38,28 @@ chain depends on it, so RFC 9535's comparison semantics can never decide a query
 Six entry points over those three types. What each accepts, verified by `PathGrammarTest` rather than
 by this table being written carefully:
 
-| entry point | `$.a` | `$["a"]` | `$['a']` | `\n` inside quotes | `[0]` | `[*]` | `[:]` | `..` `[?…]` |
-|---|---|---|---|---|---|---|---|---|
-| `VariantPath.parse` | ✅ | ✅ | ❌ | **literal `n`** | ✅ | ❌ | ❌ | ❌ |
-| `VariantPath.parseNormalized` | ❌ | ❌ | ✅ | newline | ✅ | ❌ | ❌ | ❌ |
-| `VariantPath.parseJsonPathOrNull` | ✅ | ✅ | ✅ | newline | ✅ | `null` | `null` | `null` |
-| `CatalogPath.parse` | ✅ | ✅ | ❌ | **literal `n`** | ❌ | ✅ | ❌ | ❌ |
-| `CatalogPath.parseJsonPath` | ✅ | ✅ | ✅ | newline | refused | ✅ | ✅ | refused |
-| `JsonPathQuery.compile` | ✅ | ✅ | ✅ | newline | ✅ | ✅ | ✅ | ✅ |
+| entry point | `$.a` | `$["a"]` | `$['a']` | `\n` inside quotes | `[0]` | `[*]` | `[:]` | `..a` | `$..` | `[?…]` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `VariantPath.parse` | ✅ | ✅ | ❌ | **literal `n`** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `VariantPath.parseNormalized` | ❌ | ❌ | ✅ | newline | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `VariantPath.parseJsonPathOrNull` | ✅ | ✅ | ✅ | newline | ✅ | `null` | `null` | `null` | `null` | `null` |
+| `CatalogPath.parse` | ✅ | ✅ | ❌ | **literal `n`** | ❌ | ✅ | ❌ | ✅ | ✅ | ❌ |
+| `CatalogPath.parseJsonPath` | ✅ | ✅ | ✅ | newline | refused | ✅ | ✅ | ✅ | ❌ | refused |
+| `JsonPathQuery.compile` | ✅ | ✅ | ✅ | newline | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
 
 ❌ is `IllegalArgumentException`; *refused* is `PathNotRepresentableException`, which is different and
 is [why](#three-ways-a-path-can-be-rejected-and-only-one-is-your-typo). `null` is an answer rather
 than a failure — see [Is this expression one location?](#is-this-expression-one-location)
 
-Two cells need a footnote. `parseNormalized` reads RFC 9535 §2.7, which has **exactly one spelling
+Three cells need a footnote. `parseNormalized` reads RFC 9535 §2.7, which has **exactly one spelling
 per name** — that is the whole point of a normalized path, since it makes two of them comparable as
-text — so its form of `$.a[0]` is `$['a'][0]` and the shorthand is not a matter of taste to it. And
+text — so its form of `$.a[0]` is `$['a'][0]` and the shorthand is not a matter of taste to it.
 `CatalogPath.parseJsonPath` accepts `.*` as well as `[*]`, both meaning `AnyElement`, which is the
-leniency the next section is about.
+leniency the trap below is about. And the **bare `$..`** — every node including the root — is the one
+expression the engine's grammar holds and RFC 9535's does not: a descendant segment there must carry
+a selector, and the nearest query, `$..*`, is every node *below* the root rather than every node. It
+is a catalog path and not a JSONPath query, both directions, which is why `toJsonPath` refuses to
+render one rather than approximating it.
 
 And what each writer emits:
 
@@ -199,8 +203,10 @@ point exists: an expected failure should be a value, not a caught error.
 
 The middle row is the one worth wiring up. `$.items[0]` handed to `CatalogPath.parseJsonPath` is not
 a typo — it is a question a *shape* cannot ask, and the answer is to ask a `VariantPath` instead.
-`PathConstruct` says which construct it was: `INDEX`, `SLICE`, `DESCENDANT`, `FILTER`,
-`MULTIPLE_SELECTORS`. Separating them by message is not separating them.
+`PathConstruct` says which construct it was: `INDEX`, `SLICE`, `FILTER`, `MULTIPLE_SELECTORS` — and
+`DESCENDANT`, which is **no longer raised**. It was, until `..` became a step; the entry stays because
+removing a value from an enum a caller may `when` over breaks a build and buys nothing. Separating
+them by message is not separating them.
 
 `PathNotRepresentableException` is a subclass of `IllegalArgumentException`, so an existing
 `catch (IllegalArgumentException)` around a path parse keeps working unchanged; catch the narrower
@@ -212,8 +218,46 @@ type first if you want the distinction.
 |---|---|---|
 | `[0]`, `[-1]`, `[1:5]` | never | a `CatalogPath` collapses positions on purpose — that is what makes one index serve an array of any length |
 | `[?…]` filter selectors | **never** | refused on *meaning*, not on cost — see below |
-| `..` descendant | not today | there is no step for it; `JsonPathQuery` carries the descendant segment and is applied per document |
+| `..` descendant | **yes** | a step of its own — an ordinary filter and an ordinary index; see below |
 | `[*]` over an object | never | `[*]` is array elements here; there is no step for "every member" |
+
+### The descendant, and what it costs
+
+`..` is a step of `CatalogPath`, so it needs no special form: an ordinary predicate leaf, an ordinary
+inverted index, an ordinary posting file.
+
+```kotlin
+db.createIndex(IndexDefinition.inverted("""$..["@type"]"""))
+db.query(Query.where(path("""$..["@type"]""") eq "type.googleapis.com/CityDTO"))
+
+// correlated to one node rather than to the document:
+Query.where(
+    elemMatch(
+        path("$.."),
+        and(path("""$["@type"]""") eq "type.googleapis.com/CityDTO", path("$.name") eq "Sofia"),
+    ),
+)
+```
+
+It means RFC 9535's descendant segment exactly — **zero levels counts**, so `$..a` matches the root's
+own `a` as well as one twenty levels down — and it exists because the alternative does not work.
+Enumerating the shapes instead was measured on a real corpus and refused: 72% of tagged elements
+belonged to a type occupying more than one shape, one type occupied 49 of them, and four months of
+drift added 29 new ones. A shape missing from that list is a **document missing from a result**, with
+nothing to report it.
+
+Two costs, and both are charged only to a store that spells one:
+
+- **The walk stops pruning.** Every other path narrows on the way down, so a subtree no index reaches
+  is never walked; a descendant candidate never narrows away, and flush and compaction walk each
+  document whole for that index.
+- **Nothing recommends one.** `db.schema()` describes what documents *are*, in shapes, and no model
+  over any corpus emits a `..` — `indexCandidates` will offer `$.payload.rewards[*]["@type"]`. Asking
+  the question shape-agnostically is a decision you make, not one the model makes for you.
+
+`$..` on its own is every node in the document, the root included, which is the shape an `elemMatch`
+over a subtree of unknown depth needs. Two `..` in a row are refused: the second selects nothing the
+first does not, and there would be no expression for it to round-trip through.
 
 **Filter selectors are permanently refused, and the reason is not effort.** RFC 9535's `!` is the
 complement of the *candidate node*; `Predicate.Not` is the complement of the *document*. Under the

@@ -12,7 +12,19 @@ public enum class PathConstruct {
     /** `[0]`, `[-1]` — names one element by position. A catalog path collapses positions. */
     INDEX,
 
-    /** `..` — selects at every depth. Every catalog step is a child step. */
+    /**
+     * `..` — selects at every depth.
+     *
+     * **No longer raised.** It was, when every catalog step was a child step;
+     * [CatalogStep.AnyDescendant] is that step and [CatalogPath.parseJsonPath] now reads `..` into
+     * it. The entry stays because removing it from an enum a caller may `when` over is a source
+     * break with nothing to buy it, and because the shape of a refusal is worth keeping legible:
+     * this is what it looked like for the one construct that stopped being one.
+     *
+     * A caller matching on it is not wrong, merely unreachable. `$..` with no selector after it is
+     * still refused — as *malformed*, since RFC 9535 has no such query — and that is a different
+     * failure from this one.
+     */
     DESCENDANT,
 
     /** `[?…]` — selects by a test on the candidate node, which a `Predicate` cannot mean. */

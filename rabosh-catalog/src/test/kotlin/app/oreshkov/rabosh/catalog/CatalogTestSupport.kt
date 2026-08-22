@@ -138,6 +138,34 @@ internal fun expectedNodes(path: CatalogPath, document: JsonValue): List<Pair<Va
                     walk(depth + 1, location + VariantPathStep.Index(index), element)
                 }
             }
+
+            // The rest of the path at this node and at every node below it, pre-order — written
+            // recursively *here* on purpose. The expander is iterative because a document decides
+            // its depth and a `Variant` can be built deeper than the parser allows; this oracle
+            // runs over `JsonGens` documents, and a second implementation that shares the first's
+            // control flow is not a second implementation.
+            CatalogStep.AnyDescendant -> {
+                walk(depth + 1, location, value)
+                when (value) {
+                    // By name, because that is the order the *encoding* holds an object's fields in
+                    // — `VariantBuilder.endObject` re-sorts — and this oracle is compared against
+                    // the expander as an ordered list. Last-wins first, then sorted: two rules, in
+                    // the order the encoder applies them.
+                    is JsonValue.Obj -> {
+                        val resolved = LinkedHashMap<String, JsonValue>()
+                        for ((name, fieldValue) in value.fields) resolved[name] = fieldValue
+                        for (name in resolved.keys.sorted()) {
+                            walk(depth, location + VariantPathStep.Field(name), resolved.getValue(name))
+                        }
+                    }
+
+                    is JsonValue.Arr -> value.elements.forEachIndexed { index, element ->
+                        walk(depth, location + VariantPathStep.Index(index), element)
+                    }
+
+                    else -> Unit
+                }
+            }
         }
     }
 

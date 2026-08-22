@@ -168,6 +168,28 @@ internal fun valuesAt(document: JsonValue, path: CatalogPath): List<JsonValue> {
                 if (value !is JsonValue.Arr) return
                 for (element in value.elements) walk(element, depth + 1)
             }
+
+            // The rest of the path here and at every node below, which is what `..` means. Written
+            // recursively because this is the oracle: the engine's walk is an automaton over
+            // (path, position) states and a second implementation that borrowed its shape would be
+            // the same implementation twice.
+            CatalogStep.AnyDescendant -> {
+                walk(value, depth + 1)
+                when (value) {
+                    // Last wins here too. The encoder resolves a duplicate field name before this
+                    // walk ever sees the document, so an oracle that descended into both copies
+                    // would report a value the engine cannot reach — which is exactly what the
+                    // generated corpus caught the first time this branch was written without it.
+                    is JsonValue.Obj -> {
+                        val resolved = LinkedHashMap<String, JsonValue>()
+                        for ((name, fieldValue) in value.fields) resolved[name] = fieldValue
+                        for (child in resolved.values) walk(child, depth)
+                    }
+
+                    is JsonValue.Arr -> for (element in value.elements) walk(element, depth)
+                    else -> Unit
+                }
+            }
         }
     }
 
@@ -228,6 +250,28 @@ internal fun elementsAt(document: JsonValue, path: CatalogPath): List<JsonValue>
             CatalogStep.AnyElement -> {
                 if (value !is JsonValue.Arr) return
                 for (element in value.elements) walk(element, depth + 1)
+            }
+
+            // The rest of the path here and at every node below, which is what `..` means. Written
+            // recursively because this is the oracle: the engine's walk is an automaton over
+            // (path, position) states and a second implementation that borrowed its shape would be
+            // the same implementation twice.
+            CatalogStep.AnyDescendant -> {
+                walk(value, depth + 1)
+                when (value) {
+                    // Last wins here too. The encoder resolves a duplicate field name before this
+                    // walk ever sees the document, so an oracle that descended into both copies
+                    // would report a value the engine cannot reach — which is exactly what the
+                    // generated corpus caught the first time this branch was written without it.
+                    is JsonValue.Obj -> {
+                        val resolved = LinkedHashMap<String, JsonValue>()
+                        for ((name, fieldValue) in value.fields) resolved[name] = fieldValue
+                        for (child in resolved.values) walk(child, depth)
+                    }
+
+                    is JsonValue.Arr -> for (element in value.elements) walk(element, depth)
+                    else -> Unit
+                }
             }
         }
     }

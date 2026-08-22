@@ -81,9 +81,24 @@ internal fun StringBuilder.appendJsonPath(steps: List<CatalogStep>) {
             }
 
             CatalogStep.AnyElement -> append("[:]")
+
+            // `..` and the step after it are one `descendant-segment` there, so nothing is emitted
+            // here and the next step writes the selector — `[:]` or `['name']`, both of which the
+            // production admits. A descendant with no step after it is not a query, and `toJsonPath`
+            // says why rather than approximating it.
+            CatalogStep.AnyDescendant -> {
+                if (position == steps.size - 1) danglingDescendant()
+                append("..")
+            }
         }
     }
 }
+
+private fun danglingDescendant(): Nothing = throw IllegalArgumentException(
+    "a path ending in '..' has no JSONPath rendering: RFC 9535's descendant segment must carry a " +
+        "selector, and the nearest expression — '\$..*' — selects every node below the root and not " +
+        "the root itself, which is a different set",
+)
 
 /**
  * One `single-quoted` run.
@@ -153,31 +168,48 @@ private class JsonPathShapeReader(private val text: String) {
 
         val steps = mutableListOf<CatalogStep>()
         while (position < text.length) {
-            steps += when (peek()) {
-                '.' -> readShorthandSegment()
-                '[' -> readBracketedSegment()
+            when (peek()) {
+                '.' -> readDotSegment(steps)
+                '[' -> steps += readBracketedSegment()
                 else -> fail("expected '.' or '['")
             }
         }
         return CatalogPath(steps)
     }
 
-    /** After `.`: `*`, a member name, or the `..` this type has no step for. */
-    private fun readShorthandSegment(): CatalogStep {
-        val start = position
+    /**
+     * After `.`: a member name, `*`, or the second dot that makes it a descendant segment.
+     *
+     * **A descendant segment is two steps here and one segment there**, which is the whole of the
+     * translation: RFC 9535 writes `..` *and its selector* as one segment, so `$..['a']` is
+     * [CatalogStep.AnyDescendant] followed by a field. That is also why a bare `$..` is refused —
+     * `descendant-segment` must carry a selector, so the expression this type spells `$..` is simply
+     * not a JSONPath query, which is the same fact [CatalogPath.toJsonPath] states from the other
+     * side by refusing to render one.
+     */
+    private fun readDotSegment(steps: MutableList<CatalogStep>) {
         position++
-        if (peek() == '.') {
-            position = start
-            refuse(
-                PathConstruct.DESCENDANT,
-                "'..' selects at every depth and every catalog step is a child step",
-            )
+        if (peek() != '.') {
+            steps += if (peek() == '*') {
+                position++
+                CatalogStep.AnyElement
+            } else {
+                CatalogStep.Field(readShorthandName())
+            }
+            return
         }
-        if (peek() == '*') {
-            position++
-            return CatalogStep.AnyElement
+        position++
+        steps += CatalogStep.AnyDescendant
+        when (peek()) {
+            null -> fail("'..' must carry a selector: '$..' is not a JSONPath query, though it is a catalog path")
+            '[' -> steps += readBracketedSegment()
+            '*' -> {
+                position++
+                steps += CatalogStep.AnyElement
+            }
+
+            else -> steps += CatalogStep.Field(readShorthandName())
         }
-        return CatalogStep.Field(readShorthandName())
     }
 
     /** `member-name-shorthand = name-first *name-char`, which is why `$.@type` does not parse. */

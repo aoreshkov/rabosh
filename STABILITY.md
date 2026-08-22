@@ -58,6 +58,15 @@ limits are: it exists to be **caught**, and a catch target a caller cannot rely 
 a subclass of `IllegalArgumentException` and deliberately outside `CatalogException`, which is sealed
 and describes state a store got into rather than an argument a caller passed.
 
+**`CatalogStep` gained `AnyDescendant`, and that is a source break for one construct.** A sealed
+interface with a new member makes every exhaustive `when` over it fail to compile until it grows a
+branch — binary-compatible, since nothing that already linked changes, and source-incompatible for
+code that switches on a step. It is recorded here rather than waved through because the deprecation
+cycle below does not cover it: that cycle is about declarations being *removed*, and this is the other
+direction. The repository paid the same price in three places, and one of them — a hand-rolled path
+walk in a sample — was deleted in favour of `CatalogPath.forEachNodeIn` instead, which is the fix to
+reach for: a `when` over `CatalogStep` is a walk the engine already owns.
+
 `TruncatedWalkException` joined that sealed hierarchy, which is additive in the binary sense and, for
 a `sealed class`, **source-incompatible for an exhaustive `when`** over `CatalogException` — a
 construct nobody writes over an exception type, which is why the hierarchy is sealed in the first

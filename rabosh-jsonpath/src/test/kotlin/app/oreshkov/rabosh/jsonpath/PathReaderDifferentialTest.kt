@@ -220,15 +220,29 @@ class PathReaderDifferentialTest {
 
         /** Valid queries that name more than one location and are not a shape either. */
         val NOT_SINGULAR: List<String> = listOf(
-            "$..sku",
             "$.items[1:2]",
             "$.items[::2]",
             """$.items[?@.sku == 'one']""",
             """$['plain','@type']""",
         )
 
-        /** The one place the two readers differ on purpose: a wildcard is a shape and not a location. */
-        val WILDCARDS: List<String> = listOf("$.items[*].sku", """$['items'][:]['sku']""", "$.items.*.sku")
+        /**
+         * Where the two readers differ on purpose: a shape may say *every* and a location may not.
+         *
+         * Two constructs now, not one, and the second arrived later — `..` was a refusal here until
+         * `CatalogStep.AnyDescendant` existed, and this row **moved** out of [NOT_SINGULAR] rather
+         * than being deleted from it. That is the difference between a grammar gaining a step and a
+         * test being relaxed, and it is why the two lists are separate rather than one list of
+         * things that fail.
+         */
+        val WILDCARDS: List<String> = listOf(
+            "$.items[*].sku",
+            """$['items'][:]['sku']""",
+            "$.items.*.sku",
+            "$..sku",
+            """$..['sku']""",
+            "$..[*].sku",
+        )
 
 
         /** Not JSONPath at all. Every reader must refuse these, and none as a construct. */

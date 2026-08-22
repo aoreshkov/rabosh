@@ -114,5 +114,61 @@ private fun expandNodes(
                 location.removeAt(location.size - 1)
             }
         }
+
+        CatalogStep.AnyDescendant -> expandDescendant(value, steps, depth, location, sink)
     }
 }
+
+/**
+ * The remaining steps, applied at [value] **and at every node below it**, in document order.
+ *
+ * **Iterative over an explicit stack, and that is not a style choice.** Every other descent here
+ * costs one frame per *path* step, so a path a caller wrote decides the recursion depth and a
+ * document cannot. A descendant descends the document instead, and a `Variant` built through
+ * `VariantBuilder` is never re-checked against `DEFAULT_MAX_JSON_DEPTH` — so a recursive version
+ * would be a stack overflow reachable from data. `rabosh-jsonpath`'s own descendant walk reached
+ * this conclusion first and independently, which is worth knowing before anyone tidies this into a
+ * recursion.
+ *
+ * Pre-order: the remaining steps are applied to a node **before** its children are visited, and
+ * children are pushed in reverse so that popping yields document order. That is what makes `$..a`'s
+ * nodes the ones RFC 9535 §2.5.2.2 describes rather than a permutation of them, which
+ * `NodeWalkDifferentialTest` compares against the reference implementation.
+ *
+ * Each pending entry carries its own location, because a stack does not unwind the way a call does
+ * and a shared buffer would need a pop marker per node to stay truthful.
+ */
+private fun expandDescendant(
+    value: Variant,
+    steps: List<CatalogStep>,
+    depth: Int,
+    location: ArrayList<VariantPathStep>,
+    sink: (VariantNode) -> Unit,
+) {
+    val pending = ArrayList<Pending>()
+    pending.add(Pending(value, location.toList()))
+    while (pending.isNotEmpty()) {
+        val visit = pending.removeAt(pending.size - 1)
+        val at = ArrayList(visit.location)
+        expandNodes(visit.value, steps, depth + 1, at, sink)
+        pushChildren(visit, pending)
+    }
+}
+
+/** Children in reverse, so the stack pops them in document order. */
+private fun pushChildren(visit: Pending, pending: ArrayList<Pending>) {
+    val value = visit.value
+    when (value.basicType) {
+        VariantBasicType.OBJECT -> for (index in value.fieldCount - 1 downTo 0) {
+            pending.add(Pending(value.fieldValue(index), visit.location + VariantPathStep.Field(value.fieldName(index))))
+        }
+
+        VariantBasicType.ARRAY -> for (index in value.elementCount - 1 downTo 0) {
+            pending.add(Pending(value.element(index), visit.location + VariantPathStep.Index(index)))
+        }
+
+        VariantBasicType.PRIMITIVE, VariantBasicType.SHORT_STRING -> Unit
+    }
+}
+
+private class Pending(val value: Variant, val location: List<VariantPathStep>)

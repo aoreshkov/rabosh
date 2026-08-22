@@ -1,6 +1,6 @@
 package app.oreshkov.rabosh.catalog
 
-/** One step of a [CatalogPath]: into an object field, or into the elements of an array. */
+/** One step of a [CatalogPath]: into an object field, into the elements of an array, or downwards. */
 public sealed interface CatalogStep {
     /** Into the field called [name]. */
     public data class Field(val name: String) : CatalogStep
@@ -12,6 +12,27 @@ public sealed interface CatalogStep {
      * and it is the whole reason the two types are separate. See the class documentation.
      */
     public data object AnyElement : CatalogStep
+
+    /**
+     * Down: the steps after this one apply at this node **and at every node below it**.
+     *
+     * Spelled `..`, and RFC 9535's descendant segment exactly — `$..["@type"]` is that field wherever
+     * it sits, the root's own member included. Zero levels counts, which is what makes `$..a` and
+     * `$.a` both match `{"a":1}`.
+     *
+     * **The step that is a pattern rather than a collapse, and the distinction is load-bearing.**
+     * [AnyElement] exists because the data has positions this type will not distinguish: a document
+     * *produces* it. Nothing produces this one — a sketch walks documents and can only ever emit
+     * fields and elements, so `SchemaInferenceTest` asserts that no model over any corpus contains
+     * one. A path carrying it came from a caller who wrote `..`, which is why it may name an index
+     * and a predicate leaf and may never be a sketch key or a projection.
+     *
+     * **What it costs where it is used.** The walks that build an index narrow their candidates on
+     * the way down and prune a subtree nothing can reach; a descendant candidate never narrows away,
+     * so a store defining such an index walks every document whole during flush and compaction. That
+     * is the price of the step and it is charged only to the stores that spell it.
+     */
+    public data object AnyDescendant : CatalogStep
 }
 
 /**
@@ -38,6 +59,14 @@ public sealed interface CatalogStep {
  * way it can be enumerated, since `[*]` stands for as many locations as that document has elements.
  * The direction stays one-way: there is no `CatalogPath.toVariantPath`, and there cannot be.
  *
+ * **And one step the data cannot produce.** [CatalogStep.AnyDescendant], spelled `..`, is a *pattern*
+ * rather than a collapse: `$..["@type"]` names that field wherever it sits, at any depth, which is
+ * the only sound way to ask about a corpus whose nesting is the content designer's rather than the
+ * schema's. Enumerating the shapes instead was measured and refused — on one 46 MB corpus, 72% of
+ * tagged elements belong to a type occupying more than one shape, one type occupies 49, and a shape
+ * missing from the list is a document missing from a result with nothing to report it. A sketch
+ * never emits this step, an index and a predicate leaf may carry it, and a projection still may not.
+ *
  * **Why the indices are collapsed at all.** A ten-thousand-element array would otherwise produce ten
  * thousand paths, exhaust the path budget on its own, and push everything genuinely worth modelling
  * into the overflow bucket. Collapsing also produces the path an inverted index over array elements
@@ -53,6 +82,22 @@ public sealed interface CatalogStep {
  * diagnostic, and both are what [toJsonPath] and [Companion.parseJsonPath] exist to cross.
  */
 public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<CatalogPath> {
+
+    init {
+        // `..` is idempotent — the steps after two of them apply exactly where the steps after one
+        // of them do — so a second is a structure with no meaning of its own, and there is no
+        // expression for it in either grammar: `$....` is not a spelling and RFC 9535's
+        // descendant-segment must be followed by a selector. Rejecting it here is what keeps
+        // **every** step list round-trippable through `toString` and `parse`, which is not a nicety:
+        // `IndexRegistry` persists a path as `toString` and reads it back with `parse`, so a path
+        // that could be built and not read back would be a registry entry nothing could open.
+        // No previously valid path can fail this — none of them could hold a descendant at all.
+        for (index in 1 until steps.size) {
+            require(steps[index] !== CatalogStep.AnyDescendant || steps[index - 1] !== CatalogStep.AnyDescendant) {
+                "a path may not hold two '..' steps in a row: the second selects nothing the first does not"
+            }
+        }
+    }
 
     /** `true` for the path that selects the document itself. */
     public val isRoot: Boolean get() = steps.isEmpty()
@@ -81,16 +126,28 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
 
     override fun hashCode(): Int = steps.hashCode()
 
-    /** The canonical expression for this path; [parse] round-trips it. */
+    /**
+     * The canonical expression for this path; [parse] round-trips it, for every step list this type
+     * admits.
+     *
+     * A field after a `..` is written without its dot — `$..sku`, not `$...sku` — which is RFC 9535's
+     * shorthand rule and the reason the two dots are read before anything else.
+     */
     override fun toString(): String = buildString {
         append('$')
+        var afterDescendant = false
         for (step in steps) {
             when (step) {
-                is CatalogStep.Field ->
-                    if (step.name.isSimple()) append('.').append(step.name) else appendQuoted(step.name)
+                is CatalogStep.Field -> when {
+                    !step.name.isSimple() -> appendQuoted(step.name)
+                    afterDescendant -> append(step.name)
+                    else -> append('.').append(step.name)
+                }
 
                 CatalogStep.AnyElement -> append("[*]")
+                CatalogStep.AnyDescendant -> append("..")
             }
+            afterDescendant = step === CatalogStep.AnyDescendant
         }
     }
 
@@ -118,8 +175,15 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
      * back by [parse]. Reach for this to hand a shape to something outside the engine, and for
      * [toString] everywhere else.
      *
+     * **A trailing `..` has no rendering at all**, and that is a fact about RFC 9535 rather than a
+     * gap here: `$..` means the root and every node below it, `$..*` means every node below it and
+     * *not* the root, and the grammar has no way to say the union. Rendering it as `$..*` would be
+     * the `[*]`-for-`AnyElement` mistake a second time — an expression that parses, looks right, and
+     * quietly drops a node. So it is refused, like the surrogate below.
+     *
      * @throws IllegalArgumentException if a field name holds an unpaired surrogate, which RFC 9535
-     *   has no production for. A name decoded from a stored document cannot hold one.
+     *   has no production for — a name decoded from a stored document cannot hold one — or if the
+     *   path ends in [CatalogStep.AnyDescendant].
      */
     public fun toJsonPath(): String = buildString { appendJsonPath(steps) }
 
@@ -131,9 +195,16 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
          * Parses an expression such as `$.items[*].sku` or `$["odd name"]`.
          *
          * The same grammar [app.oreshkov.rabosh.variant.VariantPath.parse] accepts, with `[*]` in
-         * place of a numeric index. A numeric index is **rejected** rather than silently collapsed:
-         * `$.items[0]` means something this type cannot represent, and quietly widening it to
-         * `$.items[*]` would answer a question the caller did not ask.
+         * place of a numeric index and `..` for a descendant. A numeric index is **rejected** rather
+         * than silently collapsed: `$.items[0]` means something this type cannot represent, and
+         * quietly widening it to `$.items[*]` would answer a question the caller did not ask.
+         *
+         * **`..` is read greedily and the name after it carries no dot**, which is what keeps the two
+         * spellings apart: `$..sku` is [CatalogStep.AnyDescendant] then a field, `$.a.sku` is two
+         * fields, and `$...sku` is neither and fails. `$..` alone is every node in the document, root
+         * included — the shape an `elemMatch` over a subtree of unknown depth needs. Two `..` in a row
+         * are refused, because the second selects nothing the first does not and there would be no
+         * expression for it to round-trip through.
          *
          * **A field name that is not `[A-Za-z0-9_]+` requires the bracket form**, and the example
          * that matters is not an odd one. `$.@type` does not parse — the dot form takes an
@@ -164,7 +235,29 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
             val steps = mutableListOf<CatalogStep>()
             while (position < expression.length) {
                 when (expression[position]) {
-                    '.' -> {
+                    // Two dots before one: `..` is a step of its own, and the name after it carries
+                    // no dot, so `$..sku` is a descendant and a field where `$.a.sku` is two fields.
+                    // Read greedily, which is what makes the two spellings unambiguous.
+                    '.' -> if (position + 1 < expression.length && expression[position + 1] == '.') {
+                        position += 2
+                        steps += CatalogStep.AnyDescendant
+                        // A dot cannot follow `..`: a second one would be a step that selects nothing
+                        // the first does not and has no spelling to round-trip through, and a single
+                        // one would be a *third* way to write a step that already has two. The name
+                        // after a descendant is bare, which is RFC 9535's rule for the same reason.
+                        if (position < expression.length && expression[position] == '.') {
+                            fail(
+                                if (position + 1 < expression.length && expression[position + 1] == '.') {
+                                    "'..' twice in a row selects nothing a single one does not"
+                                } else {
+                                    "a name after '..' carries no dot: write '$..name'"
+                                },
+                            )
+                        }
+                        val start = position
+                        while (position < expression.length && expression[position].isIdentifierPart()) position++
+                        if (position > start) steps += CatalogStep.Field(expression.substring(start, position))
+                    } else {
                         position++
                         val start = position
                         while (position < expression.length && expression[position].isIdentifierPart()) position++
@@ -272,11 +365,21 @@ public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<Catal
          * A total order matters more than which order: an inferred schema is something people diff
          * between runs, and a set iterated in hash order is a diff full of noise.
          */
+        /**
+         * Field, then element, then descendant — an order for a stable report and nothing more.
+         *
+         * It says nothing about what a step *selects*: `$..a` and `$.a` overlap and neither contains
+         * the other in this ordering. Sorting is what makes two runs of `InferredSchema.render`
+         * comparable, and a descendant never reaches a sketch, so the third rank is reached only by
+         * a caller sorting paths of their own.
+         */
         private fun compareSteps(left: CatalogStep, right: CatalogStep): Int = when {
             left is CatalogStep.Field && right is CatalogStep.Field -> left.name.compareTo(right.name)
             left is CatalogStep.Field -> -1
             right is CatalogStep.Field -> 1
-            else -> 0
+            left === right -> 0
+            left === CatalogStep.AnyElement -> -1
+            else -> 1
         }
     }
 }

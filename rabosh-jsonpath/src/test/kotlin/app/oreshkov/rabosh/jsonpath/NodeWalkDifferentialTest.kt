@@ -190,6 +190,30 @@ class NodeWalkDifferentialTest {
                 CatalogPath.parse("$.absent[*].deeper"),
             ),
         ),
+        // Self-similar nesting, which is the shape the descendant step exists for: one field name
+        // occurring at four depths, under objects and under arrays, with a same-named field nested
+        // inside its own subtree so that `$..a` reports a node *and* a node below it.
+        Corpus(
+            "self-similar",
+            Variant.fromJson(
+                """
+                {"@type":"Root","reward":{"@type":"A","reward":{"@type":"B"}},
+                 "rewards":[{"@type":"C","items":[{"@type":"D"},{"nested":{"@type":"E"}}]},
+                            {"@type":"F"}],
+                 "plain":1,"empty":[],"nothing":null}
+                """.trimIndent(),
+            ),
+            listOf(
+                CatalogPath.parse("""$..["@type"]"""),
+                CatalogPath.parse("$..reward"),
+                CatalogPath.parse("""$..reward["@type"]"""),
+                CatalogPath.parse("""$..rewards[*]["@type"]"""),
+                CatalogPath.parse("$..[*]"),
+                CatalogPath.parse("$..absent"),
+                CatalogPath.parse("""$.rewards[*]..["@type"]"""),
+                CatalogPath.parse("$..nested..absent"),
+            ),
+        ),
         // Every way a step can fail to apply: a field step into an array, an element step into an
         // object, a step into a scalar. Both walks must answer "nothing here" rather than throwing.
         Corpus(
@@ -244,6 +268,14 @@ class NodeWalkDifferentialTest {
             CatalogPath.parse("$.data.id"),
             CatalogPath.parse("$.items[*].name"),
             CatalogPath.parse("$.meta.status"),
+            // The descendant, over documents nobody shaped for it. `..` and RFC 9535's
+            // descendant-segment are the same operator, so this is the one construct where the
+            // equality below is checking a *semantics* rather than a rendering: pre-order, the node
+            // itself before its children, zero levels counting as a match.
+            CatalogPath.parse("$..id"),
+            CatalogPath.parse("$..data.id"),
+            CatalogPath.parse("$..[*]"),
+            CatalogPath.parse("$.data..id"),
         )
     }
 }

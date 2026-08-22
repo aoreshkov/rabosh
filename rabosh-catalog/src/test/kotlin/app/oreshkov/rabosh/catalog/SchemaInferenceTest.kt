@@ -1,12 +1,18 @@
 package app.oreshkov.rabosh.catalog
 
 import app.oreshkov.rabosh.core.DocumentStore
+import app.oreshkov.rabosh.testkit.json.JsonGens
+import app.oreshkov.rabosh.testkit.property.Gen
+import app.oreshkov.rabosh.testkit.property.forAll
+import app.oreshkov.rabosh.testkit.property.list
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantKind
+import app.oreshkov.rabosh.variant.VariantPath
 import java.nio.file.Path
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.jupiter.api.io.TempDir
@@ -161,6 +167,53 @@ class SchemaInferenceTest {
      */
     private fun withinEstimateBound(estimate: Long, truth: Int): Boolean =
         abs(estimate - truth).toDouble() / truth <= 3 * 1.04 / kotlin.math.sqrt(1024.0)
+
+    /**
+     * **No model, over any corpus, ever contains a `..`** — the invariant `CatalogStep.AnyDescendant`
+     * was gated on, and the reason it could join this type instead of forcing a third one.
+     *
+     * `CatalogPath` exists because `VariantPath` may not have a wildcard, and by that precedent a
+     * step the *data* cannot produce should have been a new type again. What decides otherwise is
+     * that the two steps are different kinds of thing and the difference is checkable here:
+     * `AnyElement` **collapses locations a document has**, so a sketch emits it; `AnyDescendant` is a
+     * **pattern a caller wrote**, so nothing that reads documents can produce one. A sketch key
+     * carrying one would mean the model had started describing a query, and the type discipline
+     * would be a comment rather than a fact.
+     *
+     * Asserted over generated documents rather than a fixture, because the claim is *over any
+     * corpus* and a hand-written corpus is the one shape it is guaranteed to hold for.
+     */
+    @Test
+    fun `no sketch over any corpus emits a descendant step`() {
+        forAll(Gen.list(JsonGens.document(), sizes = 0..6)) { corpus ->
+            val builder = SegmentSketchBuilder(CatalogOptions.DEFAULT)
+            for (document in corpus) builder.add(jsonDocument(document))
+            for (path in builder.build().paths) {
+                assertTrue(
+                    path.steps.none { it === CatalogStep.AnyDescendant },
+                    "a sketch emitted '$path', which no walk of a document can produce",
+                )
+            }
+        }
+    }
+
+    /**
+     * The other half of the discipline, and the one a caller meets: a shape may say `..`, a
+     * projection may not.
+     *
+     * A projection reads *one* location out of a row, which is `VariantPath`'s contract and the
+     * reason the two types are separate at all. Nothing changed there — `VariantPath.parse` has no
+     * `..` and never will — and this asserts it rather than leaving the absence to be noticed.
+     */
+    @Test
+    fun `a descendant is a shape and has no location spelling`() {
+        assertEquals(
+            listOf(CatalogStep.AnyDescendant, CatalogStep.Field("@type")),
+            CatalogPath.parse("""$..["@type"]""").steps,
+        )
+        assertFailsWith<IllegalArgumentException> { VariantPath.parse("""$..["@type"]""") }
+        assertNull(VariantPath.parseJsonPathOrNull("""$..["@type"]"""))
+    }
 
     private fun withCatalog(body: (DocumentStore, SchemaCatalog) -> Unit) {
         val directory = scratch(root, "inference")

@@ -106,6 +106,8 @@ it fails **silently** — a document missing from a result, a file that stops me
 - An index may change query speed, never query answers.
 - A walk budget bounds what the engine writes and never what a query answers, and that takes a
   stand-down *and* a reader with no budget — either alone leaves the shortfall.
+- A descendant path makes the writers' walk an automaton, its states must be deduplicated, and no
+  sketch may ever emit one.
 - An index over a segment is sound at a snapshot if and only if the snapshot's sequence is at or
   above that segment's largest sequence.
 - Indexes are per-segment immutable sidecar files, never part of document data.

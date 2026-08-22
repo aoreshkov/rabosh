@@ -223,7 +223,20 @@ internal object IndexRegistry {
             val parsed = try {
                 CatalogPath.parse(path)
             } catch (failure: IllegalArgumentException) {
-                reader.corrupt("index #$id has an unreadable path '$path'", cause = failure)
+                // **Unsupported, not damaged.** A path is the one field here whose vocabulary can
+                // grow: `CatalogStep` gained `..` in a later release, and a registry written by that
+                // build carries a path this one cannot read. The bytes are intact and a checksum
+                // would confirm it, so reporting damage would send somebody looking for a failing
+                // disk — and under `DamagedIndexPolicy.REBUILD` it would *delete* an index
+                // definition, which `.claude/rules/index-and-query.md` singles out as the one piece
+                // of derived data whose durability rule inverts: a definition is not rebuildable
+                // from a segment. This is the format's own rule — a file from a newer release is
+                // reported as unsupported and never confused with corruption — applied to the field
+                // that made it necessary.
+                throw UnsupportedIndexFormatException(
+                    "index #$id names a path this build cannot read, '$path': the registry was " +
+                        "written by a newer release (${failure.message})",
+                )
             }
             val definition = try {
                 IndexDefinition(parsed, kind, fields)

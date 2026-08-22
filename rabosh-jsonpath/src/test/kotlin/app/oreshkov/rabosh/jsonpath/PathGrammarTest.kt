@@ -137,13 +137,41 @@ class PathGrammarTest {
         )
     }
 
+    /**
+     * A descendant is a shape and never a location, which puts it in `[*]`'s column and not `[0]`'s.
+     *
+     * **This row moved, and the move is the point of having the table under test.** `..` was
+     * `REFUSED` by `parseJsonPath` and `MALFORMED` to `CatalogPath.parse` until the type had a step
+     * for it; both cells changed in the same commit, and this test is what made `PATHS.md` change
+     * with them instead of quietly becoming wrong.
+     */
     @Test
-    fun `a descendant and a filter reach only the module that implements the whole RFC`() {
+    fun `a descendant is read by both catalog readers and by neither location reader`() {
         assertRow(
             "$..a",
             Outcome.MALFORMED, Outcome.MALFORMED, Outcome.NULL,
-            Outcome.MALFORMED, Outcome.REFUSED, Outcome.ACCEPTED,
+            Outcome.ACCEPTED, Outcome.ACCEPTED, Outcome.ACCEPTED,
         )
+    }
+
+    /**
+     * The bare `$..` is the one expression the engine's grammar holds and RFC 9535's does not.
+     *
+     * `descendant-segment` must carry a selector, and the nearest query — `$..*` — is every node
+     * *below* the root rather than every node. So the interchange reader calls it malformed while
+     * the engine's own reads it, and the two halves of that are the same fact from opposite sides.
+     */
+    @Test
+    fun `the bare descendant is a catalog path and not a JSONPath query`() {
+        assertRow(
+            "$..",
+            Outcome.MALFORMED, Outcome.MALFORMED, Outcome.NULL,
+            Outcome.ACCEPTED, Outcome.MALFORMED, Outcome.MALFORMED,
+        )
+    }
+
+    @Test
+    fun `a filter reaches only the module that implements the whole RFC`() {
         assertRow(
             "$.a[?@.b=='x']",
             Outcome.MALFORMED, Outcome.MALFORMED, Outcome.NULL,
@@ -241,6 +269,7 @@ class PathGrammarTest {
     private fun fieldName(step: CatalogStep): String = when (step) {
         is CatalogStep.Field -> step.name
         CatalogStep.AnyElement -> fail("expected a field step, got `[*]`")
+        CatalogStep.AnyDescendant -> fail("expected a field step, got `..`")
     }
 
     private fun fieldName(step: VariantPathStep): String = when (step) {

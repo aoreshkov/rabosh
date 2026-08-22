@@ -21,9 +21,62 @@ class CatalogPathTest {
             """$["odd name"]""",
             """$["with \"quotes\""]""",
             """$["a.b"].c""",
+            "$..",
+            "$..sku",
+            "$..items[*]",
+            "$.a..b",
+            "$.a..",
+            """$..["@type"]""",
+            "$..[*]",
         )) {
             assertEquals(expression, CatalogPath.parse(expression).toString(), expression)
         }
+    }
+
+    /**
+     * The two dots are read before one, which is the whole of what keeps the spellings apart.
+     *
+     * `$..sku` is a descendant and a field; `$.a.sku` is two fields; and `$...sku` is neither, which
+     * has to fail rather than being read as one of them. The name after a `..` carries **no** dot,
+     * because that is RFC 9535's shorthand rule and because a dot there would be a third spelling of
+     * a step that already has two.
+     */
+    @Test
+    fun `a descendant is read greedily and its name carries no dot`() {
+        assertEquals(
+            listOf(CatalogStep.AnyDescendant, CatalogStep.Field("sku")),
+            CatalogPath.parse("$..sku").steps,
+        )
+        assertEquals(
+            listOf(CatalogStep.Field("a"), CatalogStep.Field("sku")),
+            CatalogPath.parse("$.a.sku").steps,
+        )
+        assertEquals(listOf(CatalogStep.AnyDescendant), CatalogPath.parse("$..").steps)
+        assertEquals(
+            listOf(CatalogStep.Field("a"), CatalogStep.AnyDescendant, CatalogStep.AnyElement),
+            CatalogPath.parse("$.a..[*]").steps,
+        )
+        assertFailsWith<IllegalArgumentException> { CatalogPath.parse("$...sku") }
+    }
+
+    /**
+     * **Two `..` in a row are refused, and the reason is the registry rather than taste.**
+     *
+     * `..` is idempotent, so the second selects nothing the first does not — but the argument that
+     * decides it is that a path is *persisted* as `toString` and read back by `parse`. `$....` is not
+     * a spelling in either grammar, so a step list holding two adjacent descendants could be built
+     * and could not be read back: a registry entry nothing could open. Refusing it at the
+     * constructor is what makes "every step list round-trips" true rather than nearly true.
+     */
+    @Test
+    fun `two descendants in a row are refused wherever they are built`() {
+        assertFailsWith<IllegalArgumentException> { CatalogPath.parse("$....") }
+        assertFailsWith<IllegalArgumentException> { CatalogPath.parse("$....sku") }
+        assertFailsWith<IllegalArgumentException> {
+            CatalogPath(listOf(CatalogStep.AnyDescendant, CatalogStep.AnyDescendant))
+        }
+        // One after another step, and two separated by one, are both ordinary.
+        CatalogPath(listOf(CatalogStep.AnyDescendant, CatalogStep.Field("a"), CatalogStep.AnyDescendant))
     }
 
     @Test
