@@ -16,8 +16,9 @@ deliberately not a second published surface.
 **The module stays beside the chain.** An edge from `rabosh-core`, `rabosh-catalog`,
 `rabosh-index`, `rabosh-query` or `rabosh-api` onto this module is the change that makes everything
 below unsafe, and it is not a refactoring — it is a decision, and the argument against it is the next
-paragraph. A *test*-only edge in the other direction is fine and there is one: the differential
-depends on `:rabosh-catalog`.
+paragraph. A *test*-only edge in the other direction is fine and this source set has one:
+`:rabosh-catalog` is on the test classpath, which is what lets the node differential, the reader
+differential and `PathGrammarTest` compare grammars nothing in `main` may put in one place.
 
 **Two definitions of comparison are allowed here precisely because they cannot meet.** RFC 9535's
 rules and `ColumnPredicate.matches` disagree in ways neither can be implemented in terms of the
@@ -114,9 +115,17 @@ matches before a final line terminator.
 **`CatalogPath.toString()` is not a JSONPath query, and that is now checked.** `$.items[*]` parses
 under both grammars and means different things: `AnyElement` selects array elements, RFC 9535's `*`
 selects every child of an object *or* an array. The RFC 9535 selector that does mean `AnyElement` is
-the slice `[:]`, which is what `NodeWalkDifferentialTest` renders — and why that differential can be
-an *equality* rather than an approximation. Phase 20 left this as a documentation question; it is
-answered, in the direction of not claiming the rendering.
+the slice `[:]`, which is what `CatalogPath.toJsonPath` emits and what `NodeWalkDifferentialTest`
+compares two evaluators over — which is why that differential can be an *equality* rather than an
+approximation. Phase 20 left this as a documentation question; it is answered, in the direction of
+not claiming the rendering.
+
+The consumer-facing half of that answer is `PATHS.md`, the repository's one comparison of the four
+grammars, and **its tables are `PathGrammarTest` in this source set** rather than prose somebody has
+to keep true by hand. The division to preserve: a reader's own suite owns its behaviour in depth,
+that test owns only the *relationships between* readers, and the document owns neither — it renders
+what the test asserts. Deepen a reader here and nothing above needs touching; change what one reader
+does relative to another and all three move together.
 
 **The errata are about PEG ordering and change nothing here.** All five against RFC 9535 — 8343,
 8352, 8353, 8354 and 8779 — concern prioritised choice in the ABNF, which is a failure mode a

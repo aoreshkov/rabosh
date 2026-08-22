@@ -46,6 +46,11 @@ public sealed interface CatalogStep {
  *
  * Paths are ordered so that a report is stable between runs: field before element at the same
  * position, then by field name, then shorter first.
+ *
+ * **`PATHS.md` compares this grammar with the other three**, which is where to look before spelling
+ * one expression for a filter and an extraction at once: `[*]` means array elements here and every
+ * child in RFC 9535, and a backslash is literal here and an escape there. Neither divergence has a
+ * diagnostic, and both are what [toJsonPath] and [Companion.parseJsonPath] exist to cross.
  */
 public class CatalogPath(public val steps: List<CatalogStep>) : Comparable<CatalogPath> {
 

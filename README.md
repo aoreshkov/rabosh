@@ -30,7 +30,8 @@ normal storage maintenance, and lets you add indexes to data that is already on 
 > release opens on every later one ([COMPATIBILITY.md](COMPATIBILITY.md)) — and the **Kotlin API is
 > tiered**: a small stable core moves only under a deprecation cycle, everything else may change in
 > any release and says so with an opt-in marker ([STABILITY.md](STABILITY.md)). The runtime contract
-> an embedding application has to obey is [INTEGRATION.md](INTEGRATION.md).
+> an embedding application has to obey is [INTEGRATION.md](INTEGRATION.md), and the four path
+> grammars — which look alike and are not — are compared in [PATHS.md](PATHS.md).
 
 ## Why
 
@@ -531,6 +532,13 @@ The artefact is separate because that is the only way the claim can be scoped ho
 `rabosh-jsonpath` implements RFC 9535 — **all 703** of the JSONPath Compliance Test Suite's cases run
 and pass, with nothing excluded; `VariantPath.parse` and `CatalogPath.parse` remain the engine's own
 grammar and are still not JSONPath.
+
+**Which is a divergence with teeth, so it has a document.** `$.items[*].sku` is accepted by both and
+means *array elements* to a filter and *every child, object members included* to RFC 9535; a
+backslash escapes literally on one side of the line and by JSON's rules on the other.
+[PATHS.md](PATHS.md) is the one place the four grammars are compared, with the boundary readers —
+`CatalogPath.parseJsonPath`, `VariantPath.parseJsonPathOrNull` — that let one expression serve a
+filter and an extraction without meaning two things.
 
 That includes `match` and `search`, which are defined over [RFC 9485][rfc9485] I-Regexp and are
 answered by a matcher written for this module rather than by `java.util.regex`. The reason is not
