@@ -1,6 +1,7 @@
 package app.oreshkov.rabosh.samples
 
 import app.oreshkov.rabosh.core.Key
+import java.util.Locale
 
 /**
  * The documents both samples write: service events, as JSON nobody declared a schema for.
@@ -21,6 +22,21 @@ import app.oreshkov.rabosh.core.Key
  *
  * Deterministic: the same index yields the same bytes on every run, so a sample's output can be
  * asserted and two runs can be compared.
+ *
+ * **"Every run" includes a run under somebody else's locale, which is why every `format` in this
+ * module names `Locale.ROOT`.** `java.util.Formatter` takes its digit set and its decimal separator
+ * from the default locale, so under one whose numbering system is not `latn` — `ar-SA`, say —
+ * `"event:%08d"` yields Arabic-Indic digits and the key below is *different bytes*. Two things then
+ * break at once: a corpus that is no longer the same corpus, and `SamplesTest`'s output regexes,
+ * whose `\d` matches ASCII only under Java's default flags.
+ *
+ * The `Test` tasks pin `user.language`/`user.country` in `rabosh.kotlin-base.gradle.kts`, which
+ * covers `SamplesTest` because it runs the samples in-process. It does **not** cover
+ * `runThreeSteps`, `runIndexLater`, `runTranscripts` or `runThreeStepsOnModulePath`, which are
+ * `JavaExec`s on a contributor's own machine — and for those the printed output *is* the
+ * deliverable. So the locale is named at the call site here, uniformly rather than only at the
+ * conversions that happen to localize: "which of `%d`, `%f` and `%x` does the JDK localize" is not
+ * a thing a reader should have to know to review a line of this module.
  */
 internal object SampleCorpus {
 
@@ -29,7 +45,7 @@ internal object SampleCorpus {
     private val regions = listOf("eu-west", "us-east", "us-west", "ap-south")
 
     /** The key of the [index]-th event. Zero-padded so key order is index order. */
-    fun key(index: Int): Key = Key.of("event:%08d".format(index))
+    fun key(index: Int): Key = Key.of("event:%08d".format(Locale.ROOT, index))
 
     /** The [index]-th event, as the JSON text a producer would have sent. */
     fun json(index: Int): String = buildString(200) {

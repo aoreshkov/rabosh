@@ -180,6 +180,29 @@ class CentralBundleReportTest {
         assertTrue(problems.single().contains("not a Maven layout path"), problems.single())
     }
 
+    @Test
+    @DisplayName("the budget summary reports releases-per-month, and the dropped checksums move it")
+    fun budgetSummary() {
+        // The two real shapes. Seven modules × five primary artefacts, each with a `.asc` (which
+        // needs no checksum of its own) plus `.md5` and `.sha1` is 140 files; the same bundle with
+        // the optional `.sha256` and `.sha512` left in is 210. The whole point of dropping them is
+        // this difference, so it is asserted rather than described.
+        val withoutOptional = CentralBundleReport.budgetSummary(140)
+        val withOptional = CentralBundleReport.budgetSummary(210)
+        assertTrue(withoutOptional.contains("about 8 release(s)"), withoutOptional)
+        assertTrue(withOptional.contains("about 5 release(s)"), withOptional)
+        // `Locale.ROOT`, so the percentage does not acquire a comma on a contributor's machine.
+        assertTrue(withoutOptional.contains("12.0%"), withoutOptional)
+    }
+
+    @Test
+    @DisplayName("an empty bundle does not divide by zero")
+    fun emptyBundleBudget() {
+        // Reached from a `doLast` that has already reported the empty bundle as a problem, so this
+        // must not throw over the top of the message that says what is actually wrong.
+        assertTrue(CentralBundleReport.budgetSummary(0).contains("0 files"))
+    }
+
     private fun problemsFor(
         entries: List<String>,
         version: String = this.version,

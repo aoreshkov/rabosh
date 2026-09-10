@@ -10,6 +10,7 @@ import app.oreshkov.rabosh.query.and
 import app.oreshkov.rabosh.query.path
 import app.oreshkov.rabosh.variant.toJsonString
 import java.nio.file.Path
+import java.util.Locale
 
 /**
  * The whole of rabosh's argument, as a program that runs:
@@ -145,6 +146,7 @@ object ThreeStepsMain {
         println(
             "   documents read %d -> %d, segments scanned %d -> %d, segments from sidecars %d -> %d"
                 .format(
+                    Locale.ROOT,
                     statsBefore.documentsRead, statsAfter.documentsRead,
                     statsBefore.segmentsScanned, statsAfter.segmentsScanned,
                     statsBefore.segmentsIndexed, statsAfter.segmentsIndexed,
@@ -184,7 +186,7 @@ object ThreeStepsMain {
             println("   $rows rows, first: $sample")
             println(
                 "   rows served from columns without opening a document: %d of %d"
-                    .format(cursor.stats.rowsProjectedFromColumns, cursor.stats.rowsReturned),
+                    .format(Locale.ROOT, cursor.stats.rowsProjectedFromColumns, cursor.stats.rowsReturned),
             )
         }
         SampleRun.note("an inverted index cannot answer this: its terms sort for lookup, not by value")

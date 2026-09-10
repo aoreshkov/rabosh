@@ -1,6 +1,7 @@
 package app.oreshkov.rabosh.bench
 
 import app.oreshkov.rabosh.variant.Variant
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -74,12 +75,13 @@ object CorrelationCostMain {
     private fun row(elements: Int, measured: CorrelationCost, predicted: Double) {
         println(
             "  %8d  %10d  %12d  %19.4f  %9.4f  %13s".format(
+                Locale.ROOT,
                 elements,
                 measured.correlatedMatches,
                 measured.uncorrelatedMatches,
                 measured.falsePositiveRate,
                 predicted,
-                if (measured.amplification.isNaN()) "-" else "%.2fx".format(measured.amplification),
+                if (measured.amplification.isNaN()) "-" else "%.2fx".format(Locale.ROOT, measured.amplification),
             ),
         )
     }

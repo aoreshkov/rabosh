@@ -27,7 +27,14 @@ val checkApiTiers = tasks.register("checkApiTiers") {
     val modules = ApiTierAudit.modulesUnder(root)
     val dumps = ApiTierAudit.dumpsUnder(root)
 
-    inputs.files(dumps.values.filter { it.isFile }).withPropertyName("abiDumps")
+    // `RELATIVE` rather than the default. The default is `ABSOLUTE`, and an absolute path is the one
+    // thing an Ubuntu runner and a Windows runner never agree on — so the build cache could not hit
+    // across the matrix, for an input whose answer does not depend on where the file is. Each dump is
+    // added as its own root, so `RELATIVE` normalises to the file name: `rabosh-core.api` still
+    // distinguishes itself from `rabosh-index.api`, which `NONE` would not.
+    inputs.files(dumps.values.filter { it.isFile })
+        .withPropertyName("abiDumps")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.files(modules.map { File(it, "src/main/kotlin") }.filter { it.isDirectory })
         .withPropertyName("sources")
         .withPathSensitivity(PathSensitivity.RELATIVE)

@@ -8,6 +8,7 @@ import app.oreshkov.rabosh.core.WriteBatch
 import app.oreshkov.rabosh.variant.Variant
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import java.time.Instant
 
 /**
@@ -112,7 +113,7 @@ internal class TranscriptLedger(directory: Path) : AutoCloseable {
         val batch = WriteBatch()
         var added = 0L
         val tally = TranscriptCorpus.read(queue, from) { ordinal, json ->
-            batch.put(Key.of("$END_PREFIX%08d".format(ordinal)), Variant.fromJson(json))
+            batch.put(Key.of("$END_PREFIX%08d".format(Locale.ROOT, ordinal)), Variant.fromJson(json))
             added++
         }
         if (!batch.isEmpty()) db.write(batch)
@@ -175,7 +176,7 @@ internal class TranscriptLedger(directory: Path) : AutoCloseable {
                     '\n' -> append("\\n")
                     '\r' -> append("\\r")
                     '\t' -> append("\\t")
-                    else -> if (character < ' ') append("\\u%04x".format(character.code)) else append(character)
+                    else -> if (character < ' ') append("\\u%04x".format(Locale.ROOT, character.code)) else append(character)
                 }
             }
             append('"')

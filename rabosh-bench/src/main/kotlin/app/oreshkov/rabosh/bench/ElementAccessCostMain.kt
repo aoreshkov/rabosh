@@ -14,6 +14,7 @@ import app.oreshkov.rabosh.query.path
 import app.oreshkov.rabosh.variant.Variant
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import kotlin.io.path.deleteRecursively
 import kotlin.random.Random
 
@@ -68,6 +69,7 @@ object ElementAccessCostMain {
                 val matcher = (measured.cost.walkNanosPerDocument - measured.traverseNanosPerDocument) / elements
                 println(
                     "  %8d  %8.1f  %12.1f  %8.1f  %14.1f  %12.1f  %10.1f".format(
+                        Locale.ROOT,
                         elements,
                         measured.cost.readNanosPerDocument,
                         measured.traverseNanosPerDocument,
@@ -162,7 +164,7 @@ object ElementAccessCostMain {
             val items = (0 until elements).joinToString(",") {
                 """{"sku":"sku-${random.nextInt(SKUS)}","qty":"qty-${random.nextInt(QUANTITIES)}"}"""
             }
-            store.put(Key.of("doc:%07d".format(index)), Variant.fromJson("""{"tenant":"t","items":[$items]}"""))
+            store.put(Key.of("doc:%07d".format(Locale.ROOT, index)), Variant.fromJson("""{"tenant":"t","items":[$items]}"""))
         }
         store.flush()
     }

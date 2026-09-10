@@ -65,10 +65,12 @@ public class Query private constructor(
         public const val NO_LIMIT: Int = -1
 
         /** A query for the documents [predicate] holds of, returning keys. */
+        @JvmStatic
         public fun where(predicate: Predicate): Query =
             Query(predicate, Projection.KEY, from = null, to = null, limit = NO_LIMIT)
 
         /** Every document, returning keys. */
+        @JvmStatic
         public fun all(): Query = where(Predicate.True)
     }
 }

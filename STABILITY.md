@@ -172,6 +172,52 @@ marker; commenting out the opt-in in `rabosh.kotlin-library` fails the published
 the marker from `IndexCatalog.read` fails `checkApiTiers` naming the method, the type it exposes and
 the module.
 
+## Calling it from Java
+
+Not a second tier — the guarantees above are about *declarations* and say nothing about which
+language reaches them — but the shape of the surface from Java is a decision, and it had never been
+recorded.
+
+**Every public companion member carries `@JvmStatic`, and functions with a default argument carry
+`@JvmOverloads` beside it.** `Rabosh.open`, `Rabosh.store`, `Key.of`, `Query.where`, `Query.all`,
+`Projection.of`/`KEY`/`DOCUMENT`, `QueryValue.of`/`ofAny`, `Variant.fromJson`, `RaboshOptions.DEFAULT`,
+`DocumentStore.open` and `JsonPathQuery.compile`.
+
+Until 2026-09-10 only `Rabosh.open` and `JsonPathQuery.compile` did, and no rationale for the
+asymmetry was recorded anywhere — which is what identified it as an oversight rather than a position.
+A Java consumer wrote a clean `Rabosh.open(dir)` and then `Key.Companion.of("k")` on the next line,
+which reads as though the second call were reaching for something internal when it is the most
+ordinary thing in the API.
+
+**The annotations are additive to the ABI in both directions.** `@JvmStatic` *adds* a static method
+beside the instance method on `Companion`, which stays; `@JvmOverloads` adds the shorter overloads.
+Nothing that compiled before stops compiling, no committed dump loses a signature, and the stable
+core's guarantee is untouched. That is why this did not need a deprecation cycle, and it is the test
+to apply to anything similar: an annotation that only widens the emitted surface is a fix, and one
+that narrows it is a break wearing a fix's clothes.
+
+## Two positions recorded, and no change made
+
+Both are defensible as they stand; what was missing was a written answer, so that the next person to
+notice them finds a decision rather than a silence.
+
+**`-jvm-default` is unconfigured, so the compiler default applies**, and two vestigial `DefaultImpls`
+classes sit in the published ABI (`rabosh-core.api`, `rabosh-index.api`). `no-compatibility` is the
+documented answer *for a new library* and would remove them — but it is a binary-incompatible change
+against 0.1.0 through 0.3.0, which are published and cannot be unpublished. So the flag is a
+`COMPATIBILITY.md`-and-here decision rather than a build-script tidy-up, and it stays unset until
+there is a reason better than tidiness. The honest note is that "we did not configure it" and "we
+chose it" had quietly become the same sentence; they are separated now.
+
+**Public `data class` leaves in `Predicate.kt` and `CatalogPath.kt` expose `copy` and `componentN`.**
+Kotlin's own API guidelines advise against data classes in a public API, because `copy` is a
+constructor nobody designed and `componentN` pins declaration order. Both here are leaves of sealed
+hierarchies, which weakens the argument — a caller cannot introduce a subtype, so the surface is
+closed — without removing it: `copy` can still build a `Predicate` no factory would have produced.
+Changing them now would be a source break for anything destructuring one, for a hazard nothing has
+hit. Recorded as accepted, and as a thing to get right in any *new* public leaf, where the choice is
+still free.
+
 ## Reporting
 
 A stable-core declaration that changed without a deprecation cycle is a bug. Please

@@ -4,6 +4,7 @@ import app.oreshkov.rabosh.core.Key
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import kotlin.io.path.invariantSeparatorsPathString
 
 /**
@@ -78,7 +79,7 @@ internal object TranscriptCorpus {
      * Zero-padded to eight digits so that lexicographic key order is line order. A transcript with
      * more than 100 million lines would break that, and would be a larger problem than its keys.
      */
-    fun key(name: String, ordinal: Long): Key = Key.of("$name/%08d".format(ordinal))
+    fun key(name: String, ordinal: Long): Key = Key.of("$name/%08d".format(Locale.ROOT, ordinal))
 
     /** What [read] found: how far it got, and what it refused to hand over. */
     data class Tally(

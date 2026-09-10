@@ -527,9 +527,11 @@ public class Variant public constructor(
          *
          * @throws JsonParseException if [json] is not valid JSON, with the position of the fault.
          */
+        @JvmStatic
         public fun fromJson(json: String): Variant = JsonParser().parse(json)
 
         /** See the [String] overload. [json] must be UTF-8. */
+        @JvmStatic
         public fun fromJson(json: ByteArray): Variant = JsonParser().parse(json)
 
         /** `num_elements` is a 4-byte unsigned field, and every count is used as an `Int` index. */

@@ -91,6 +91,7 @@ public class RaboshOptions(
 
     public companion object {
         /** Both layers on, a backfilling open, and each layer's own defaults. */
+        @JvmStatic
         public val DEFAULT: RaboshOptions = RaboshOptions()
     }
 }

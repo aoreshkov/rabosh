@@ -37,8 +37,8 @@ even if it were passed. If a future release acquires a restricted call, that tas
 > restricted call — the spelling on the module path is `--enable-native-access=app.oreshkov.rabosh.core`,
 > not `ALL-UNNAMED`.
 
-**On the module path**, each published jar declares its own name via `Automatic-Module-Name`, so
-`jlink` and `jpackage` builds resolve them stably rather than under a name derived from the filename:
+**On the module path**, each published jar declares its own name via `Automatic-Module-Name`, so it
+resolves under a stable name rather than one derived from the filename:
 
 | Artefact | Module |
 |---|---|
@@ -52,7 +52,20 @@ even if it were passed. If a future release acquires a restricted call, that tas
 
 These are automatic modules — there is no `module-info.java` — so they read every other module on the
 path and export every package. `kotlin-stdlib` ships a real module descriptor, so name it explicitly
-if nothing else already requires it.
+if nothing else already requires it. (It arrives on its own: the Kotlin Gradle plugin adds it, so it
+is in every published POM at compile scope. It is the one library a consumer of rabosh resolves that
+rabosh did not write.)
+
+**`jlink` will not accept these jars, and no flag changes that.** An automatic module cannot go into
+a custom runtime image — the JDK's own message is `automatic module cannot be used with jlink` — so
+`jlink` is available for the JDK modules an application needs and not for rabosh. `jpackage` is
+unaffected when the application is packaged from the class path (`--main-jar`), which is the ordinary
+shape; `jpackage` in its module-path mode runs `jlink` underneath and inherits the same refusal.
+
+Adding a real `module-info.java` is what would change this, and it is not something to do
+speculatively: it is a permanent narrowing of what each module exports and reads, made for a
+packaging mode nobody has asked for yet. If you need a `jlink` image with rabosh inside it, say so on
+the issue tracker — that is the evidence the change is waiting for.
 
 ## One process, one writer
 

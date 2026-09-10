@@ -177,10 +177,11 @@ tasks.withType<JavaExec>().matching { it.name in benchmarkExecTasks }.configureE
      * a regression gate.
      */
     val taskName = name
-    val benchmarkList = layout.buildDirectory
-        .file("benchmarks/main/resources/META-INF/BenchmarkList")
-        .get()
-        .asFile
+    // A `Provider`, resolved in the action rather than here. `.get()` at configuration time is an
+    // eager resolution on every configuration of this project, including ones that will never run a
+    // benchmark; the value it produces is also one the configuration cache then has to carry, where
+    // the provider carries its own derivation. Same fact either way — this is the lazier spelling.
+    val benchmarkList = layout.buildDirectory.file("benchmarks/main/resources/META-INF/BenchmarkList")
 
     doLast {
         val runnerConfig = (this as JavaExec).args.orEmpty().firstOrNull()
@@ -189,7 +190,7 @@ tasks.withType<JavaExec>().matching { it.name in benchmarkExecTasks }.configureE
                     "to produce. This check reads the file kotlinx-benchmark passes its runner; teach " +
                     "it the new contract rather than dropping it.",
             )
-        val problems = BenchmarkRunReport.verify(taskName, File(runnerConfig), benchmarkList)
+        val problems = BenchmarkRunReport.verify(taskName, File(runnerConfig), benchmarkList.get().asFile)
         if (problems.isNotEmpty()) throw GradleException(problems.joinToString("\n\n"))
     }
 }

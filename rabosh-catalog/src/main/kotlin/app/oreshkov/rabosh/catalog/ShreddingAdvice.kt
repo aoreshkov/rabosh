@@ -68,7 +68,7 @@ public class ShreddingAdvice internal constructor(
  * whether the typed column can stand alone or needs its `variant_value` fallback.
  *
  * **This emits advice and bytes, and never Parquet.** Writing the file is the caller's, with the
- * caller's own writer; the engine's claim of zero runtime dependencies is not spent on it. The other
+ * caller's own writer; the engine's dependency claim is not spent on a Parquet library. The other
  * half of the hand-off is `Variant.detached()`, which produces the self-contained
  * `(metadata, value)` pair a Variant column wants.
  *

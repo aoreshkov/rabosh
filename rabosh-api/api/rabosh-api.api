@@ -69,6 +69,7 @@ public final class app/oreshkov/rabosh/api/RaboshOptions {
 	public synthetic fun <init> (Lapp/oreshkov/rabosh/core/StoreOptions;Lapp/oreshkov/rabosh/catalog/CatalogOptions;Lapp/oreshkov/rabosh/index/IndexOptions;ZZZLapp/oreshkov/rabosh/core/SegmentObserver;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun getBackfill ()Z
 	public final fun getCatalog ()Lapp/oreshkov/rabosh/catalog/CatalogOptions;
+	public static final fun getDEFAULT ()Lapp/oreshkov/rabosh/api/RaboshOptions;
 	public final fun getIndex ()Lapp/oreshkov/rabosh/index/IndexOptions;
 	public final fun getIndexes ()Z
 	public final fun getSchema ()Z

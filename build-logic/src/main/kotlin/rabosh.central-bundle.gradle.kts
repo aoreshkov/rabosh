@@ -42,6 +42,24 @@ val centralBundleZip = tasks.register<Zip>("centralBundleZip") {
     // under a name this pattern misses, that is a failure rather than a surprise on the Portal.
     exclude("**/maven-metadata*")
 
+    // The SHA-256 and SHA-512 checksums Gradle writes are **optional** to Central, and from
+    // 2026-10-01 the file count they add is no longer free: Central enforces a per-organisation
+    // monthly budget of 1,167 files, and its own documentation says that count includes `.asc` and
+    // checksum files. A release of this project is seven modules × five primary artefacts, each with
+    // a signature and its checksums — dropping two of the four checksums takes it from ~210 files to
+    // ~140, which is the difference between roughly five releases a month and roughly eight.
+    //
+    // Excluded from the *bundle* rather than turned off in the publication, deliberately. Gradle's
+    // switch for that is `org.gradle.internal.publish.checksums.insecure`, and a build that depends
+    // on an internal system property is a build that breaks on an upgrade with no deprecation to warn
+    // it. The staged directory still holds them for anyone who wants to check one locally; the
+    // deployment does not carry them.
+    //
+    // `MD5` and `SHA-1` stay, because Central *requires* those, and the `.asc` beside every file is
+    // the integrity claim that actually matters — a checksum published next to the artefact by the
+    // same party proves transfer, a signature proves origin.
+    exclude("**/*.sha256", "**/*.sha512")
+
     destinationDirectory = layout.buildDirectory
     archiveFileName = "central-bundle.zip"
 }
@@ -82,8 +100,11 @@ tasks.register("bundleForCentral") {
                     "so this fails here rather than after.",
             )
         }
-        println(
-            "Central bundle: ${bundle.get().asFile}, $releaseVersion, ${modules.size} modules, signed.",
-        )
+        val archive = bundle.get().asFile
+        println("Central bundle: $archive, $releaseVersion, ${modules.size} modules, signed.")
+        // What this release costs against Central's monthly file budget, printed where somebody is
+        // about to spend it. Not a gate: this build cannot know what the organisation has already
+        // spent this month, and failing on a guess would be worse than saying nothing.
+        println("  ${CentralBundleReport.budgetSummary(CentralBundleReport.filesIn(archive).size)}")
     }
 }

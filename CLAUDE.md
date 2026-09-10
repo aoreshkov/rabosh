@@ -40,10 +40,12 @@ explicit confirmation from the user before it is added.** Ask before writing the
 `gradle/libs.versions.toml`, not after, and present the trade-off against writing the thing by hand —
 that is a real option here and has been chosen before.
 
-**Zero runtime dependencies is a claim the README makes, so keep it true.** Anything proposed for the
-runtime scope needs an argument against the JDK, not only the user's approval. The declines this rule
-already survived, and the one addition that did not need asking, are in
-`.claude/rules/build-and-release.md`.
+**"No runtime dependencies beyond the Kotlin standard library" is a claim the README makes, so keep
+it true — and keep it spelled that way.** It said *none at all* until 2026-09-10, and the published
+POM carries `kotlin-stdlib` regardless, because the Kotlin Gradle plugin adds what nothing here
+declares. Anything proposed for the runtime scope needs an argument against the JDK, not only the
+user's approval. The declines this rule already survived, and the one addition that did not need
+asking, are in `.claude/rules/build-and-release.md`.
 
 ## Toolchain
 
@@ -51,7 +53,8 @@ Versions are centralised in `gradle/libs.versions.toml`; do not inline them in b
 them at the latest stable release; do not adopt pre-releases (e.g. Kotlin `-Beta`) without asking.
 
 - **JDK 25 is not incidental**: the engine maps segments through the FFM API, which is final from
-  JDK 22. Tests run with `--enable-native-access=ALL-UNNAMED`.
+  JDK 22. Tests run with **no** native-access grant — see the entry below, which used to contradict
+  this line.
 - **The ABI tasks are `checkKotlinAbi` and `updateKotlinAbi`, and the `…LegacyAbi` pair is not a
   synonym** — the legacy names are deprecated shims that will throw and then be removed. Reference
   dumps live at `<module>/api/<module>.api`.
@@ -75,9 +78,14 @@ them at the latest stable release; do not adopt pre-releases (e.g. Kotlin `-Beta
   own behaviour in that reader's own suite; add a cell here only when the document gains a row. A
   KDoc explains one reader; this explains the *relationships*, which is what a consumer holding two
   of them needs and no single module can state.
-- **No module needs `--enable-native-access`, and that is checked**:
-  `:rabosh-samples:runThreeStepsOnModulePath` runs under `--illegal-native-access=deny` with no grant.
+- **No module needs `--enable-native-access`, and that is checked in two places now**:
+  `:rabosh-samples:runThreeStepsOnModulePath` runs under `--illegal-native-access=deny` with no grant,
+  and **`Test` tasks carry no grant either**, so the whole suite runs under the permission the
+  contract claims rather than one it does not. The blanket grant that used to sit on `Test` made this
+  file contradict itself and made a restricted call introduced tomorrow invisible to every test.
   `FileChannel::map` is not a restricted method; do not add the flag back on the assumption that it is.
+  The classpath samples and `rabosh-bench` still pass it, deliberately — the module-path sample is
+  where the claim is asserted, and `ALL-UNNAMED` there would cover the very call being looked for.
 
 ## Module layout
 

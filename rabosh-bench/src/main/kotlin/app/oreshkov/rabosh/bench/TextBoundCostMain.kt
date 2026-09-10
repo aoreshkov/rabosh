@@ -13,6 +13,7 @@ import app.oreshkov.rabosh.query.path
 import app.oreshkov.rabosh.variant.Variant
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import kotlin.io.path.deleteRecursively
 import kotlin.io.path.fileSize
 import kotlin.random.Random
@@ -90,6 +91,7 @@ object TextBoundCostMain {
                     val row = measure(root.resolve("${if (clustered) "c" else "i"}$width"), width, clustered)
                     println(
                         "    %5d  %14d  %6d  %9.3f  %12d  %19d".format(
+                            Locale.ROOT,
                             row.boundBytes,
                             TextBoundCost.discriminatingBytes(row.boundBytes, SHARED_PREFIX_BYTES),
                             row.columnBlocks,
@@ -169,7 +171,7 @@ object TextBoundCostMain {
      */
     fun typeOf(index: Int, clustered: Boolean): String {
         val discriminator = if (clustered) index else (index.toLong() * 97 % DOCUMENTS).toInt()
-        return SHARED_PREFIX + "%06d".format(discriminator)
+        return SHARED_PREFIX + "%06d".format(Locale.ROOT, discriminator)
     }
 
     private fun load(store: DocumentStore, clustered: Boolean) {
@@ -177,7 +179,7 @@ object TextBoundCostMain {
         val random = Random(20260809L)
         for (index in 0 until DOCUMENTS) {
             val json = """{"tenant":"t","seq":${random.nextInt(1000)},"type":"${typeOf(index, clustered)}"}"""
-            store.put(Key.of("doc:%07d".format(index)), Variant.fromJson(json))
+            store.put(Key.of("doc:%07d".format(Locale.ROOT, index)), Variant.fromJson(json))
         }
         store.flush()
     }

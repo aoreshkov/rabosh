@@ -694,10 +694,15 @@ true.
 
 ## Dependencies
 
-The engine has **no runtime dependencies at all** — not a small set, none. The JSON parser, the
+The engine has **no runtime dependencies beyond the Kotlin standard library**. The JSON parser, the
 compressed bitmap, the HyperLogLog cardinality estimator, the bloom filter and the property-test
 harness are all written in-repo rather than pulled in, and everything below them is the JDK:
 `FileChannel` for durable IO, the FFM API for mapped segments, `CRC32C` for checksums.
+
+The standard library is named rather than waved past, because the published POM carries it. Nothing
+in this repository declares it — the Kotlin Gradle plugin adds it, which is Gradle's own documented
+practice — so a consumer resolving `app.oreshkov:rabosh-api` gets `kotlin-stdlib` transitively at
+compile scope, and a claim of *none* would be a claim they can check and find false.
 
 This is deliberate rather than incidental. The storage engine is the point of the project, and
 owning the bitmap format in particular lets index sidecars be read straight off a mapped segment
