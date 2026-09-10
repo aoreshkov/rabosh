@@ -65,8 +65,10 @@ code, a way to get an artefact signed that should not have been.
 - `--enable-native-access` and the FFM API are a trust boundary the *host application* crosses when
   it embeds rabosh. Anything a caller can do by passing a hand-built `MemorySegment` directly to an
   internal API is out of scope; the boundary is the public API in `rabosh-api` and the file formats.
-- The Kotlin API is major-version zero and any signature may change in any release. A source or
-  binary incompatibility is not a vulnerability.
+- A source or binary incompatibility is not a vulnerability. The Kotlin API is *tiered*, not frozen:
+  [STABILITY.md](STABILITY.md) lists a stable core that moves only under a deprecation cycle, and
+  everything else — marked `@RaboshExperimental` where the compiler can enforce it — may change in
+  any release. Either way the report belongs on the issue tracker rather than here.
 
 ## Verifying what you got
 
@@ -79,3 +81,32 @@ gh attestation verify rabosh-api-<version>.jar --repo aoreshkov/rabosh
 
 If that does not verify, the jar did not come from this repository's release pipeline. That is worth
 reporting.
+
+### The PGP signing key
+
+Central requires a `.asc` beside every deployed file, so every artefact carries one. A signature is
+only worth as much as the value you check it against, though, and until now this repository published
+no fingerprint at all — which made the `.asc` files verifiable against *whatever key the keyserver
+handed back*, which is not verification.
+
+> **TODO — the two values below are not yet filled in.** They are held by the release maintainer and
+> are not derivable from this repository. Until they are here, treat the `gh attestation verify`
+> command above as the stronger check: it ties an artefact to a workflow run and a commit, and needs
+> no out-of-band value to trust.
+
+| | |
+|---|---|
+| Fingerprint | `TODO: 40 hex characters, no spaces` |
+| Expires | `TODO: YYYY-MM-DD` |
+
+```sh
+gpg --recv-keys <fingerprint>
+gpg --verify rabosh-api-<version>.jar.asc rabosh-api-<version>.jar
+```
+
+**The expiry is recorded here because it is a date that fails late and expensively.** Central's
+default key validity is two years, and an expired key is not caught by anything in this repository —
+it is caught by Central *rejecting the deployment*, after the tag has been pushed and, from
+2026-10-01, after the release has spent its share of the monthly file budget. The tag ruleset makes
+that unrecoverable: the fix ships as the next patch version. So the date belongs somewhere a person
+reads before tagging, and this is that place.

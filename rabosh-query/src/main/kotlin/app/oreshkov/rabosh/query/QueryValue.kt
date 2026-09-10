@@ -58,21 +58,26 @@ public sealed interface QueryValue {
 
     public companion object {
         /** The literal for [value]. */
+        @JvmStatic
         public fun of(value: String): QueryValue = Text(value)
 
         /** The literal for [value]. */
+        @JvmStatic
         public fun of(value: Long): QueryValue = Numeric.of(BigDecimal.valueOf(value))
 
         /** The literal for [value]. Rejects NaN and the infinities, which no ordering admits. */
+        @JvmStatic
         public fun of(value: Double): QueryValue {
             require(value.isFinite()) { "$value has no place in an ordering; NaN and the infinities are not literals" }
             return Numeric.of(BigDecimal.valueOf(value))
         }
 
         /** The literal for [value]. */
+        @JvmStatic
         public fun of(value: BigDecimal): QueryValue = Numeric.of(value)
 
         /** The literal for [value]. */
+        @JvmStatic
         public fun of(value: Boolean): QueryValue = Bool(value)
 
         /**
@@ -82,6 +87,7 @@ public sealed interface QueryValue {
          *   boolean or `null` — a type this engine cannot bracket is a mistake to report rather than
          *   a value to guess at.
          */
+        @JvmStatic
         public fun ofAny(value: Any?): QueryValue = when (value) {
             null -> Null
             is String -> of(value)

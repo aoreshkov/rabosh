@@ -39,6 +39,7 @@ public class Projection private constructor(
          *
          * A view over the snapshot's mappings, so it costs the fetch and nothing more.
          */
+        @JvmStatic
         public val DOCUMENT: Projection = Projection(emptyList(), wholeDocument = true)
 
         /**
@@ -48,6 +49,7 @@ public class Projection private constructor(
          * already decided the answer, a keys-only query opens nothing. That is what makes
          * `documentsRead == 0` reachable rather than aspirational.
          */
+        @JvmStatic
         public val KEY: Projection = Projection(emptyList(), wholeDocument = false)
 
         /**
@@ -58,10 +60,12 @@ public class Projection private constructor(
          * @throws IllegalArgumentException with the position for a malformed expression, and for a
          *   wildcard, which names no single value.
          */
+        @JvmStatic
         public fun of(vararg expressions: String): Projection =
             of(expressions.map { it to VariantPath.parse(it) })
 
         /** Named fields, already parsed. */
+        @JvmStatic
         public fun of(fields: List<Pair<String, VariantPath>>): Projection {
             require(fields.isNotEmpty()) { "a projection needs a field; use Projection.KEY or DOCUMENT" }
             return Projection(fields.map { (name, path) -> Field(name, path) }, wholeDocument = false)

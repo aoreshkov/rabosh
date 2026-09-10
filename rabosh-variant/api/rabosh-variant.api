@@ -57,6 +57,8 @@ public final class app/oreshkov/rabosh/variant/Variant {
 	public final fun fieldName (I)Ljava/lang/String;
 	public final fun fieldValue (I)Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun fields ()Ljava/util/List;
+	public static final fun fromJson (Ljava/lang/String;)Lapp/oreshkov/rabosh/variant/Variant;
+	public static final fun fromJson ([B)Lapp/oreshkov/rabosh/variant/Variant;
 	public final fun getBasicType ()Lapp/oreshkov/rabosh/variant/VariantBasicType;
 	public final fun getByteSize ()J
 	public final fun getChildCount ()I

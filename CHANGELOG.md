@@ -1,7 +1,7 @@
 # Changelog
 
 All notable changes to this project are recorded here. The format follows
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Keep a Changelog](https://keepachangelog.com/en/2.0.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) — with one qualification that matters
 more here than the version number does.
 
@@ -379,6 +379,134 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   `TruncatedWalkException` joins the sealed `CatalogException` hierarchy, so it is inside the stable
   tier and catchable by name. Binary-compatible; source-incompatible only for an exhaustive `when` over
   `CatalogException`, which is not a thing anybody writes over an exception type.
+
+- **A concurrency test that could pass having observed nothing.** `SnapshotTest`'s *a batch is never
+  half-visible through one snapshot* signalled its latch on the reader thread's **first instruction**,
+  discarded the boolean from `started.await(...)`, and then asserted only `assertNull(torn.get())`.
+  A reader descheduled between the countdown and its first loop check — entirely possible on a loaded
+  two-vCPU runner — let the writer finish, set `stop`, and exit on its first test, so the assertion
+  passed having taken **zero** snapshots. The latch is now counted down from *inside* the loop after a
+  snapshot has been examined, the await is `check`ed, a counter records snapshots examined, and the
+  writer waits for a floor of rounds that overlap the writes before stopping the reader.
+
+  This is the repository's own standing rule — *assertions about work never stand alone* — violated in
+  the one place nothing had checked it, and it is the shape `backgroundSegmentHook` was introduced to
+  fix: an assertion that would have passed for years while never once running the path it names.
+
+- **Number formatting that changed bytes under a contributor's locale.** `java.util.Formatter` takes
+  its digit set and decimal separator from the default locale, so `"event:%08d".format(n)` emits
+  Arabic-Indic digits under `ar-SA` — generated keys become *different bytes* in a suite built on byte
+  identity, and `SamplesTest`'s `\d` regexes stop matching, because Java's default flags match ASCII
+  digits only. Green on every CI runner, red only on somebody's own machine, which is the one kind of
+  non-determinism CI can never reproduce. Every `Test` task now pins `user.language`/`user.country`,
+  and `rabosh-samples` and `rabosh-bench` name `Locale.ROOT` at their own call sites, because they run
+  outside a `Test` task and their printed output is the deliverable.
+
+### Security
+
+- **The release job no longer leaks its token into `.git/config`.** `actions/checkout` persists the
+  job token unless told not to, and the publish job holds `contents: write` *and*
+  `attestations: write` and then runs Gradle with the GPG signing key in its environment — so any
+  build plugin on that classpath could read both. `persist-credentials: false` is now set on every
+  checkout in every workflow; `scorecard.yml` already had it, and the pattern simply had not reached
+  the job that most needed it. Nothing here uses git after the clone: `gh` authenticates from
+  `GH_TOKEN` and Central from `curl`.
+
+- **CodeQL runs over the source, which nothing analysed before.** `java-kotlin` support reached
+  Kotlin 2.4.20 and this build is on 2.4.20, which was the documented condition for revisiting the
+  exclusion. `build-mode: manual`, with the build under it running `--no-daemon`, `--no-build-cache`,
+  `--no-configuration-cache` and `-Dkotlin.compiler.execution.strategy=in-process` — every one of
+  those keeping compilation inside a process the tracer started. The code most in need of it is
+  exactly this codebase: hand-written buffer and offset arithmetic, a hand-rolled JSON parser, a
+  varint codec, a front-coded key block and a Thompson NFA matcher, all reading input the engine did
+  not write. It also closes the OpenSSF Scorecard `SAST` check, which had been scoring zero.
+
+- **The PGP signing key's fingerprint and expiry now have a place in `SECURITY.md`.** A signature is
+  worth what you check it against, and this repository published no fingerprint at all — so a `.asc`
+  could only be verified against whatever a keyserver returned. The expiry is recorded beside it
+  because it fails late: Central rejects the deployment *after* the tag is spent.
+
+### Changed
+
+- **Kotlin 2.4.10 → 2.4.20, then Gradle 9.6.1 → 9.7.1, in that order.** KGP declares the Gradle
+  versions it supports and 2.4.0–2.4.10 top out at 9.5.0, so the wrapper on 9.6.1 was an unsupported
+  pair — with `allWarningsAsErrors` that is a latent build break rather than a warning band. Kotlin
+  2.4.20 moves the ceiling to 9.7.0. Reversed, the upgrade would have widened the gap it closes.
+  Also JUnit 6.1.2 → 6.1.3.
+
+- **`gradle/actions` v5.0.2 → v6.3.0, with `cache-provider: basic`.** The hold at v5 was correct when
+  taken: v6.0.0 moved caching into a proprietary component and upgrading meant accepting its Terms of
+  Use. v6.1.0 answered that with an MIT "100% Open Source" Basic Caching provider, free for every
+  repository, and it is selected explicitly rather than relied on as a default. The argument now runs
+  the other way — v5.0.2 is the last v5 release with no EOL notice and no backport commitment, so
+  "held at v5" had come to mean "held at an unmaintained action", in the workflow that holds the
+  signing key. Also `actions/setup-java` v5.7.0 → v6.0.1 and `attest-build-provenance` v4.1.1 → v4.2.2.
+
+- **The Central deployment no longer carries the optional `.sha256`/`.sha512` checksums.** From
+  2026-10-01 Central enforces a per-organisation monthly budget — 1,167 files, 78 MB, 7 releases —
+  and its own documentation is explicit that the file count includes `.asc` and checksum files, which
+  makes files the metric that binds this project first. Dropping the two optional checksums takes a
+  release from ~210 files to ~140: roughly five releases a month becomes roughly eight. `MD5` and
+  `SHA-1` stay because Central requires them, and the `.asc` beside every file is the claim that
+  actually matters. Excluded from the bundle rather than switched off in the publication, because
+  Gradle's switch for that is an *internal* system property. `bundleForCentral` now prints what the
+  bundle it just made costs against that budget.
+
+  `release.yml`'s header said the trade was acceptable because "version numbers are free". After
+  2026-10-01 that sentence is false and it has been corrected: a failed release now spends the version
+  number **and** a share of the month's file budget, and the retry spends another.
+
+- **Every public companion member carries `@JvmStatic`**, and those with a default argument carry
+  `@JvmOverloads` beside it: `Key.of`, `Query.where`/`all`, `Projection.of`/`KEY`/`DOCUMENT`,
+  `QueryValue.of`/`ofAny`, `Variant.fromJson`, `RaboshOptions.DEFAULT` and `DocumentStore.open`. Only
+  `Rabosh.open` and `JsonPathQuery.compile` had it, with no rationale recorded anywhere — so a Java
+  consumer wrote a clean `Rabosh.open(dir)` and then `Key.Companion.of("k")` on the next line. **Purely
+  additive to the ABI**: the annotations add signatures beside the existing ones and remove none, which
+  is why it needs no deprecation cycle. `STABILITY.md` now states the position.
+
+### Fixed
+
+- **Three claims the repository did not back.** The README said *no runtime dependencies at all*
+  while the published POM carries `kotlin-stdlib` at compile scope — nothing declares it, the Kotlin
+  Gradle plugin adds it, and the POM is the artefact a consumer holds. It now says "no runtime
+  dependencies beyond the Kotlin standard library", and `INTEGRATION.md`, which had been telling
+  consumers to name the very dependency the README denied, agrees with it. `INTEGRATION.md` also said
+  `Automatic-Module-Name` lets `jlink` builds resolve stably: **jlink refuses automatic modules
+  outright** and no flag changes that. And `SECURITY.md` still carried the "major-version zero, any
+  signature may change" claim that `STABILITY.md` retired, as did `docs.yml`'s header — which cited
+  `COMPATIBILITY.md`, the *format* document, for it.
+
+- **The two `CLAUDE.md` sentences about `--enable-native-access` disagreed with each other**, and the
+  grant has come off the `Test` tasks. It was described as harmless future-proofing; it was harmless
+  as a flag and not as a statement, because `INTEGRATION.md` tells consumers no grant is needed while
+  the whole suite ran with one — so a restricted call introduced tomorrow would pass every test in ten
+  modules. The suite now runs under exactly the permission the contract describes, and it passes. The
+  classpath samples and `rabosh-bench` keep the flag: the samples' grant is what makes
+  `runThreeStepsOnModulePath` the only place the answer is visible.
+
+- **A module whose tests stop being discovered is no longer invisible.** Ten modules, one `test` task
+  each, no aggregated count anywhere, and reports uploaded only on failure — so an excluded-tag typo
+  or a filter that widens produced a green build with fewer tests in it and nothing said so.
+  `TestDiscoveryReport` (in `build-logic`, with its own unit tests) now fails a `test` task that
+  reported success having executed nothing, asserting the **artefact** — the JUnit XML the task was
+  configured to write — rather than the log, and failing rather than passing when it cannot read it.
+  A floor of one, never a count: a remembered number is something to update rather than a fact to
+  check. Verified by breaking it. CI now uploads test reports on success too, so the count is legible
+  run to run.
+
+### Considered and refused
+
+- **The JVM Test Suite plugin**, still incubating in 9.7.1, and tag-based separation already does the
+  job with one suite per module. **`test-report-aggregation` on its own**: it produces a report and
+  asserts no count, so it does not fix the defect above. **Pitest**: the differential oracles this
+  suite already has — parser against `kotlinx-serialization`, LSM against `TreeMap`, bitmap against
+  `BitSet`, planner against a full scan — cover structurally what mutation testing is for.
+  **`@DisabledOnOs` on the Windows-only leak assertions**, which would strictly *reduce* information:
+  running both platforms and letting real OS semantics be the oracle is the design, and `ci.yml`'s
+  matrix now says so at the line somebody trimming CI cost would delete. **`-jvm-default=no-compatibility`**,
+  which is the documented answer for a new library and a binary break against three published
+  releases; the position is recorded in `STABILITY.md` rather than the flag flipped silently.
+  **kotlinx-benchmark 0.5.0**, which targets Kotlin 2.5 compiler APIs.
 
 ## [0.3.0] — 2026-08-13
 

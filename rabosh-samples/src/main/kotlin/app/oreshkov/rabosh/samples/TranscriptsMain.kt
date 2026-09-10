@@ -204,9 +204,9 @@ object TranscriptsMain {
         val elapsed = elapsedSeconds(started)
 
         println()
-        println("ingested $ingested line(s), ${bytes(ingestedBytes)} of JSON, in %.1fs".format(elapsed))
+        println("ingested $ingested line(s), ${bytes(ingestedBytes)} of JSON, in %.1fs".format(Locale.ROOT, elapsed))
         if (elapsed > 0.0) {
-            println("   %.0f documents/s, %s/s".format(ingested / elapsed, bytes((ingestedBytes / elapsed).toLong())))
+            println("   %.0f documents/s, %s/s".format(Locale.ROOT, ingested / elapsed, bytes((ingestedBytes / elapsed).toLong())))
         }
         println("   $untouched file(s) unchanged since the last run, $resumed resumed mid-file, $torn with a tail still being written")
         println("   $rejectedTotal line(s) the parser rejected")
@@ -221,6 +221,7 @@ object TranscriptsMain {
         println()
         println(
             "compacted: %d -> %d segment(s), %s, in %.1fs".format(
+                Locale.ROOT,
                 beforeCompaction, db.stats.segmentCount, bytes(db.stats.segmentBytes), elapsedSeconds(compactionStarted),
             ),
         )
@@ -279,13 +280,13 @@ object TranscriptsMain {
 
     /** One field, without its bounds. See the note in [modelLater] for why the bounds are dropped. */
     private fun describe(field: InferredField): String = buildString {
-        append(field.path).append("  presence ").append("%.1f%%".format(field.presence * 100))
+        append(field.path).append("  presence ").append("%.1f%%".format(Locale.ROOT, field.presence * 100))
         append("  types ").append(field.types.entries.joinToString { "${it.key.name.lowercase()}=${it.value}" })
         if (field.distinctEstimate > 0) {
             append("  distinct ").append(if (field.distinctIsExact) "" else "~").append(field.distinctEstimate)
         }
-        append("  avg ").append("%.1f B".format(field.averageBytes))
-        if (field.nullFraction > 0) append("  null ").append("%.1f%%".format(field.nullFraction * 100))
+        append("  avg ").append("%.1f B".format(Locale.ROOT, field.averageBytes))
+        if (field.nullFraction > 0) append("  null ").append("%.1f%%".format(Locale.ROOT, field.nullFraction * 100))
     }
 
     // --- 3. index later ---------------------------------------------------------------------------
@@ -325,7 +326,7 @@ object TranscriptsMain {
         println()
         println("creating an index over $fieldPath, against the segments already written")
         db.createIndex(definition)
-        println("   built in %.1fs, over ${db.stats.segmentCount} segment(s)".format(elapsedSeconds(buildStarted)))
+        println("   built in %.1fs, over ${db.stats.segmentCount} segment(s)".format(Locale.ROOT, elapsedSeconds(buildStarted)))
 
         val (keysAfter, statsAfter, msAfter) = execute(db, query)
         println()
@@ -341,12 +342,13 @@ object TranscriptsMain {
         println(
             "   documents read %d -> %d, segments scanned %d -> %d, segments from sidecars %d -> %d"
                 .format(
+                    Locale.ROOT,
                     statsBefore.documentsRead, statsAfter.documentsRead,
                     statsBefore.segmentsScanned, statsAfter.segmentsScanned,
                     statsBefore.segmentsIndexed, statsAfter.segmentsIndexed,
                 ),
         )
-        println("   elapsed %.0f ms -> %.0f ms".format(msBefore, msAfter))
+        println("   elapsed %.0f ms -> %.0f ms".format(Locale.ROOT, msBefore, msAfter))
 
         println()
         println("how the planner answers it, and why:")
@@ -462,7 +464,7 @@ object TranscriptsMain {
     }
 
     private fun report(keys: List<Key>, stats: QueryStats, milliseconds: Double) {
-        println("   ${keys.size} row(s) in %.0f ms, first ${keys.firstOrNull()}".format(milliseconds))
+        println("   ${keys.size} row(s) in %.0f ms, first ${keys.firstOrNull()}".format(Locale.ROOT, milliseconds))
         println("   $stats")
     }
 

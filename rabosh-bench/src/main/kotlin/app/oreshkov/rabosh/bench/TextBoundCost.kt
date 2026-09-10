@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.bench
 
+import java.util.Locale
+
 /**
  * What a text bound's width buys in pruning, against what it costs in sidecar bytes.
  *
@@ -93,7 +95,7 @@ class TextBoundCost(
 
     override fun toString(): String =
         "TextBoundCost(bound=$boundBytes, prefix=$sharedPrefixBytes, " +
-            "skipped=$blocksSkipped/$blocksConsidered, rate=${"%.3f".format(skipRate)})"
+            "skipped=$blocksSkipped/$blocksConsidered, rate=${"%.3f".format(Locale.ROOT, skipRate)})"
 
     companion object {
         /**

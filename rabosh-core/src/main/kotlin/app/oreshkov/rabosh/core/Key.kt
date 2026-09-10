@@ -127,6 +127,7 @@ public class Key private constructor(private val bytes: ByteArray) : Comparable<
 
     public companion object {
         /** Copies [bytes] into a new key. */
+        @JvmStatic
         public fun of(bytes: ByteArray): Key = Key(bytes.copyOf())
 
         /**
@@ -137,6 +138,7 @@ public class Key private constructor(private val bytes: ByteArray) : Comparable<
          *   `String.toByteArray` does silently — would store a key the caller never asked for and
          *   then fail to find it again.
          */
+        @JvmStatic
         public fun of(text: String): Key = Key(
             try {
                 text.encodeToByteArray(throwOnInvalidSequence = true)

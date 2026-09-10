@@ -3,6 +3,7 @@ package app.oreshkov.rabosh.bench
 import app.oreshkov.rabosh.core.Key
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -31,7 +32,7 @@ object Corpus {
             append(""""team":"${teams[index % teams.size]}",""")
             append(""""region":"${regions[index % regions.size]}",""")
             append(""""score":${index % 1000},""")
-            append(""""price":${index % 900}.${"%02d".format(index % 100)},""")
+            append(""""price":${index % 900}.${"%02d".format(Locale.ROOT, index % 100)},""")
             append(""""active":${index % 3 == 0},""")
             append(""""tags":["t${index % 11}","t${index % 7}","t${index % 5}"],""")
             append(""""user":{"name":"user-${local.nextInt(100_000)}","seat":${local.nextInt(500)}},""")
@@ -43,7 +44,7 @@ object Corpus {
     /** Bytes of JSON text for [count] documents, for a throughput figure that means something. */
     fun sizeBytes(count: Int): Long = (0 until count).sumOf { json(it).length.toLong() }
 
-    fun key(index: Int): Key = Key.of("key:%09d".format(index))
+    fun key(index: Int): Key = Key.of("key:%09d".format(Locale.ROOT, index))
 
     /** A directory that will be deleted with the benchmark that made it. */
     fun scratch(prefix: String): Path = Files.createTempDirectory("rabosh-bench-$prefix")

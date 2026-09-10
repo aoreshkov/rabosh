@@ -26,11 +26,27 @@ engine controls rather than one a library version can change underneath it. Phas
 RoaringBitmap decision: because the bitmap format is ours, a `BitmapView` reads a mapped index sidecar
 **with no deserialization step at all**, which a library bitmap could not do at any price.
 
-**Zero runtime dependencies is a claim the README makes, so keep it true.** `kotlinx-io` was
-declared as the sole runtime dependency and removed in phase 4 once it was clear nothing referenced
-it: the codec reads `MemorySegment` directly, the log needs `FileChannel.force` (kotlinx-io 0.9.1
-cannot express `fsync`), and segments are mapped through the FFM API. Anything proposed for the
-runtime scope from here needs an argument against the JDK, not only the user's approval.
+**"No runtime dependencies beyond the Kotlin standard library" is a claim the README makes, so keep
+it true.** `kotlinx-io` was declared as the sole runtime dependency and removed in phase 4 once it
+was clear nothing referenced it: the codec reads `MemorySegment` directly, the log needs
+`FileChannel.force` (kotlinx-io 0.9.1 cannot express `fsync`), and segments are mapped through the
+FFM API. Anything proposed for the runtime scope from here needs an argument against the JDK, not
+only the user's approval.
+
+**The qualifier is not a hedge, and how it arrived is worth keeping.** The claim read *no runtime
+dependencies at all* until 2026-09-10, and it was false — not because anything was declared, but
+because nothing was: the Kotlin Gradle plugin adds `kotlin-stdlib` itself, which is Gradle's own
+documented practice ("Don't Explicitly Depend on the Kotlin Standard Library"), so the published POM
+carries it at compile scope and a consumer resolving `app.oreshkov:rabosh-api` gets it transitively.
+A check of the *declared* dependencies said the claim was true and a check of the *published POM*
+said it was false, and the POM is the artefact a consumer holds. Nothing about the engineering
+changed — every library this project declined is still declined — so the fix was the wording, in the
+README, in `INTEGRATION.md` (which had been telling consumers to name the very dependency the README
+denied), in the three fixture READMEs and here.
+
+The general rule it leaves behind: **verify a claim against the artefact a consumer receives, not
+against the source that was meant to produce it.** A build file is what was intended; a POM is what
+happened.
 
 **And the JDK is not automatically the answer either, which the I-Regexp matcher is the first case of.**
 `java.util.regex` costs no dependency and was still declined: it backtracks, RFC 9535 lets a `match`
@@ -64,7 +80,7 @@ asking.
 
 - JDK 25 is not incidental: the engine maps segments through the FFM API
   (`Arena`, `MemorySegment`, `FileChannel.map(..., Arena)`), which is final from JDK 22.
-  Tests run with `--enable-native-access=ALL-UNNAMED`.
+  Tests run with no native-access grant; see "Native access: the flag nobody needs" below.
 - Build conventions live in `build-logic/`, an included build. One thing there is a decision rather
   than a default:
   - `BenchmarkRunReport` — plain Kotlin, no Gradle types, so the decision that fails a benchmark task
@@ -159,8 +175,24 @@ flag *does* fail a two-line program that calls `MemorySegment.reinterpret`. A ch
 seen fail proves nothing, and that applies to a check on the JVM's behaviour as much as to one in the
 suite.
 
-`:rabosh-samples:runThreeStepsOnModulePath` is where the claim now lives, and the module path is the
-only place it can: `ALL-UNNAMED`, which the classpath samples pass, would cover a restricted call from
-the classpath and hide the answer. The `--enable-native-access=ALL-UNNAMED` on `Test` tasks and on the
-two classpath samples is retained as harmless future-proofing; the *reasoning* attached to it is not
-load-bearing and should not be repeated as though it were.
+`:rabosh-samples:runThreeStepsOnModulePath` is where the claim is *asserted*, and the module path is
+the only place it can be: `ALL-UNNAMED`, which the classpath samples pass, would cover a restricted
+call from the classpath and hide the answer.
+
+**The grant came off the `Test` tasks on 2026-09-10, and "harmless future-proofing" is what this file
+used to call it.** It was harmless as a flag and not as a *statement*. `INTEGRATION.md` tells a
+consumer no grant is needed and this repository ran its entire suite with one — so a restricted call
+introduced tomorrow would pass every test in ten modules and be caught only if that one sample
+happened to execute it, which is a very narrow net for a claim made to every consumer. The suite now
+runs under exactly the permission the contract describes. If a test ever fails for the want of the
+flag, **that failure is the finding** and the answer is either to remove the call or to change what
+`INTEGRATION.md` promises — never to add the flag back.
+
+The two classpath samples and `rabosh-bench` keep it, and those are not the same case: the samples'
+grant is what makes the module-path task the only place the answer is visible, which is the whole
+design above, and the benchmarks are diagnostics rather than a claim about the runtime contract.
+
+The general shape, worth carrying past this instance: **a permission granted "just in case" is a
+permission under which nothing is being tested.** Where a project's documentation states that a
+capability is not required, the check for that is not an extra assertion — it is running without the
+capability.

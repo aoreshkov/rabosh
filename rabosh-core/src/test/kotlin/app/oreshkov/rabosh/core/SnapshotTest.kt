@@ -6,6 +6,7 @@ import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,6 +25,17 @@ import org.junit.jupiter.api.io.TempDir
  * where all three are exercised together.
  */
 class SnapshotTest {
+
+    private companion object {
+        /**
+         * Snapshots the reader must examine *after* the writer starts writing.
+         *
+         * A floor that proves the window was entered, not a throughput target — two hundred
+         * batches of eight puts give a healthy reader orders of magnitude more than this, and the
+         * number is small so that a loaded runner cannot turn a passing engine into a red build.
+         */
+        const val OVERLAPPING_ROUNDS = 4L
+    }
 
     @TempDir
     lateinit var root: Path
@@ -164,9 +176,9 @@ class SnapshotTest {
 
             val stop = AtomicBoolean(false)
             val torn = AtomicReference<String?>(null)
+            val examined = AtomicLong(0)
             val started = CountDownLatch(1)
             val reader = Thread.ofPlatform().name("snapshot-reader").start {
-                started.countDown()
                 while (!stop.get()) {
                     val rounds = store.snapshot().use { snapshot ->
                         keys.map { store.get(it, snapshot)?.select("$.round")?.longValue() }
@@ -175,19 +187,55 @@ class SnapshotTest {
                         torn.compareAndSet(null, "saw a mix of rounds: $rounds")
                         return@start
                     }
+                    // Counted after the check, so the number is snapshots actually examined.
+                    examined.incrementAndGet()
+                    // Signalled from inside the loop rather than before it: a latch counted down on
+                    // the thread's first instruction reports that the thread exists, which is not
+                    // the thing being waited for.
+                    started.countDown()
                 }
             }
-            started.await(5, TimeUnit.SECONDS)
+            // A bounded wait whose result is discarded is a pause, not a wait.
+            check(started.await(5, TimeUnit.SECONDS)) { "the reader never examined a snapshot" }
+            val beforeWrites = examined.get()
 
             for (round in 1..200) {
                 val batch = WriteBatch()
                 keys.forEach { batch.put(it, Variant.fromJson("""{"round":$round}""")) }
                 store.write(batch)
             }
+            // The reader has to have taken snapshots *while* the writer was writing. Stopping it
+            // the instant the last batch lands lets a descheduled reader satisfy the latch above
+            // and then observe nothing at all of the window this test is about.
+            val floor = beforeWrites + OVERLAPPING_ROUNDS
+            awaitExamined(examined, floor, torn)
             stop.set(true)
             reader.join(10_000)
 
             assertNull(torn.get(), torn.get())
+            // Without this the assertion above holds for a reader that read nothing: the standing
+            // rule that an assertion about work never stands alone, applied to a concurrent one.
+            assertTrue(
+                examined.get() >= floor,
+                "the reader examined ${examined.get()} snapshots, of which " +
+                    "${examined.get() - beforeWrites} overlapped the writes",
+            )
+        }
+    }
+
+    /**
+     * Spins until the reader has examined [floor] snapshots, or until it reports a torn read.
+     *
+     * Bounded, and the bound fails rather than returning: a reader that stopped counting is the
+     * defect this guard exists to surface, so timing out must not be able to look like success.
+     */
+    private fun awaitExamined(examined: AtomicLong, floor: Long, torn: AtomicReference<String?>) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (examined.get() < floor && torn.get() == null) {
+            check(System.nanoTime() < deadline) {
+                "the reader examined ${examined.get()} snapshots, expected at least $floor"
+            }
+            Thread.onSpinWait()
         }
     }
 

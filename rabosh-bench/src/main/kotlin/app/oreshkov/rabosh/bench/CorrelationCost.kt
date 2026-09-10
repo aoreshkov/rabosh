@@ -3,6 +3,7 @@ package app.oreshkov.rabosh.bench
 import app.oreshkov.rabosh.variant.Variant
 import app.oreshkov.rabosh.variant.VariantBasicType
 import app.oreshkov.rabosh.variant.VariantKind
+import java.util.Locale
 
 /**
  * How many documents an **uncorrelated** conjunction returns that no single element justifies.
@@ -75,7 +76,7 @@ class CorrelationCost(
 
     override fun toString(): String =
         "CorrelationCost(documents=$documents, correlated=$correlatedMatches, " +
-            "uncorrelated=$uncorrelatedMatches, rate=${"%.4f".format(falsePositiveRate)})"
+            "uncorrelated=$uncorrelatedMatches, rate=${"%.4f".format(Locale.ROOT, falsePositiveRate)})"
 
     companion object {
         /**

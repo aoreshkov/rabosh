@@ -217,15 +217,41 @@ object CentralBundleReport {
                 "${bundle.path}: no bundle was written, so there is nothing to upload and nothing to check.",
             )
         }
-        val entries = ZipFile(bundle).use { zip ->
-            zip.entries().asSequence().filterNot { it.isDirectory }.map { it.name }.toList()
-        }
         return problems(
             bundlePath = bundle.path,
-            entries = entries,
+            entries = filesIn(bundle),
             groupPath = groupPath,
             version = version,
             expectedArtifacts = expectedArtifacts,
         )
+    }
+
+    /** Every file the archive holds, directories excluded. */
+    fun filesIn(bundle: File): List<String> =
+        ZipFile(bundle).use { zip ->
+            zip.entries().asSequence().filterNot { it.isDirectory }.map { it.name }.toList()
+        }
+
+    /**
+     * Central's per-organisation monthly file budget, which begins enforcing **2026-10-01**.
+     *
+     * Stated here rather than in a comment because it is arithmetic a release does, and because the
+     * count it applies to is not the intuitive one: Central's documentation is explicit that `.asc`
+     * and checksum files are included. So the metric that binds this project first is *files*, not
+     * the seven-release limit — a bundle of ~140 files spends about an eighth of the month's budget,
+     * and one of ~210 spends nearly a fifth.
+     *
+     * Reported, never enforced. A build has no way to know what the organisation has already spent
+     * this month, so failing on it would be a guess; what this can honestly do is say what one
+     * release costs, at the moment somebody is about to spend it.
+     */
+    const val CENTRAL_MONTHLY_FILE_BUDGET = 1_167
+
+    /** How this bundle's file count reads against [CENTRAL_MONTHLY_FILE_BUDGET]. */
+    fun budgetSummary(fileCount: Int): String {
+        val share = fileCount * 100.0 / CENTRAL_MONTHLY_FILE_BUDGET
+        val releases = CENTRAL_MONTHLY_FILE_BUDGET / maxOf(fileCount, 1)
+        return "$fileCount files, ${"%.1f".format(java.util.Locale.ROOT, share)}% of Central's " +
+            "$CENTRAL_MONTHLY_FILE_BUDGET-file monthly budget — about $releases release(s) a month at this size"
     }
 }

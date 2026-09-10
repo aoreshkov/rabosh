@@ -8,6 +8,7 @@ import app.oreshkov.rabosh.query.Query
 import app.oreshkov.rabosh.query.QueryStats
 import app.oreshkov.rabosh.query.path
 import java.nio.file.Path
+import java.util.Locale
 
 /**
  * Indexing a store that is already full, without stopping it — and the state in the middle.
@@ -132,7 +133,7 @@ object IndexLaterMain {
 
         val build = db.createIndexInBackground(IndexDefinition.inverted(SERVICE_PATH))
         while (!build.isDone) {
-            println("   ${build.progress}  ${"%.0f%%".format(build.progress.fraction * 100)}")
+            println("   ${build.progress}  ${"%.0f%%".format(Locale.ROOT, build.progress.fraction * 100)}")
             // The store is answering queries the entire time this loop runs.
             execute(db, query)
         }
@@ -161,7 +162,7 @@ object IndexLaterMain {
         println("   ${keys.size} rows, first ${keys.firstOrNull()}, last ${keys.lastOrNull()}")
         println(
             "   documents read %d, segments indexed %d, scanned %d"
-                .format(stats.documentsRead, stats.segmentsIndexed, stats.segmentsScanned),
+                .format(Locale.ROOT, stats.documentsRead, stats.segmentsIndexed, stats.segmentsScanned),
         )
     }
 }

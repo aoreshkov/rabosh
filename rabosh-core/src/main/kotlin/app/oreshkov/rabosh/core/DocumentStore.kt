@@ -943,6 +943,8 @@ public class DocumentStore private constructor(
          * supported and is not a signature anything is promised about. See `STABILITY.md`.
          */
         @RaboshExperimental
+        @JvmStatic
+        @JvmOverloads
         public fun open(directory: Path, options: StoreOptions = StoreOptions.DEFAULT): DocumentStore {
             prepareDirectory(directory, options)
             val lock = DirectoryLock.acquire(directory)

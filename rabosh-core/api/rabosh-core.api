@@ -59,6 +59,8 @@ public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoClosea
 	public final fun getOptions ()Lapp/oreshkov/rabosh/core/StoreOptions;
 	public final fun getSequence ()J
 	public final fun getStats ()Lapp/oreshkov/rabosh/core/StoreStats;
+	public static final fun open (Ljava/nio/file/Path;)Lapp/oreshkov/rabosh/core/DocumentStore;
+	public static final fun open (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/StoreOptions;)Lapp/oreshkov/rabosh/core/DocumentStore;
 	public final fun put (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/variant/Variant;)V
 	public final fun rotate ()V
 	public final fun scan (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Snapshot;)Lapp/oreshkov/rabosh/core/DocumentCursor;
@@ -74,6 +76,7 @@ public final class app/oreshkov/rabosh/core/DocumentStore : java/lang/AutoClosea
 }
 
 public final class app/oreshkov/rabosh/core/DocumentStore$Companion {
+	public final fun open (Ljava/nio/file/Path;)Lapp/oreshkov/rabosh/core/DocumentStore;
 	public final fun open (Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/StoreOptions;)Lapp/oreshkov/rabosh/core/DocumentStore;
 	public static synthetic fun open$default (Lapp/oreshkov/rabosh/core/DocumentStore$Companion;Ljava/nio/file/Path;Lapp/oreshkov/rabosh/core/StoreOptions;ILjava/lang/Object;)Lapp/oreshkov/rabosh/core/DocumentStore;
 }
@@ -94,6 +97,8 @@ public final class app/oreshkov/rabosh/core/Key : java/lang/Comparable {
 	public final fun get (I)B
 	public final fun getSize ()I
 	public fun hashCode ()I
+	public static final fun of (Ljava/lang/String;)Lapp/oreshkov/rabosh/core/Key;
+	public static final fun of ([B)Lapp/oreshkov/rabosh/core/Key;
 	public final fun startsWith (Lapp/oreshkov/rabosh/core/Key;)Z
 	public final fun successor ()Lapp/oreshkov/rabosh/core/Key;
 	public final fun toByteArray ()[B

@@ -17,8 +17,9 @@ unmergeable, and finding that out after the work is done is nobody's idea of a g
 ## Building
 
 You need **JDK 25**. This is not a preference. The engine maps every segment through the FFM API
-(`Arena`, `MemorySegment`, `FileChannel.map(..., Arena)`), which is final from JDK 22, and tests run
-with `--enable-native-access=ALL-UNNAMED`. There is no fallback path on an older JDK.
+(`Arena`, `MemorySegment`, `FileChannel.map(..., Arena)`), which is final from JDK 22, and there is
+no fallback path on an older JDK. You do **not** need `--enable-native-access`: nothing in the engine
+calls a restricted method, the test JVMs are given no grant, and `INTEGRATION.md` says why.
 
 ```sh
 ./gradlew build                # compile, test, and check the public ABI against the committed dumps
@@ -126,9 +127,20 @@ not "fix: abi". Say what changed and why it changed.
 
 ## What is not here, and why
 
-**CodeQL.** There is no code-scanning workflow. CodeQL's `java-kotlin` analysis supports Kotlin up
-to 2.3.20 and this build is on 2.4.10, so it cannot read the source at all — adding it would
-produce a failing check that tells nobody anything. It goes in when support lands.
+*Nothing, currently.* This section held one entry — **CodeQL** — from the first release until
+2026-09-10. The reason was that `java-kotlin` analysis supported Kotlin up to 2.3.20 while this build
+was on 2.4.x, so it could not read the source at all and would only have produced a red check that
+told nobody anything; the condition recorded for revisiting was "it goes in when support lands."
+
+Support landed: the range is now Kotlin 1.8.0 to 2.4.20, and `.github/workflows/codeql.yml` runs it
+with `build-mode: manual`. The manual mode is not incidental — CodeQL extracts Kotlin by tracing the
+compiler, so the build under it runs with `--no-daemon`, `--no-build-cache`,
+`--no-configuration-cache` and `-Dkotlin.compiler.execution.strategy=in-process`, and every one of
+those flags exists to keep the compilation inside a process the tracer started. Read the comments in
+that file before changing the build step: getting a flag wrong there does not fail, it extracts less.
+
+The entry is left here rather than deleted, because "why is there no X" and "there used to be no X,
+and here is what changed" are different pieces of information and the second is the more useful one.
 
 ## Licence
 

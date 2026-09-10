@@ -21,8 +21,8 @@ all test against — the same two files, unmodified.
 - Licence: Apache License 2.0, the same licence this repository is under
 
 Retrieved verbatim; neither file has been edited, truncated or re-serialized. They are test resources
-and not a dependency of anything: no rabosh artefact contains them, and the engine still has zero
-runtime dependencies.
+and not a dependency of anything: no rabosh artefact contains them, and the engine still needs nothing
+at runtime beyond the Kotlin standard library.
 
 ## What they hold
 

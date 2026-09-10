@@ -14,6 +14,7 @@ import app.oreshkov.rabosh.query.QueryEngine
 import app.oreshkov.rabosh.query.path
 import app.oreshkov.rabosh.variant.Variant
 import java.nio.file.Path
+import java.util.Locale
 
 /**
  * Where an indexed query's time goes, per row it returns.
@@ -125,12 +126,13 @@ object QueryCostMain {
                 )
 
                 var previous = 0.0
-                println("  %-34s %10s %10s %9s".format("stage", "us/row", "delta", "rows"))
+                println("  %-34s %10s %10s %9s".format(Locale.ROOT, "stage", "us/row", "delta", "rows"))
                 for (stage in stages) {
                     val (nanos, rows) = measure(stage.body)
                     val perRow = nanos / rows / 1000.0
                     println(
                         "  %-34s %10.3f %10.3f %9d".format(
+                            Locale.ROOT,
                             stage.label,
                             perRow,
                             perRow - previous,
@@ -159,12 +161,13 @@ object QueryCostMain {
                 "== segment sweep: $documentCount documents, held constant, " +
                     "${if (overlapping) "overlapping" else "disjoint"} key ranges ==",
             )
-            println("  %9s %12s %10s %9s".format("segments", "query us", "us/row", "rows"))
+            println("  %9s %12s %10s %9s".format(Locale.ROOT, "segments", "query us", "us/row", "rows"))
             for (segments in listOf(1, 2, 4, 8, 16)) {
                 Fixture.open(documentCount, segments, overlapping).use { fixture ->
                     val (nanos, rows) = measure { fixture.engine.keys(fixture.equality, fixture.snapshot).size }
                     println(
                         "  %9d %12.2f %10.3f %9d".format(
+                            Locale.ROOT,
                             fixture.snapshot.segmentNumbers.size,
                             nanos / 1000.0,
                             nanos / rows / 1000.0,

@@ -1,20 +1,32 @@
-# Centralised version catalogue. Versions verified 2026-08-01: every entry is the latest stable
-# release. Kotlin 2.4.20-Beta2 exists and is deliberately not taken — pre-releases need asking first.
+# Centralised version catalogue. Versions verified 2026-09-10: every entry is the latest stable
+# release.
+#
+# On 2026-08-01 this file recorded that Kotlin 2.4.20-Beta2 existed and was deliberately not taken,
+# because pre-releases need asking first. That policy is unchanged and the note has simply expired:
+# 2.4.20 went stable on 2026-09-07 and is taken here. The reason to take it promptly rather than
+# opportunistically is that KGP declares the Gradle versions it supports, so *not* upgrading is what
+# drifts — 2.4.0–2.4.10 top out at Gradle 9.5.0 and the wrapper had already moved past it. Kotlin
+# moves first and Gradle second, for that reason; reversed, the upgrade widens the gap it is closing.
 #
 # Dependency policy (see CLAUDE.md): JetBrains and Kotlin libraries are pre-approved.
 # Every other third-party library requires explicit confirmation before being added here.
 
 [versions]
-kotlin = "2.4.10"
-# The engine has NO runtime dependencies. kotlinx-io was declared as the one, and phase 4 removed
+kotlin = "2.4.20"
+# The engine declares NO runtime dependency. kotlinx-io was declared as the one, and phase 4 removed
 # it: it was never referenced. The codec reads `MemorySegment` directly, the write-ahead log needs
 # `FileChannel.force` (kotlinx-io 0.9.1 cannot express fsync at all), and segments are mapped
-# through the FFM API. Every candidate for it wanted `FileChannel` for mapping or forcing, so
-# "zero runtime dependencies" is the honest claim and it is made deliberately rather than
-# discovered. Everything below is test-only or build-only.
+# through the FFM API. Every candidate for it wanted `FileChannel` for mapping or forcing, so the
+# absence is deliberate rather than discovered.
+#
+# The claim made in public is "no runtime dependencies **beyond the Kotlin standard library**", and
+# the qualifier is not a hedge: the Kotlin Gradle plugin adds `kotlin-stdlib` itself — Gradle's own
+# documented practice, "Don't Explicitly Depend on the Kotlin Standard Library" — so it is in every
+# published POM at compile scope whatever this file says. Check that claim against a POM, never
+# against this list. Everything below is test-only or build-only.
 # Test-only: reference oracle for the hand-written JSON parser.
 kotlinx-serialization = "1.11.0"
-junit = "6.1.2"
+junit = "6.1.3"
 dokka = "2.2.0"
 benchmark = "0.4.17"
 # FFM API (Arena, MemorySegment, FileChannel.map with Arena) requires 22+; 25 is the LTS.

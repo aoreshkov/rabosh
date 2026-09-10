@@ -1,5 +1,7 @@
 package app.oreshkov.rabosh.bench
 
+import java.util.Locale
+
 /**
  * What an element ordinal space would buy, priced against the two things that already exist.
  *
@@ -76,7 +78,7 @@ class ElementAccessCost(
 
     override fun toString(): String =
         "ElementAccessCost(elements=$elementsPerDocument, read=%.0fns, walk=+%.0fns, share=%.1f%%)"
-            .format(readNanosPerDocument, walkNanos, walkShare * 100)
+            .format(Locale.ROOT, readNanosPerDocument, walkNanos, walkShare * 100)
 
     companion object {
         /**

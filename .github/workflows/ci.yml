@@ -5,10 +5,19 @@ name: CI
 # out, and that is the attack every recent Actions supply-chain incident has used. The comment is
 # not decoration — it is what Dependabot rewrites and what makes the bump readable in a diff.
 #
-# `gradle/actions` is deliberately held at v5 rather than v6. v6 extracts caching into
-# `gradle-actions-caching`, a proprietary component not covered by the MIT licence, and states that
-# upgrading constitutes accepting its commercial Terms of Use. This project's dependency policy does
-# not let a build acquire one of those silently.
+# `gradle/actions` was held at v5 through 2026, because v6.0.0 extracted caching into
+# `gradle-actions-caching`, a proprietary component not covered by the MIT licence, and upgrading
+# constituted accepting its Terms of Use — which this project's dependency policy does not let a
+# build acquire silently. **v6.1.0 answered that**: `cache-provider: basic` selects an MIT
+# ("100% Open Source") thin wrapper over `actions/cache`, free for every repository, and it is set
+# explicitly on every `setup-gradle` below rather than relied on as a default.
+#
+# The argument now runs the other way, which is why the hold ended rather than merely becoming
+# affordable. v5.0.2 (2026-02-23) is the last v5 release; six v6 releases have shipped since, with
+# no EOL notice and no backport commitment. "Held at v5" had stopped meaning "held at the MIT
+# version" and come to mean "held at an unmaintained action" — in, among others, the workflow that
+# holds the signing key. A pin exists to stop code changing under the job, not to stop it being
+# fixed.
 
 on:
   push:
@@ -28,26 +37,47 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # `windows-latest` is not redundant platform coverage, and this is the file where somebody
+        # trimming CI cost would delete it. On Windows a mapped file cannot be deleted, and that OS
+        # rule is the *oracle* for the engine's whole mapping-lifetime story: `ResourceLeakTest`,
+        # `IndexLifecycleTest`, `ColumnLifecycleTest`, `CatalogLifecycleTest`, `QueryLifecycleTest`,
+        # `RaboshLifecycleTest`, `ProtobufJsonTest` and `SamplesTest` all rest on it. On Linux,
+        # unlinking a mapped file succeeds, so every one of those assertions is a no-op there and
+        # the ubuntu job goes green regardless.
+        #
+        # So dropping this entry, or making it `continue-on-error`, does not lose "one platform" —
+        # it silently stops testing deterministic unmap, with no test failing anywhere to say so.
+        # Running both and letting real OS semantics be the oracle is deliberate, and is why
+        # `.claude/rules/testing.md` declines `@DisabledOnOs` on those assertions.
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing in this job uses git after the clone, so the job token has no reason to sit
+          # in `.git/config` where every build plugin on the classpath can read it.
+          persist-credentials: false
 
       # The wrapper jar is committed, so it is code this repository ships. This checks it against
       # Gradle's published checksums; `distributionSha256Sum` in gradle-wrapper.properties pins the
       # distribution it downloads. Two different files, two separate pins, both needed.
       - name: Validate Gradle wrapper
-        uses: gradle/actions/wrapper-validation@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       - name: Set up JDK 25
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           # The engine maps segments via the FFM API, final since JDK 22; 25 is the LTS.
           java-version: 25
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          # Basic Caching: MIT, a thin wrapper over `actions/cache`, free for every repository. The
+          # default provider is the proprietary `gradle-actions-caching` component; selecting this one
+          # explicitly is what keeps the build entirely under licences this project already accepts.
+          cache-provider: basic
 
       # `build` runs compilation, tests, and checkKotlinAbi — a public-API change that is
       # not reflected in the committed api/*.api dumps fails here.
@@ -93,8 +123,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: ./gradlew dokkaGenerate --stacktrace
 
+      # Uploaded on success too, not only `if: failure()`. Each module's `test` task now fails when
+      # it executed nothing, so the floor is enforced in the build — but the *count* is still only
+      # legible if the reports exist for a green run. A suite that quietly halves stays above the
+      # floor and is invisible in a passing build otherwise.
       - name: Upload test reports
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: test-reports-${{ matrix.os }}

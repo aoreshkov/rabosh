@@ -41,7 +41,7 @@ committed verbatim for the same reason the fixtures are.
 
 Retrieved verbatim; nothing has been edited, reordered, filtered or reformatted. They are test
 resources and not a dependency of anything: no rabosh artefact contains them, no build configuration
-references them, and the engine still has zero runtime dependencies.
+references them, and the engine still needs nothing at runtime beyond the Kotlin standard library.
 
 `.gitattributes` marks this directory `-text`, so no checkout normalises a line ending inside it —
 `LICENSE` arrives with CRLF, and rewriting it would make the file shorter than the hash above.

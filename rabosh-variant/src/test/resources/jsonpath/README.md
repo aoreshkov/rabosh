@@ -28,7 +28,7 @@ is committed verbatim for the same reason the fixtures are.
 
 Retrieved verbatim; nothing has been edited, reordered, filtered or reformatted. They are test
 resources and not a dependency of anything: no rabosh artefact contains them, no build configuration
-references them, and the engine still has zero runtime dependencies.
+references them, and the engine still needs nothing at runtime beyond the Kotlin standard library.
 
 The suite's own README recommends embedding it as a git submodule. This repository takes the other
 option, for the reason recorded beside the Roaring fixtures in

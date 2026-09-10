@@ -209,7 +209,11 @@ public final class app/oreshkov/rabosh/query/PredicatesKt {
 
 public final class app/oreshkov/rabosh/query/Projection {
 	public static final field Companion Lapp/oreshkov/rabosh/query/Projection$Companion;
+	public static final fun getDOCUMENT ()Lapp/oreshkov/rabosh/query/Projection;
+	public static final fun getKEY ()Lapp/oreshkov/rabosh/query/Projection;
 	public final fun getNames ()Ljava/util/List;
+	public static final fun of (Ljava/util/List;)Lapp/oreshkov/rabosh/query/Projection;
+	public static final fun of ([Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Projection;
 	public fun toString ()Ljava/lang/String;
 }
 
@@ -223,6 +227,7 @@ public final class app/oreshkov/rabosh/query/Projection$Companion {
 public final class app/oreshkov/rabosh/query/Query {
 	public static final field Companion Lapp/oreshkov/rabosh/query/Query$Companion;
 	public static final field NO_LIMIT I
+	public static final fun all ()Lapp/oreshkov/rabosh/query/Query;
 	public final fun getFrom ()Lapp/oreshkov/rabosh/core/Key;
 	public final fun getLimit ()I
 	public final fun getPredicate ()Lapp/oreshkov/rabosh/query/Predicate;
@@ -233,6 +238,7 @@ public final class app/oreshkov/rabosh/query/Query {
 	public final fun project ([Ljava/lang/String;)Lapp/oreshkov/rabosh/query/Query;
 	public final fun range (Lapp/oreshkov/rabosh/core/Key;Lapp/oreshkov/rabosh/core/Key;)Lapp/oreshkov/rabosh/query/Query;
 	public fun toString ()Ljava/lang/String;
+	public static final fun where (Lapp/oreshkov/rabosh/query/Predicate;)Lapp/oreshkov/rabosh/query/Query;
 }
 
 public final class app/oreshkov/rabosh/query/Query$Companion {
@@ -280,6 +286,12 @@ public final class app/oreshkov/rabosh/query/QueryStats {
 
 public abstract interface class app/oreshkov/rabosh/query/QueryValue {
 	public static final field Companion Lapp/oreshkov/rabosh/query/QueryValue$Companion;
+	public static fun of (D)Lapp/oreshkov/rabosh/query/QueryValue;
+	public static fun of (J)Lapp/oreshkov/rabosh/query/QueryValue;
+	public static fun of (Ljava/lang/String;)Lapp/oreshkov/rabosh/query/QueryValue;
+	public static fun of (Ljava/math/BigDecimal;)Lapp/oreshkov/rabosh/query/QueryValue;
+	public static fun of (Z)Lapp/oreshkov/rabosh/query/QueryValue;
+	public static fun ofAny (Ljava/lang/Object;)Lapp/oreshkov/rabosh/query/QueryValue;
 }
 
 public final class app/oreshkov/rabosh/query/QueryValue$Bool : app/oreshkov/rabosh/query/QueryValue {

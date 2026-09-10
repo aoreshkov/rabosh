@@ -2,7 +2,19 @@ pluginManagement {
     includeBuild("build-logic")
     repositories {
         mavenCentral()
-        gradlePluginPortal()
+        // The plugin portal is a proxy in front of Central, and an unfiltered proxy is a second
+        // place any group at all can be served from. Every plugin this build applies is JetBrains'
+        // — `org.jetbrains.kotlin.jvm`, `org.jetbrains.dokka`, `org.jetbrains.kotlinx.benchmark`,
+        // and the convention plugins, which come from the included build rather than a repository —
+        // so the portal is told to answer for nothing else. Central above it stays unfiltered: it
+        // is the source of truth rather than the proxy.
+        //
+        // The failure this produces is the useful one. A plugin from some other group is not
+        // resolved and quietly added; it is not found, at the point somebody writes it down, which
+        // is the same conversation `CLAUDE.md`'s dependency policy asks for in prose.
+        gradlePluginPortal {
+            content { includeGroupByRegex("""org\.jetbrains(\..+)?""") }
+        }
     }
 }
 
