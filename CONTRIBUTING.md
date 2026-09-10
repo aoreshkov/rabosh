@@ -127,20 +127,35 @@ not "fix: abi". Say what changed and why it changed.
 
 ## What is not here, and why
 
-*Nothing, currently.* This section held one entry — **CodeQL** — from the first release until
-2026-09-10. The reason was that `java-kotlin` analysis supported Kotlin up to 2.3.20 while this build
-was on 2.4.x, so it could not read the source at all and would only have produced a red check that
-told nobody anything; the condition recorded for revisiting was "it goes in when support lands."
+**CodeQL.** There is no code-scanning workflow, and the reason is now one release wide rather than
+several. CodeQL's `java-kotlin` extractor is version-locked to the Kotlin compiler it traces, and the
+CodeQL CLI *bundle* that `github/codeql-action` ships is what decides which versions that is. Support
+for Kotlin **2.4.20** — this build's version — merged on 2026-09-08 (github/codeql#22404) and missed
+the cut for CLI **2.27.0**, released the next day and still the newest bundle. Run it against this
+build today and the extractor stops before reading a line:
 
-Support landed: the range is now Kotlin 1.8.0 to 2.4.20, and `.github/workflows/codeql.yml` runs it
-with `build-mode: manual`. The manual mode is not incidental — CodeQL extracts Kotlin by tracing the
+```
+Kotlin version 2.4.20 is too recent. CodeQL currently supports versions below 2.4.20
+```
+
+The workflow is written and was briefly on this branch — recover it with
+`git log --diff-filter=D -- .github/workflows/codeql.yml` — so putting it back is a file rather than a
+design. The load-bearing part of it is `build-mode: manual`: CodeQL extracts Kotlin by tracing the
 compiler, so the build under it runs with `--no-daemon`, `--no-build-cache`,
-`--no-configuration-cache` and `-Dkotlin.compiler.execution.strategy=in-process`, and every one of
-those flags exists to keep the compilation inside a process the tracer started. Read the comments in
-that file before changing the build step: getting a flag wrong there does not fail, it extracts less.
+`--no-configuration-cache` and `-Dkotlin.compiler.execution.strategy=in-process`, each of them there
+to keep compilation inside a process the tracer started. Getting one wrong does not fail — it
+extracts less, which is the failure mode this repository is most careful about elsewhere.
 
-The entry is left here rather than deleted, because "why is there no X" and "there used to be no X,
-and here is what changed" are different pieces of information and the second is the more useful one.
+**Check the ceiling against the bundle, not against the documentation.** CodeQL's supported-languages
+page said "Kotlin 1.8.0 to 2.4.20" while the shipped extractor rejected 2.4.20, for two reasons at
+once: the upper bound is exclusive, and the page describes the CLI being developed rather than the
+one a runner downloads. The artefact that answers is `java/kotlin-extractor/versions.bzl` at the
+`codeql-cli/vX.Y.Z` tag the pinned action resolves to — a list of compiler versions, with this
+build's `kotlin` from `gradle/libs.versions.toml` either in it or not. That is the same rule the
+dependency claim in `README.md` is verified under: **check a claim against the artefact you receive,
+not against the source that was meant to produce it.**
+
+It goes in when a bundle later than 2.27.0 ships, and nothing else has to change for it to.
 
 ## Licence
 

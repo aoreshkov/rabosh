@@ -412,15 +412,6 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   the job that most needed it. Nothing here uses git after the clone: `gh` authenticates from
   `GH_TOKEN` and Central from `curl`.
 
-- **CodeQL runs over the source, which nothing analysed before.** `java-kotlin` support reached
-  Kotlin 2.4.20 and this build is on 2.4.20, which was the documented condition for revisiting the
-  exclusion. `build-mode: manual`, with the build under it running `--no-daemon`, `--no-build-cache`,
-  `--no-configuration-cache` and `-Dkotlin.compiler.execution.strategy=in-process` — every one of
-  those keeping compilation inside a process the tracer started. The code most in need of it is
-  exactly this codebase: hand-written buffer and offset arithmetic, a hand-rolled JSON parser, a
-  varint codec, a front-coded key block and a Thompson NFA matcher, all reading input the engine did
-  not write. It also closes the OpenSSF Scorecard `SAST` check, which had been scoring zero.
-
 - **The PGP signing key's fingerprint and expiry now have a place in `SECURITY.md`.** A signature is
   worth what you check it against, and this repository published no fingerprint at all — so a `.asc`
   could only be verified against whatever a keyserver returned. The expiry is recorded beside it
@@ -507,6 +498,19 @@ else may change in any release. That claim lives in [STABILITY.md](STABILITY.md)
   which is the documented answer for a new library and a binary break against three published
   releases; the position is recorded in `STABILITY.md` rather than the flag flipped silently.
   **kotlinx-benchmark 0.5.0**, which targets Kotlin 2.5 compiler APIs.
+
+- **CodeQL — deferred rather than refused, and by exactly one release.** `CONTRIBUTING.md`
+  used to explain the exclusion by a `java-kotlin` ceiling of Kotlin 2.3.20; that ceiling is long
+  gone and the entry now records the real one. The extractor is locked to the compiler versions its
+  CLI *bundle* was built against: support for Kotlin 2.4.20 merged on 2026-09-08, missed the cut for
+  CLI 2.27.0 a day later, and 2.27.0 is still the newest bundle — so the extractor refuses this build
+  before reading a line. The workflow is written and recoverable from this branch's history, and goes
+  in unchanged when a later bundle ships; Scorecard's `SAST` check keeps scoring zero until it does.
+  The rule it leaves behind is the one the runtime-dependency claim taught this release: **check a
+  ceiling against the artefact a runner downloads, not against the page describing the version under
+  development.** The supported-languages page read "1.8.0 to 2.4.20" — an exclusive bound, on a page
+  a release ahead of the bundle — and `java/kotlin-extractor/versions.bzl` at the `codeql-cli/vX.Y.Z`
+  tag the pinned action resolves to is what actually answers.
 
 ## [0.3.0] — 2026-08-13
 

@@ -69,8 +69,12 @@ jobs:
 
       # Code scanning is where a finding becomes visible next to the code it is about. Only the
       # upload half of the action is used here, because this workflow's finding is Scorecard's own
-      # SARIF — CodeQL's analysis of the source lives in `codeql.yml`, which is where the exclusion
-      # this comment used to record was lifted once `java-kotlin` support reached Kotlin 2.4.20.
+      # SARIF — CodeQL itself is deliberately absent. Its `java-kotlin` extractor is locked to the
+      # compiler versions its CLI bundle was built against, and support for this build's Kotlin
+      # missed the newest bundle by one release; `CONTRIBUTING.md` records the ceiling, how to check
+      # it against the bundle rather than the documentation, and what changes when it lifts. That
+      # absence is also why Scorecard's `SAST` check scores zero, which is honest rather than
+      # overlooked.
       - name: Upload the result to code scanning
         uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4.38.0
         with:
