@@ -1,3 +1,6 @@
+// Rabosh.open is deprecated by the final release, which points its users at Delva.
+@file:Suppress("DEPRECATION")
+
 package app.oreshkov.rabosh.samples
 
 import app.oreshkov.rabosh.api.Rabosh
