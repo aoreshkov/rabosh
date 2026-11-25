@@ -30,6 +30,11 @@ import kotlin.concurrent.withLock
 /**
  * A store, its model and its indexes as one object with one lifecycle.
  *
+ * **rabosh is no longer maintained, and 0.4.0 is its final release.** Its successor is
+ * [Delva](https://github.com/aoreshkov/delva) (`app.oreshkov.delva:delva`), which has its own API
+ * and its own on-disk format, so a rabosh store is moved by reading its documents out and writing
+ * them in. [open] carries the deprecation, because it is the one call every consumer makes.
+ *
  * ```kotlin
  * Rabosh.open(Path.of("data")).use { db ->
  *     db.put(Key.of("user:1"), """{"name":"ada","team":"analytics"}""")
@@ -634,6 +639,12 @@ public class Rabosh private constructor(
          * @throws java.nio.file.NoSuchFileException if the directory is absent and
          *   `StoreOptions.createIfMissing` is `false`.
          */
+        @Deprecated(
+            "rabosh is no longer maintained and 0.4.0 is its final release. Its successor is Delva " +
+                "(app.oreshkov.delva:delva, https://github.com/aoreshkov/delva), which has its own API " +
+                "and on-disk format.",
+            level = DeprecationLevel.WARNING,
+        )
         @JvmStatic
         @JvmOverloads
         public fun open(directory: Path, options: RaboshOptions = RaboshOptions.DEFAULT): Rabosh {

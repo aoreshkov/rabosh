@@ -7,6 +7,13 @@
 [![Licence: Apache 2.0](https://img.shields.io/badge/Licence-Apache%202.0-blue)](LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/aoreshkov/rabosh/badge)](https://scorecard.dev/viewer/?uri=github.com/aoreshkov/rabosh)
 
+> [!WARNING]
+> **rabosh is no longer maintained, and 0.4.0 is its final release.** It has been replaced by
+> **[Delva](https://github.com/aoreshkov/delva)** (`app.oreshkov.delva:delva` on Maven Central). Delva
+> has its own API and its own on-disk format, so a rabosh store is moved by reading its documents out
+> and writing them in. The versions already on Maven Central stay there and keep resolving, because
+> Central never removes a published release, but nothing further will be published, fixed or answered here.
+
 An embedded JSON storage engine for the JVM, written from scratch in Kotlin. It stores JSON of
 unknown structure without a schema, works out what that structure actually is as a by-product of
 normal storage maintenance, and lets you add indexes to data that is already on disk.

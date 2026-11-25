@@ -332,6 +332,11 @@ jobs:
         run: |
           set -euo pipefail
           cat > release-notes.md <<EOF
+          > [!WARNING]
+          > **rabosh is no longer maintained, and this is its final release.** It has been replaced by
+          > [Delva](https://github.com/aoreshkov/delva) (\`app.oreshkov.delva:delva\`), which has its own
+          > API and on-disk format.
+
           Published to Maven Central under \`app.oreshkov\`. \`rabosh-api\` brings the five modules of
           the storage chain with it:
 

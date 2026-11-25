@@ -11,7 +11,23 @@ affecting it is stated in [COMPATIBILITY.md](COMPATIBILITY.md) first and only su
 **Kotlin API** is tiered: a small stable core moves only under a deprecation cycle, and everything
 else may change in any release. That claim lives in [STABILITY.md](STABILITY.md), on the same terms.
 
-## [Unreleased]
+## [0.4.0] — 2026-11-25
+
+**This is rabosh's final release, and the project is no longer maintained.** It has been replaced
+by [Delva](https://github.com/aoreshkov/delva) (`app.oreshkov.delva:delva`). Everything below this
+paragraph is the work done since 0.3.0, released so it is not stranded on `main`.
+
+### Deprecated
+
+- **The whole project, and `Rabosh.open` in particular.** `Rabosh.open` is the one call every
+  consumer makes, so it carries `@Deprecated` at `WARNING` level and points at Delva. Nothing was
+  removed and no behaviour changed, so code that compiled against 0.3.0 still compiles, with a
+  warning. Every published POM's description now opens with the same notice, because the
+  description is what central.sonatype.com shows and Central has no other way to mark a component
+  unmaintained.
+- **Delva is a successor, not a new name for rabosh.** It has its own API and its own on-disk format,
+  so this is not a Maven relocation and a rabosh store does not open in it. To move, read the
+  documents out with `scan` and write them into Delva.
 
 ### Added
 
@@ -917,7 +933,7 @@ Every jar carries a [build provenance attestation](https://docs.github.com/actio
 gh attestation verify rabosh-api-0.1.0.jar --repo aoreshkov/rabosh
 ```
 
-[Unreleased]: https://github.com/aoreshkov/rabosh/compare/v0.3.0...HEAD
+[0.4.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.4.0
 [0.3.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.3.0
 [0.2.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.2.0
 [0.1.0]: https://github.com/aoreshkov/rabosh/releases/tag/v0.1.0

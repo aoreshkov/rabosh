@@ -125,9 +125,16 @@ publishing {
         pom {
             // Each module sets its own `description` *after* this plugin is applied, so it is read
             // lazily rather than captured here as whatever it was at this moment.
+            //
+            // The notice leads because a POM's description is the one line of a release that
+            // central.sonatype.com and IDE dependency search display, and Central offers no other way
+            // to mark a component unmaintained — published files can never be edited. It goes out with
+            // the final release, so it is the last thing a consumer resolving rabosh reads.
             name = providers.provider { project.name }
             description = providers.provider {
-                project.description ?: "An embedded JSON storage engine for the JVM."
+                "DEPRECATED: rabosh is no longer maintained; its successor is Delva " +
+                    "(app.oreshkov.delva:delva). " +
+                    (project.description ?: "An embedded JSON storage engine for the JVM.")
             }
             url = "https://github.com/aoreshkov/rabosh"
             inceptionYear = "2026"
